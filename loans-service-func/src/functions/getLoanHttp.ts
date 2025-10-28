@@ -5,16 +5,16 @@ import {
   HttpRequest,
   HttpResponseInit,
   InvocationContext,
-} from '@azure/functions';
-import { Loan } from '../domain/loan';
-import { LoanRepo } from '../domain/loan-repo';
-import { CosmosLoanRepo } from '../infra/cosmos-loan-repo';
+} from "@azure/functions";
+import { Loan } from "../domain/loan";
+import { LoanRepo } from "../domain/loan-repo";
+import { CosmosLoanRepo } from "../infra/cosmos-loan-repo";
 
 // Configuration from environment variables
 const cosmosOptions = {
-  endpoint: process.env.COSMOS_ENDPOINT || 'https://localhost:8081',
-  databaseId: process.env.COSMOS_DATABASE || 'LoansDB',
-  containerId: process.env.COSMOS_CONTAINER || 'Loans',
+  endpoint: process.env.COSMOS_ENDPOINT || "https://localhost:8081",
+  databaseId: process.env.COSMOS_DATABASE || "loans-db",
+  containerId: process.env.COSMOS_CONTAINER || "Loans",
   key: process.env.COSMOS_KEY,
 };
 
@@ -55,15 +55,15 @@ export async function getLoanByIdHttp(
     const errorResponse: GetLoanResponse = {
       success: false,
       error: {
-        code: 'INVALID_INPUT',
-        message: 'Loan ID is required',
+        code: "INVALID_INPUT",
+        message: "Loan ID is required",
       },
     };
 
     return {
       status: 400,
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(errorResponse, null, 2),
     };
@@ -82,8 +82,8 @@ export async function getLoanByIdHttp(
       return {
         status: 200,
         headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'public, max-age=300', // Cache for 5 minutes
+          "Content-Type": "application/json",
+          "Cache-Control": "public, max-age=300", // Cache for 5 minutes
         },
         body: JSON.stringify(response, null, 2),
       };
@@ -91,7 +91,7 @@ export async function getLoanByIdHttp(
 
     // Handle repository errors - result.success is false, so error exists
     const error = (result as { success: false; error: any }).error;
-    const statusCode = error.code === 'NOT_FOUND' ? 404 : 500;
+    const statusCode = error.code === "NOT_FOUND" ? 404 : 500;
 
     const errorResponse: GetLoanResponse = {
       success: false,
@@ -104,25 +104,25 @@ export async function getLoanByIdHttp(
     return {
       status: statusCode,
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(errorResponse, null, 2),
     };
   } catch (error: any) {
-    context.log('Error getting loan:', error);
+    context.log("Error getting loan:", error);
 
     const errorResponse: GetLoanResponse = {
       success: false,
       error: {
-        code: 'INTERNAL_ERROR',
-        message: 'An unexpected error occurred while retrieving the loan',
+        code: "INTERNAL_ERROR",
+        message: "An unexpected error occurred while retrieving the loan",
       },
     };
 
     return {
       status: 500,
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(errorResponse, null, 2),
     };
@@ -130,9 +130,9 @@ export async function getLoanByIdHttp(
 }
 
 // Register the function with Azure Functions runtime
-app.http('getLoanById', {
-  methods: ['GET'],
-  authLevel: 'anonymous',
-  route: 'loans/{id}',
+app.http("getLoanById", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "loans/{id}",
   handler: getLoanByIdHttp,
 });

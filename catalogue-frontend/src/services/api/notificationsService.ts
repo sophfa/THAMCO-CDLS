@@ -1,8 +1,27 @@
-// src/services/api/notificationsService.ts
-import { apiPost } from "./httpClient";
-
 const BASE_URL = import.meta.env.VITE_NOTIFICATIONS_API_URL;
 
-export async function subscribeToDevice(deviceId: string, userId: string) {
-  return apiPost(`${BASE_URL}/subscribe`, { deviceId, userId });
+export async function getNotificationsForUser(userId: string) {
+  const response = await fetch(`${BASE_URL}/notifications/${userId}`);
+  if (!response.ok)
+    throw new Error(`Failed to fetch notifications for ${userId}`);
+  return response.json();
+}
+
+export async function sendNotification(
+  userId: string,
+  message: string,
+  type: string
+) {
+  const response = await fetch(`${BASE_URL}/notifications`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      userId,
+      message,
+      type,
+      sentAt: new Date().toISOString(),
+    }),
+  });
+  if (!response.ok) throw new Error(`Failed to send notification`);
+  return response.json();
 }
