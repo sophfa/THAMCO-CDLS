@@ -5,13 +5,8 @@ const endpoint = process.env.COSMOS_ENDPOINT!;
 const key = process.env.COSMOS_KEY!;
 const client = new CosmosClient({ endpoint, key });
 
-<<<<<<< HEAD
 const databaseId = 'inventory-db';
 const containerId = 'Inventory';
-=======
-const databaseId = 'catalogue-db';
-const containerId = 'Devices';
->>>>>>> aecaf668bab4949d14591399dd278bd3d6aa1dc0
 
 const inventorys = [
   {

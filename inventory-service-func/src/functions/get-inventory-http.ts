@@ -1,4 +1,4 @@
-// Azure Function - Get Product by ID HTTP Trigger
+// Azure Function - Get Inventory by ID HTTP Trigger
 
 import {
   app,
@@ -6,27 +6,27 @@ import {
   HttpResponseInit,
   InvocationContext,
 } from '@azure/functions';
-import { Product } from '../domain/product';
-import { ProductRepo } from '../domain/product-repo';
-import { CosmosProductRepo } from '../infra/cosmos-product-repo';
+import { Inventory } from '../domain/inventory';
+import { InventoryRepo } from '../domain/inventory-repo';
+import { CosmosInventoryRepo } from '../infra/cosmos-inventory-repo';
 
 // Configuration from environment variables
 const cosmosOptions = {
   endpoint: process.env.COSMOS_ENDPOINT || 'https://localhost:8081',
-  databaseId: process.env.COSMOS_DATABASE || 'ProductsDB',
-  containerId: process.env.COSMOS_CONTAINER || 'Products',
+  databaseId: process.env.COSMOS_DATABASE || 'InventorysDB',
+  containerId: process.env.COSMOS_CONTAINER || 'Inventorys',
   key: process.env.COSMOS_KEY,
 };
 
 // Initialize repository
-const productRepo: ProductRepo = new CosmosProductRepo(cosmosOptions);
+const inventoryRepo: InventoryRepo = new CosmosInventoryRepo(cosmosOptions);
 
 /**
- * Response format for single product API
+ * Response format for single inventory API
  */
-interface GetProductResponse {
+interface GetInventoryResponse {
   readonly success: boolean;
-  readonly data?: Product;
+  readonly data?: Inventory;
   readonly error?: {
     readonly code: string;
     readonly message: string;
@@ -34,29 +34,29 @@ interface GetProductResponse {
 }
 
 /**
- * Azure Function to get a product by ID
+ * Azure Function to get a inventory by ID
  *
- * GET /api/products/{id}
+ * GET /api/inventorys/{id}
  *
- * Returns a single product by its ID
+ * Returns a single inventory by its ID
  */
-export async function getProductByIdHttp(
+export async function getInventoryByIdHttp(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
-  const productId = request.params.id;
+  const inventoryId = request.params.id;
 
   context.log(
-    `HTTP trigger function processed a request to get product: ${productId}`
+    `HTTP trigger function processed a request to get inventory: ${inventoryId}`
   );
 
-  // Validate product ID parameter
-  if (!productId || productId.trim().length === 0) {
-    const errorResponse: GetProductResponse = {
+  // Validate inventory ID parameter
+  if (!inventoryId || inventoryId.trim().length === 0) {
+    const errorResponse: GetInventoryResponse = {
       success: false,
       error: {
         code: 'INVALID_INPUT',
-        message: 'Product ID is required',
+        message: 'Inventory ID is required',
       },
     };
 
@@ -70,11 +70,11 @@ export async function getProductByIdHttp(
   }
 
   try {
-    // Get product from repository
-    const result = await productRepo.get(productId.trim());
+    // Get inventory from repository
+    const result = await inventoryRepo.get(inventoryId.trim());
 
     if (result.success) {
-      const response: GetProductResponse = {
+      const response: GetInventoryResponse = {
         success: true,
         data: result.data,
       };
@@ -93,7 +93,7 @@ export async function getProductByIdHttp(
     const error = (result as { success: false; error: any }).error;
     const statusCode = error.code === 'NOT_FOUND' ? 404 : 500;
 
-    const errorResponse: GetProductResponse = {
+    const errorResponse: GetInventoryResponse = {
       success: false,
       error: {
         code: error.code,
@@ -109,13 +109,13 @@ export async function getProductByIdHttp(
       body: JSON.stringify(errorResponse, null, 2),
     };
   } catch (error: any) {
-    context.log('Error getting product:', error);
+    context.log('Error getting inventory:', error);
 
-    const errorResponse: GetProductResponse = {
+    const errorResponse: GetInventoryResponse = {
       success: false,
       error: {
         code: 'INTERNAL_ERROR',
-        message: 'An unexpected error occurred while retrieving the product',
+        message: 'An unexpected error occurred while retrieving the inventory',
       },
     };
 
@@ -130,9 +130,9 @@ export async function getProductByIdHttp(
 }
 
 // Register the function with Azure Functions runtime
-app.http('getProductById', {
+app.http('getInventoryById', {
   methods: ['GET'],
   authLevel: 'anonymous',
-  route: 'products/{id}',
-  handler: getProductByIdHttp,
+  route: 'inventorys/{id}',
+  handler: getInventoryByIdHttp,
 });
