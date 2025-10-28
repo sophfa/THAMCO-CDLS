@@ -1,0 +1,11 @@
+# Node / Azure Functions / Vue
+**/node_modules/
+**/dist/
+**/local.settings.json
+**/.env
+**/.vscode/
+*.log
+
+# System / OS
+.DS_Store
+Thumbs.db
