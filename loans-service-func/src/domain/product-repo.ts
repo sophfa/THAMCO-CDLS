@@ -1,6 +1,6 @@
-// Product Repository Interface - Pure Domain Contract
+// Loan Repository Interface - Pure Domain Contract
 
-import { Product } from './product';
+import { Loan } from './loan';
 
 /**
  * Repository error type for domain-level error handling
@@ -23,27 +23,26 @@ export type RepositoryResult<T> =
   | { success: false; error: RepositoryError };
 
 /**
- * Pure domain repository interface for Product persistence
+ * Pure domain repository interface for Loan persistence
  *
- * This interface defines the contract for product persistence operations
+ * This interface defines the contract for loan persistence operations
  * without any implementation details, keeping it pure domain-focused.
  */
-export interface ProductRepo {
-
-  list(): Promise<RepositoryResult<Product[]>>  
+export interface LoanRepo {
+  list(): Promise<RepositoryResult<Loan[]>>;
   /**
-   * Persists a product to the repository
+   * Persists a loan to the repository
    *
-   * @param product - The product to save
-   * @returns Promise resolving to either the saved product or a repository error
+   * @param loan - The loan to save
+   * @returns Promise resolving to either the saved loan or a repository error
    */
-  create(product: Product): Promise<RepositoryResult<Product>>;
+  create(loan: Loan): Promise<RepositoryResult<Loan>>;
 
   /**
-   * Retrieves a product by its unique identifier
+   * Retrieves a loan by its unique identifier
    *
-   * @param id - The unique product identifier
-   * @returns Promise resolving to either the found product or a repository error
+   * @param id - The unique loan identifier
+   * @returns Promise resolving to either the found loan or a repository error
    */
-  get(id: string): Promise<RepositoryResult<Product>>;
+  get(id: string): Promise<RepositoryResult<Loan>>;
 }

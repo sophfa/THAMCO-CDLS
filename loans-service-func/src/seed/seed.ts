@@ -5,10 +5,10 @@ const endpoint = process.env.COSMOS_ENDPOINT!;
 const key = process.env.COSMOS_KEY!;
 const client = new CosmosClient({ endpoint, key });
 
-const databaseId = 'catalogue-db';
-const containerId = 'Devices';
+const databaseId = 'loans-db';
+const containerId = 'Loans';
 
-const products = [
+const loans = [
   {
     id: 'PROD-001',
     name: 'ASUS Chromebook 15 CX1505CKA',
@@ -115,8 +115,8 @@ async function seed() {
       }
     });
 
-  for (const product of products) {
-    const { resource } = await container.items.create(product);
+  for (const loan of loans) {
+    const { resource } = await container.items.create(loan);
   }
 }
 

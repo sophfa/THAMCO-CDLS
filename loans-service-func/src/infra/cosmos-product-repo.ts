@@ -1,17 +1,17 @@
-// Cosmos DB Product Repository Implementation - Infrastructure Layer
+// Cosmos DB Loan Repository Implementation - Infrastructure Layer
 
 import { CosmosClient, Container, ItemResponse } from '@azure/cosmos';
-import { Product } from '../domain/product';
+import { Loan } from '../domain/loan';
 import {
-  ProductRepo,
+  LoanRepo,
   RepositoryResult,
   RepositoryError,
-} from '../domain/product-repo';
+} from '../domain/loan-repo';
 
 /**
  * Configuration options for Cosmos DB connection
  */
-export interface CosmosProductRepoOptions {
+export interface CosmosLoanRepoOptions {
   readonly endpoint: string;
   readonly databaseId: string;
   readonly containerId: string;
@@ -22,7 +22,7 @@ export interface CosmosProductRepoOptions {
  * Internal DTO type representing the document structure in Cosmos DB
  * Separate from the domain model to allow for storage-specific concerns
  */
-interface ProductDocument {
+interface LoanDocument {
   readonly id: string;
   readonly name: string;
   readonly brand: string;
@@ -46,15 +46,15 @@ interface ProductDocument {
 }
 
 /**
- * Azure Cosmos DB implementation of ProductRepo
+ * Azure Cosmos DB implementation of LoanRepo
  *
- * This infrastructure implementation handles the persistence of Product domain objects
+ * This infrastructure implementation handles the persistence of Loan domain objects
  * in Azure Cosmos DB, including data transformation and error handling.
  */
-export class CosmosProductRepo implements ProductRepo {
+export class CosmosLoanRepo implements LoanRepo {
   private readonly container: Container;
 
-  constructor(options: CosmosProductRepoOptions) {
+  constructor(options: CosmosLoanRepoOptions) {
     // Initialize Cosmos client with appropriate authentication
     const cosmosClient = options.key
       ? new CosmosClient({
@@ -70,52 +70,52 @@ export class CosmosProductRepo implements ProductRepo {
       .container(options.containerId);
   }
 
-  async list(): Promise<RepositoryResult<Product[]>> {
+  async list(): Promise<RepositoryResult<Loan[]>> {
     try {
       const query = 'SELECT * FROM c';
       const { resources } = await this.container.items
-        .query<ProductDocument>(query)
+        .query<LoanDocument>(query)
         .fetchAll();
 
-      const products = resources.map((doc) => this.toDomain(doc));
-      return { success: true, data: products };
+      const loans = resources.map((doc) => this.toDomain(doc));
+      return { success: true, data: loans };
     } catch (error: any) {
       return { success: false, error: this.mapCosmosError(error) };
     }
   }
 
   /**
-   * Converts domain Product to Cosmos DB document format
+   * Converts domain Loan to Cosmos DB document format
    */
-  private toDocument(product: Product): ProductDocument {
+  private toDocument(loan: Loan): LoanDocument {
     return {
-      id: product.id,
-      name: product.name,
-      brand: product.brand,
-      category: product.category,
-      model: product.model,
-      processor: product.processor,
-      ram: product.ram,
-      storage: product.storage,
-      gpu: product.gpu,
-      display: product.display,
-      os: product.os,
-      batteryLife: product.batteryLife,
-      weight: product.weight,
-      ports: product.ports,
-      connectivity: product.connectivity,
-      description: product.description,
-      imageUrl: product.imageUrl,
-      price: product.price,
-      inStock: product.inStock,
-      createdAt: product.createdAt,
+      id: loan.id,
+      name: loan.name,
+      brand: loan.brand,
+      category: loan.category,
+      model: loan.model,
+      processor: loan.processor,
+      ram: loan.ram,
+      storage: loan.storage,
+      gpu: loan.gpu,
+      display: loan.display,
+      os: loan.os,
+      batteryLife: loan.batteryLife,
+      weight: loan.weight,
+      ports: loan.ports,
+      connectivity: loan.connectivity,
+      description: loan.description,
+      imageUrl: loan.imageUrl,
+      price: loan.price,
+      inStock: loan.inStock,
+      createdAt: loan.createdAt,
     };
   }
 
   /**
-   * Converts Cosmos DB document to domain Product
+   * Converts Cosmos DB document to domain Loan
    */
-  private toDomain(document: ProductDocument): Product {
+  private toDomain(document: LoanDocument): Loan {
     return {
       id: document.id,
       name: document.name,
@@ -147,14 +147,14 @@ export class CosmosProductRepo implements ProductRepo {
     if (error.code === 409) {
       return {
         code: 'ALREADY_EXISTS',
-        message: 'A product with this ID already exists',
+        message: 'A loan with this ID already exists',
       };
     }
 
     if (error.code === 404) {
       return {
         code: 'NOT_FOUND',
-        message: 'Product not found',
+        message: 'Loan not found',
       };
     }
 
@@ -173,27 +173,27 @@ export class CosmosProductRepo implements ProductRepo {
   }
 
   /**
-   * Creates a new product in Cosmos DB
+   * Creates a new loan in Cosmos DB
    */
-  async create(product: Product): Promise<RepositoryResult<Product>> {
+  async create(loan: Loan): Promise<RepositoryResult<Loan>> {
     try {
-      const document = this.toDocument(product);
+      const document = this.toDocument(loan);
 
-      const response: ItemResponse<ProductDocument> =
+      const response: ItemResponse<LoanDocument> =
         await this.container.items.create(document, {
           disableAutomaticIdGeneration: true,
         });
 
       if (response.resource) {
-        const createdProduct = this.toDomain(response.resource);
-        return { success: true, data: createdProduct };
+        const createdLoan = this.toDomain(response.resource);
+        return { success: true, data: createdLoan };
       }
 
       return {
         success: false,
         error: {
           code: 'PERSISTENCE_ERROR',
-          message: 'Failed to create product - no resource returned',
+          message: 'Failed to create loan - no resource returned',
         },
       };
     } catch (error: any) {
@@ -205,24 +205,24 @@ export class CosmosProductRepo implements ProductRepo {
   }
 
   /**
-   * Retrieves a product by ID from Cosmos DB
+   * Retrieves a loan by ID from Cosmos DB
    */
-  async get(id: string): Promise<RepositoryResult<Product>> {
+  async get(id: string): Promise<RepositoryResult<Loan>> {
     try {
-      const response: ItemResponse<ProductDocument> = await this.container
+      const response: ItemResponse<LoanDocument> = await this.container
         .item(id, id)
         .read();
 
       if (response.resource) {
-        const product = this.toDomain(response.resource);
-        return { success: true, data: product };
+        const loan = this.toDomain(response.resource);
+        return { success: true, data: loan };
       }
 
       return {
         success: false,
         error: {
           code: 'NOT_FOUND',
-          message: `Product with ID '${id}' not found`,
+          message: `Loan with ID '${id}' not found`,
         },
       };
     } catch (error: any) {

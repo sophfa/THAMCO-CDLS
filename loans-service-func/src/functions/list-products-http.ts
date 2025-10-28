@@ -1,4 +1,4 @@
-// Azure Function - List Products HTTP Trigger
+// Azure Function - List Loans HTTP Trigger
 
 import {
   app,
@@ -6,28 +6,28 @@ import {
   HttpResponseInit,
   InvocationContext,
 } from '@azure/functions';
-import { Product } from '../domain/product';
-import { ProductRepo } from '../domain/product-repo';
-import { CosmosProductRepo } from '../infra/cosmos-product-repo';
+import { Loan } from '../domain/loan';
+import { LoanRepo } from '../domain/loan-repo';
+import { CosmosLoanRepo } from '../infra/cosmos-loan-repo';
 
 // Configuration from environment variables
 const cosmosOptions = {
   endpoint: process.env.COSMOS_ENDPOINT || 'https://localhost:8081',
-  databaseId: process.env.COSMOS_DATABASE || 'catalogue-db',
-  containerId: process.env.COSMOS_CONTAINER || 'Devices',
+  databaseId: process.env.COSMOS_DATABASE || 'loans-db',
+  containerId: process.env.COSMOS_CONTAINER || 'Loans',
 
   key: process.env.COSMOS_KEY,
 };
 
-// Initialize repository - in production, this could be dependency injected
-const productRepo: ProductRepo = new CosmosProductRepo(cosmosOptions);
+// Initialize repository - in loanion, this could be dependency injected
+const loanRepo: LoanRepo = new CosmosLoanRepo(cosmosOptions);
 
 /**
- * Response format for product list API
+ * Response format for loan list API
  */
-interface ListProductsResponse {
+interface ListLoansResponse {
   readonly success: boolean;
-  readonly data?: Product[];
+  readonly data?: Loan[];
   readonly error?: {
     readonly code: string;
     readonly message: string;
@@ -39,24 +39,24 @@ interface ListProductsResponse {
 }
 
 /**
- * Azure Function to list all products
+ * Azure Function to list all loans
  *
- * GET /api/products
+ * GET /api/loans
  *
- * Returns a list of all products in the system
+ * Returns a list of all loans in the system
  */
-export async function listProductsHttp(
+export async function listLoansHttp(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
-  context.log('HTTP trigger function processed a request to list products');
+  context.log('HTTP trigger function processed a request to list loans');
 
   try {
-    const result = await productRepo.list();
+    const result = await loanRepo.list();
 
     if (!result.success) {
       throw new Error(
-        (result as any).error?.message || 'Failed to fetch products'
+        (result as any).error?.message || 'Failed to fetch loans'
       );
     }
 
@@ -64,7 +64,7 @@ export async function listProductsHttp(
       throw new Error('No data returned from repository');
     }
 
-    const response: ListProductsResponse = {
+    const response: ListLoansResponse = {
       success: true,
       data: result.data,
       metadata: {
@@ -82,12 +82,12 @@ export async function listProductsHttp(
       body: JSON.stringify(response, null, 2),
     };
   } catch (error: any) {
-    context.log('Error listing products:', error);
-    const errorResponse: ListProductsResponse = {
+    context.log('Error listing loans:', error);
+    const errorResponse: ListLoansResponse = {
       success: false,
       error: {
         code: 'INTERNAL_ERROR',
-        message: 'An unexpected error occurred while listing products',
+        message: 'An unexpected error occurred while listing loans',
       },
     };
     return {
@@ -99,9 +99,9 @@ export async function listProductsHttp(
 }
 
 // Register the function with Azure Functions runtime
-app.http('listProducts', {
+app.http('listLoans', {
   methods: ['GET'],
   authLevel: 'anonymous',
-  route: 'products',
-  handler: listProductsHttp,
+  route: 'loans',
+  handler: listLoansHttp,
 });
