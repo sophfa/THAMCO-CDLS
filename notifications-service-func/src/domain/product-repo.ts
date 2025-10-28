@@ -1,6 +1,6 @@
-// Product Repository Interface - Pure Domain Contract
+// Notification Repository Interface - Pure Domain Contract
 
-import { Product } from './product';
+import { Notification } from './notification';
 
 /**
  * Repository error type for domain-level error handling
@@ -23,27 +23,26 @@ export type RepositoryResult<T> =
   | { success: false; error: RepositoryError };
 
 /**
- * Pure domain repository interface for Product persistence
+ * Pure domain repository interface for Notification persistence
  *
- * This interface defines the contract for product persistence operations
+ * This interface defines the contract for notification persistence operations
  * without any implementation details, keeping it pure domain-focused.
  */
-export interface ProductRepo {
-
-  list(): Promise<RepositoryResult<Product[]>>  
+export interface NotificationRepo {
+  list(): Promise<RepositoryResult<Notification[]>>;
   /**
-   * Persists a product to the repository
+   * Persists a notification to the repository
    *
-   * @param product - The product to save
-   * @returns Promise resolving to either the saved product or a repository error
+   * @param notification - The notification to save
+   * @returns Promise resolving to either the saved notification or a repository error
    */
-  create(product: Product): Promise<RepositoryResult<Product>>;
+  create(notification: Notification): Promise<RepositoryResult<Notification>>;
 
   /**
-   * Retrieves a product by its unique identifier
+   * Retrieves a notification by its unique identifier
    *
-   * @param id - The unique product identifier
-   * @returns Promise resolving to either the found product or a repository error
+   * @param id - The unique notification identifier
+   * @returns Promise resolving to either the found notification or a repository error
    */
-  get(id: string): Promise<RepositoryResult<Product>>;
+  get(id: string): Promise<RepositoryResult<Notification>>;
 }

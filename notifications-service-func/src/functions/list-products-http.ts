@@ -1,4 +1,4 @@
-// Azure Function - List Products HTTP Trigger
+// Azure Function - List Notifications HTTP Trigger
 
 import {
   app,
@@ -6,28 +6,30 @@ import {
   HttpResponseInit,
   InvocationContext,
 } from '@azure/functions';
-import { Product } from '../domain/product';
-import { ProductRepo } from '../domain/product-repo';
-import { CosmosProductRepo } from '../infra/cosmos-product-repo';
+import { Notification } from '../domain/notification';
+import { NotificationRepo } from '../domain/notification-repo';
+import { CosmosNotificationRepo } from '../infra/cosmos-notification-repo';
 
 // Configuration from environment variables
 const cosmosOptions = {
   endpoint: process.env.COSMOS_ENDPOINT || 'https://localhost:8081',
-  databaseId: process.env.COSMOS_DATABASE || 'catalogue-db',
-  containerId: process.env.COSMOS_CONTAINER || 'Devices',
+  databaseId: process.env.COSMOS_DATABASE || 'notifications-db',
+  containerId: process.env.COSMOS_CONTAINER || 'Notifications',
 
   key: process.env.COSMOS_KEY,
 };
 
-// Initialize repository - in production, this could be dependency injected
-const productRepo: ProductRepo = new CosmosProductRepo(cosmosOptions);
+// Initialize repository - in notificationion, this could be dependency injected
+const notificationRepo: NotificationRepo = new CosmosNotificationRepo(
+  cosmosOptions
+);
 
 /**
- * Response format for product list API
+ * Response format for notification list API
  */
-interface ListProductsResponse {
+interface ListNotificationsResponse {
   readonly success: boolean;
-  readonly data?: Product[];
+  readonly data?: Notification[];
   readonly error?: {
     readonly code: string;
     readonly message: string;
@@ -39,24 +41,26 @@ interface ListProductsResponse {
 }
 
 /**
- * Azure Function to list all products
+ * Azure Function to list all notifications
  *
- * GET /api/products
+ * GET /api/notifications
  *
- * Returns a list of all products in the system
+ * Returns a list of all notifications in the system
  */
-export async function listProductsHttp(
+export async function listNotificationsHttp(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
-  context.log('HTTP trigger function processed a request to list products');
+  context.log(
+    'HTTP trigger function processed a request to list notifications'
+  );
 
   try {
-    const result = await productRepo.list();
+    const result = await notificationRepo.list();
 
     if (!result.success) {
       throw new Error(
-        (result as any).error?.message || 'Failed to fetch products'
+        (result as any).error?.message || 'Failed to fetch notifications'
       );
     }
 
@@ -64,7 +68,7 @@ export async function listProductsHttp(
       throw new Error('No data returned from repository');
     }
 
-    const response: ListProductsResponse = {
+    const response: ListNotificationsResponse = {
       success: true,
       data: result.data,
       metadata: {
@@ -82,12 +86,12 @@ export async function listProductsHttp(
       body: JSON.stringify(response, null, 2),
     };
   } catch (error: any) {
-    context.log('Error listing products:', error);
-    const errorResponse: ListProductsResponse = {
+    context.log('Error listing notifications:', error);
+    const errorResponse: ListNotificationsResponse = {
       success: false,
       error: {
         code: 'INTERNAL_ERROR',
-        message: 'An unexpected error occurred while listing products',
+        message: 'An unexpected error occurred while listing notifications',
       },
     };
     return {
@@ -99,9 +103,9 @@ export async function listProductsHttp(
 }
 
 // Register the function with Azure Functions runtime
-app.http('listProducts', {
+app.http('listNotifications', {
   methods: ['GET'],
   authLevel: 'anonymous',
-  route: 'products',
-  handler: listProductsHttp,
+  route: 'notifications',
+  handler: listNotificationsHttp,
 });

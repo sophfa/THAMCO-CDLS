@@ -1,4 +1,4 @@
-### Azure Functions Product API Testing
+### Azure Functions Notification API Testing
 
 # Base URL for local development
 @baseUrl = http://localhost:7071
@@ -6,16 +6,16 @@
 ### Health Check (if available)
 GET {{baseUrl}}/api/health
 
-### List all products
-GET {{baseUrl}}/api/products
+### List all notifications
+GET {{baseUrl}}/api/notifications
 Content-Type: application/json
 
-### Get a specific product by ID
-GET {{baseUrl}}/api/products/PROD-001
+### Get a specific notification by ID
+GET {{baseUrl}}/api/notifications/PROD-001
 Content-Type: application/json
 
-### Create a new product
-POST {{baseUrl}}/api/products
+### Create a new notification
+POST {{baseUrl}}/api/notifications
 Content-Type: application/json
 
 {
@@ -27,8 +27,8 @@ Content-Type: application/json
   "inStock": true
 }
 
-### Create another product
-POST {{baseUrl}}/api/products
+### Create another notification
+POST {{baseUrl}}/api/notifications
 Content-Type: application/json
 
 {
@@ -40,8 +40,8 @@ Content-Type: application/json
   "inStock": true
 }
 
-### Create a product with minimal fields
-POST {{baseUrl}}/api/products
+### Create a notification with minimal fields
+POST {{baseUrl}}/api/notifications
 Content-Type: application/json
 
 {
@@ -52,7 +52,7 @@ Content-Type: application/json
 }
 
 ### Test validation - missing required field (name)
-POST {{baseUrl}}/api/products
+POST {{baseUrl}}/api/notifications
 Content-Type: application/json
 
 {
@@ -62,18 +62,18 @@ Content-Type: application/json
 }
 
 ### Test validation - invalid price (negative)
-POST {{baseUrl}}/api/products
+POST {{baseUrl}}/api/notifications
 Content-Type: application/json
 
 {
   "id": "PROD-005",
-  "name": "Invalid Product",
+  "name": "Invalid Notification",
   "price": -10.00,
   "category": "Test"
 }
 
 ### Test validation - empty name
-POST {{baseUrl}}/api/products
+POST {{baseUrl}}/api/notifications
 Content-Type: application/json
 
 {
@@ -84,22 +84,22 @@ Content-Type: application/json
 }
 
 ### Test duplicate ID
-POST {{baseUrl}}/api/products
+POST {{baseUrl}}/api/notifications
 Content-Type: application/json
 
 {
   "id": "PROD-001",
-  "name": "Duplicate Product",
+  "name": "Duplicate Notification",
   "price": 50.00,
   "category": "Test"
 }
 
-### Test get non-existent product
-GET {{baseUrl}}/api/products/NON-EXISTENT
+### Test get non-existent notification
+GET {{baseUrl}}/api/notifications/NON-EXISTENT
 Content-Type: application/json
 
 ### Test with different environments
-### Production (uncomment when needed)
+### Notificationion (uncomment when needed)
 # @baseUrl = https://your-function-app.azurewebsites.net
 
 ### Staging (uncomment when needed)  

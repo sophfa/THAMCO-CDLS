@@ -1,4 +1,4 @@
-// Azure Function - Get Product by ID HTTP Trigger
+// Azure Function - Get Notification by ID HTTP Trigger
 
 import {
   app,
@@ -6,27 +6,29 @@ import {
   HttpResponseInit,
   InvocationContext,
 } from '@azure/functions';
-import { Product } from '../domain/product';
-import { ProductRepo } from '../domain/product-repo';
-import { CosmosProductRepo } from '../infra/cosmos-product-repo';
+import { Notification } from '../domain/notification';
+import { NotificationRepo } from '../domain/notification-repo';
+import { CosmosNotificationRepo } from '../infra/cosmos-notification-repo';
 
 // Configuration from environment variables
 const cosmosOptions = {
   endpoint: process.env.COSMOS_ENDPOINT || 'https://localhost:8081',
-  databaseId: process.env.COSMOS_DATABASE || 'ProductsDB',
-  containerId: process.env.COSMOS_CONTAINER || 'Products',
+  databaseId: process.env.COSMOS_DATABASE || 'NotificationsDB',
+  containerId: process.env.COSMOS_CONTAINER || 'Notifications',
   key: process.env.COSMOS_KEY,
 };
 
 // Initialize repository
-const productRepo: ProductRepo = new CosmosProductRepo(cosmosOptions);
+const notificationRepo: NotificationRepo = new CosmosNotificationRepo(
+  cosmosOptions
+);
 
 /**
- * Response format for single product API
+ * Response format for single notification API
  */
-interface GetProductResponse {
+interface GetNotificationResponse {
   readonly success: boolean;
-  readonly data?: Product;
+  readonly data?: Notification;
   readonly error?: {
     readonly code: string;
     readonly message: string;
@@ -34,29 +36,29 @@ interface GetProductResponse {
 }
 
 /**
- * Azure Function to get a product by ID
+ * Azure Function to get a notification by ID
  *
- * GET /api/products/{id}
+ * GET /api/notifications/{id}
  *
- * Returns a single product by its ID
+ * Returns a single notification by its ID
  */
-export async function getProductByIdHttp(
+export async function getNotificationByIdHttp(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
-  const productId = request.params.id;
+  const notificationId = request.params.id;
 
   context.log(
-    `HTTP trigger function processed a request to get product: ${productId}`
+    `HTTP trigger function processed a request to get notification: ${notificationId}`
   );
 
-  // Validate product ID parameter
-  if (!productId || productId.trim().length === 0) {
-    const errorResponse: GetProductResponse = {
+  // Validate notification ID parameter
+  if (!notificationId || notificationId.trim().length === 0) {
+    const errorResponse: GetNotificationResponse = {
       success: false,
       error: {
         code: 'INVALID_INPUT',
-        message: 'Product ID is required',
+        message: 'Notification ID is required',
       },
     };
 
@@ -70,11 +72,11 @@ export async function getProductByIdHttp(
   }
 
   try {
-    // Get product from repository
-    const result = await productRepo.get(productId.trim());
+    // Get notification from repository
+    const result = await notificationRepo.get(notificationId.trim());
 
     if (result.success) {
-      const response: GetProductResponse = {
+      const response: GetNotificationResponse = {
         success: true,
         data: result.data,
       };
@@ -93,7 +95,7 @@ export async function getProductByIdHttp(
     const error = (result as { success: false; error: any }).error;
     const statusCode = error.code === 'NOT_FOUND' ? 404 : 500;
 
-    const errorResponse: GetProductResponse = {
+    const errorResponse: GetNotificationResponse = {
       success: false,
       error: {
         code: error.code,
@@ -109,13 +111,14 @@ export async function getProductByIdHttp(
       body: JSON.stringify(errorResponse, null, 2),
     };
   } catch (error: any) {
-    context.log('Error getting product:', error);
+    context.log('Error getting notification:', error);
 
-    const errorResponse: GetProductResponse = {
+    const errorResponse: GetNotificationResponse = {
       success: false,
       error: {
         code: 'INTERNAL_ERROR',
-        message: 'An unexpected error occurred while retrieving the product',
+        message:
+          'An unexpected error occurred while retrieving the notification',
       },
     };
 
@@ -130,9 +133,9 @@ export async function getProductByIdHttp(
 }
 
 // Register the function with Azure Functions runtime
-app.http('getProductById', {
+app.http('getNotificationById', {
   methods: ['GET'],
   authLevel: 'anonymous',
-  route: 'products/{id}',
-  handler: getProductByIdHttp,
+  route: 'notifications/{id}',
+  handler: getNotificationByIdHttp,
 });
