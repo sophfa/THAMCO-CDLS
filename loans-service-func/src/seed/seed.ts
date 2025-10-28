@@ -1,123 +1,57 @@
-import { CosmosClient } from '@azure/cosmos';
+// Add this line FIRST — it loads your .env file
 import 'dotenv/config';
+import { CosmosClient } from '@azure/cosmos';
 
+// Read environment variables (now available thanks to dotenv)
 const endpoint = process.env.COSMOS_ENDPOINT!;
 const key = process.env.COSMOS_KEY!;
+const databaseId = process.env.COSMOS_DATABASE || 'loans-db';
+const containerId = process.env.COSMOS_CONTAINER || 'Loans';
+
 const client = new CosmosClient({ endpoint, key });
-
-const databaseId = 'loans-db';
-const containerId = 'Loans';
-
-const loans = [
-  {
-    id: 'PROD-001',
-    name: 'ASUS Chromebook 15 CX1505CKA',
-    brand: 'ASUS',
-    category: 'Laptop',
-    model: 'CX1505CKA-EJ0034',
-    processor: 'Intel Celeron N4500 (2 cores, up to 2.8GHz)',
-    ram: '4 GB LPDDR4',
-    storage: '64 GB eMMC',
-    gpu: 'Intel UHD Graphics',
-    display: '15.6" Full HD (1920x1080)',
-    os: 'Chrome OS',
-    batteryLife: 'Up to 10 hours',
-    weight: '1.8 kg',
-    ports: ['USB-C', 'USB-A', 'microSD', 'Headphone Jack'],
-    connectivity: ['Wi-Fi 5', 'Bluetooth 4.2'],
-    description:
-      'Lightweight Chromebook with full HD display, ideal for study and browsing.',
-    imageUrl: 'asus.jpg',
-    price: 229.99,
-    inStock: true,
-    createdAt: '2025-10-27T12:00:00Z',
-  },
-  {
-    id: 'PROD-002',
-    name: 'Dell Latitude 5400',
-    brand: 'Dell',
-    category: 'Laptop',
-    model: 'Latitude 5400 i5-8365U',
-    processor: 'Intel Core i5-8365U (Quad-core, 1.6GHz up to 4.1GHz)',
-    ram: '16 GB DDR4',
-    storage: '512 GB SSD',
-    gpu: 'Intel UHD Graphics 620',
-    display: '14" Full HD (1920x1080)',
-    os: 'Windows 11 Pro',
-    batteryLife: 'Up to 13 hours',
-    weight: '1.6 kg',
-    ports: ['USB-C', 'USB 3.1', 'HDMI', 'Ethernet', 'Audio Jack', 'microSD'],
-    connectivity: ['Wi-Fi 6', 'Bluetooth 5.0'],
-    description:
-      'Reliable business laptop, renewed edition with fast SSD storage and Windows 11 Pro.',
-    imageUrl: 'dell.jpg',
-    price: 479.0,
-    inStock: false,
-    createdAt: '2025-10-27T12:05:00Z',
-  },
-  {
-    id: 'PROD-003',
-    name: 'HP Stream 14s-dq0000sa',
-    brand: 'HP',
-    category: 'Laptop',
-    model: '14s-dq0000sa',
-    processor: 'Intel Celeron N4120 (Quad-core, 1.1GHz up to 2.6GHz)',
-    ram: '4 GB DDR4',
-    storage: '64 GB eMMC',
-    gpu: 'Intel UHD Graphics 600',
-    display: '14" HD (1366x768)',
-    os: 'Windows 11 Home S Mode',
-    batteryLife: 'Up to 9 hours',
-    weight: '1.47 kg',
-    ports: ['USB-C', 'USB 3.1', 'HDMI', 'Headphone Jack'],
-    connectivity: ['Wi-Fi 5', 'Bluetooth 4.2'],
-    description:
-      'Affordable laptop for students with free 12-month Microsoft 365 subscription.',
-    imageUrl: 'hp.jpg',
-    price: 199.0,
-    inStock: true,
-    createdAt: '2025-10-27T12:10:00Z',
-  },
-  {
-    id: 'PROD-004',
-    name: 'Lenovo V15 ADA',
-    brand: 'Lenovo',
-    category: 'Laptop',
-    model: '82C7000BUK',
-    processor: 'AMD Athlon Silver 3150U (Dual-core, up to 3.3GHz)',
-    ram: '8 GB DDR4',
-    storage: '256 GB SSD',
-    gpu: 'AMD Radeon Graphics',
-    display: '15.6" Full HD (1920x1080)',
-    os: 'Windows 10 Home',
-    batteryLife: 'Up to 7.5 hours',
-    weight: '1.85 kg',
-    ports: ['USB 3.1', 'USB 2.0', 'HDMI', 'Audio Jack'],
-    connectivity: ['Wi-Fi 5', 'Bluetooth 5.0'],
-    description:
-      'Full HD laptop offering solid performance for everyday work and study tasks.',
-    imageUrl: 'lenovo.jpg',
-    price: 299.0,
-    inStock: true,
-    createdAt: '2025-10-27T12:15:00Z',
-  },
-];
 
 async function seed() {
   const container = client.database(databaseId).container(containerId);
+  const items = [
+    {
+      id: 'LOAN-001',
+      deviceId: 'DEV-001',
+      loaned: true,
+      userId: 'USR-101',
+      waitlist: ['USR-202', 'USR-203'],
+      lastLoanedDate: '2025-10-01T09:30:00Z',
+    },
+    {
+      id: 'LOAN-002',
+      deviceId: 'DEV-002',
+      loaned: false,
+      userId: null,
+      waitlist: [],
+      lastLoanedDate: '2025-09-20T12:00:00Z',
+    },
+    {
+      id: 'LOAN-003',
+      deviceId: 'DEV-003',
+      loaned: true,
+      userId: 'USR-104',
+      waitlist: ['USR-301'],
+      lastLoanedDate: '2025-10-10T15:45:00Z',
+    },
+    {
+      id: 'LOAN-004',
+      deviceId: 'DEV-004',
+      loaned: false,
+      userId: null,
+      waitlist: ['USR-111'],
+      lastLoanedDate: '2025-08-15T08:10:00Z',
+    },
+  ];
 
-  await container.items
-    .query('SELECT * FROM c')
-    .fetchAll()
-    .then(async (res) => {
-      for (const item of res.resources) {
-        await container.item(item.id, item.id).delete();
-      }
-    });
-
-  for (const loan of loans) {
-    const { resource } = await container.items.create(loan);
+  for (const item of items) {
+    await container.items.upsert(item);
+    console.log(`Seeded loan record ${item.id}`);
   }
+  console.log('Loans seeding complete.');
 }
 
 seed().catch(console.error);

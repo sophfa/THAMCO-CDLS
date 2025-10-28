@@ -13,14 +13,8 @@ import { CosmosInventoryRepo } from '../infra/cosmos-inventory-repo';
 // Configuration from environment variables
 const cosmosOptions = {
   endpoint: process.env.COSMOS_ENDPOINT || 'https://localhost:8081',
-<<<<<<< HEAD:src/functions/list-inventory-http.ts
   databaseId: process.env.COSMOS_DATABASE || 'InventorysDB',
   containerId: process.env.COSMOS_CONTAINER || 'Inventorys',
-=======
-  databaseId: process.env.COSMOS_DATABASE || 'catalogue-db',
-  containerId: process.env.COSMOS_CONTAINER || 'Devices',
-
->>>>>>> aecaf668bab4949d14591399dd278bd3d6aa1dc0:src/functions/list-products-http.ts
   key: process.env.COSMOS_KEY,
 };
 
