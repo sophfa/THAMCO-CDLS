@@ -9,6 +9,8 @@
       <template v-if="loggedIn">
         <li><router-link to="/reservations">Reservations</router-link></li>
         <li><router-link to="/favourites">Favourites</router-link></li>
+
+        <!-- Notifications -->
         <li class="notifications-container">
           <button
             @click="toggleNotifications"
@@ -21,7 +23,6 @@
             }}</span>
           </button>
 
-          <!-- Notifications Dropdown -->
           <div
             v-if="showNotifications"
             class="notifications-dropdown"
@@ -79,120 +80,96 @@
       </template>
 
       <template v-else>
-        <router-link to="/login" class="auth-btn">Login</router-link>
-        <router-link to="/signup" class="auth-btn">Sign Up</router-link>
+        <button @click="handleAuth" class="auth-btn">Login / Sign \up</button>
       </template>
     </div>
   </nav>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useAuth } from "../composables/useAuth";
+import { getUserId, login } from "../services/authService";
+import { getNotificationsForUser } from "../services/api/notificationsService";
 
 const { user, loggedIn, logout } = useAuth();
 
-// Notifications state
-const showNotifications = ref(false);
-const notifications = ref([
-  {
-    id: 1,
-    type: "reservation",
-    title: "Reservation Confirmed",
-    message: "Your MacBook Pro reservation has been confirmed for tomorrow.",
-    timestamp: new Date(Date.now() - 1000 * 60 * 30), // 30 minutes ago
-    read: false,
-  },
-  {
-    id: 2,
-    type: "availability",
-    title: "Device Available",
-    message: "The iPad Pro you waitlisted is now available for reservation.",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago
-    read: false,
-  },
-  {
-    id: 3,
-    type: "reminder",
-    title: "Return Reminder",
-    message: "Your Dell Laptop is due for return in 2 days.",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 6), // 6 hours ago
-    read: true,
-  },
-  {
-    id: 4,
-    type: "system",
-    title: "System Update",
-    message: "New devices have been added to the catalogue.",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24), // 1 day ago
-    read: true,
-  },
-]);
+// Replaces old Login/Signup with Auth0 login redirect
+async function handleAuth() {
+  await login();
+}
 
-// Computed properties
+watch(loggedIn, async (isLoggedIn) => {
+  if (isLoggedIn) {
+    const userId = await getUserId();
+    try {
+      console.log("Loading notifications for user:", userId);
+      notifications.value = await getNotificationsForUser(userId as string);
+    } catch (err) {
+      console.error("Failed to load notifications:", err);
+      notifications.value = [];
+    }
+  } else {
+    notifications.value = [];
+  }
+});
+
+// Notifications demo data
+const showNotifications = ref(false);
+const notifications = ref<any[]>([]);
+
 const unreadCount = computed(
   () => notifications.value.filter((n) => !n.read).length
 );
-
 const hasUnreadNotifications = computed(() => unreadCount.value > 0);
 
-// Methods
 const toggleNotifications = () => {
   showNotifications.value = !showNotifications.value;
 };
-
-const markAsRead = (notificationId: number) => {
-  const notification = notifications.value.find((n) => n.id === notificationId);
-  if (notification) {
-    notification.read = true;
-  }
+const markAsRead = (id: number) => {
+  const n = notifications.value.find((n) => n.id === id);
+  if (n) n.read = true;
 };
-
 const markAllAsRead = () => {
-  notifications.value.forEach((notification) => {
-    notification.read = true;
-  });
+  notifications.value.forEach((n) => (n.read = true));
 };
-
 const getNotificationIcon = (type: string) => {
-  const icons = {
+  const icons: Record<string, string> = {
     reservation: "fas fa-calendar-check",
     availability: "fas fa-check-circle",
     reminder: "fas fa-clock",
     system: "fas fa-info-circle",
   };
-  return icons[type as keyof typeof icons] || "fas fa-bell";
+  return icons[type] || "fas fa-bell";
 };
-
 const formatTime = (timestamp: Date) => {
-  const now = new Date();
-  const diff = now.getTime() - timestamp.getTime();
-
+  const diff = Date.now() - timestamp.getTime();
   const minutes = Math.floor(diff / (1000 * 60));
   const hours = Math.floor(diff / (1000 * 60 * 60));
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
   if (days > 0) return `${days}d ago`;
   if (hours > 0) return `${hours}h ago`;
   if (minutes > 0) return `${minutes}m ago`;
   return "Just now";
 };
-
-// Close notifications when clicking outside
-const handleClickOutside = (event: Event) => {
-  const target = event.target as Element;
-  if (!target.closest(".notifications-container")) {
+const handleClickOutside = (e: Event) => {
+  if (!(e.target as Element).closest(".notifications-container")) {
     showNotifications.value = false;
   }
 };
 
-onMounted(() => {
+onMounted(async () => {
+  if (loggedIn.value) {
+    const userId = await getUserId();
+    try {
+      notifications.value = await getNotificationsForUser(userId as string);
+    } catch (err) {
+      console.error("Failed to load notifications:", err);
+    }
+  }
   document.addEventListener("click", handleClickOutside);
 });
-
-onUnmounted(() => {
-  document.removeEventListener("click", handleClickOutside);
-});
+onUnmounted(() => document.removeEventListener("click", handleClickOutside));
 </script>
 
 <style scoped>
@@ -226,6 +203,10 @@ onUnmounted(() => {
   color: white;
   margin-left: 0.5rem;
   cursor: pointer;
+}
+
+.auth-btn:hover {
+  background: #4b5563;
 }
 
 .brand {

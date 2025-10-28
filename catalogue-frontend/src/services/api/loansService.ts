@@ -1,37 +1,233 @@
+import { getUserId, getToken } from "../authService";
+
 const BASE_URL = import.meta.env.VITE_LOANS_API_URL;
 
-export async function createLoan(deviceId: string, userId: string) {
-  const response = await fetch(`${BASE_URL}/loans`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ deviceId, userId }),
+// Helper function for authenticated API calls
+async function authenticatedFetch(url: string, options: RequestInit = {}) {
+  console.log(`[LoansService] Making API call to: ${url}`, {
+    method: options.method || "GET",
+    headers: options.headers,
   });
-  if (!response.ok) throw new Error(`Failed to create loan`);
-  return response.json();
+
+  const token = await getToken();
+  const headers = {
+    "Content-Type": "application/json",
+    ...(token && { Authorization: `Bearer ${token}` }),
+    ...options.headers,
+  };
+
+  const response = await fetch(url, {
+    ...options,
+    headers,
+  });
+
+  if (!response.ok) {
+    const errorMessage = `API call failed: ${response.status} ${response.statusText}`;
+    console.error(`[LoansService] ${errorMessage}`, {
+      url,
+      status: response.status,
+      statusText: response.statusText,
+      method: options.method || "GET",
+    });
+    throw new Error(errorMessage);
+  }
+
+  const data = await response.json();
+  console.log(`[LoansService] API call successful:`, {
+    url,
+    status: response.status,
+    dataLength: Array.isArray(data) ? data.length : Object.keys(data).length,
+  });
+
+  return data;
+}
+
+async function createLoan(deviceId: string) {
+  console.log(`[LoansService] Creating loan for device: ${deviceId}`);
+
+  const userId = await getUserId();
+  console.log(`[LoansService] User ID for loan creation: ${userId}`);
+
+  const payload = {
+    deviceId,
+    userId,
+    loaned: true,
+  };
+
+  try {
+    await fetch(`${import.meta.env.VITE_LOANS_API_URL}/loans`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    console.log(
+      `[LoansService] Loan created successfully for device: ${deviceId}`
+    );
+  } catch (error) {
+    console.error(
+      `[LoansService] Failed to create loan for device: ${deviceId}`,
+      error
+    );
+    throw error;
+  }
 }
 
 export async function returnLoan(loanId: string) {
+  console.log(`[LoansService] Returning loan: ${loanId}`);
+
   const response = await fetch(`${BASE_URL}/loans/${loanId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ loaned: false }),
   });
-  if (!response.ok) throw new Error(`Failed to return loan`);
-  return response.json();
+
+  if (!response.ok) {
+    console.error(`[LoansService] Failed to return loan: ${loanId}`, {
+      status: response.status,
+      statusText: response.statusText,
+    });
+    throw new Error(`Failed to return loan`);
+  }
+
+  const data = await response.json();
+  console.log(`[LoansService] Loan returned successfully: ${loanId}`);
+  return data;
 }
 
 export async function addToWaitlist(loanId: string, userId: string) {
+  console.log(
+    `[LoansService] Adding user ${userId} to waitlist for loan: ${loanId}`
+  );
+
   const response = await fetch(`${BASE_URL}/loans/${loanId}/waitlist`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ userId }),
   });
-  if (!response.ok) throw new Error(`Failed to add to waitlist`);
-  return response.json();
+
+  if (!response.ok) {
+    console.error(`[LoansService] Failed to add to waitlist`, {
+      loanId,
+      userId,
+      status: response.status,
+      statusText: response.statusText,
+    });
+    throw new Error(`Failed to add to waitlist`);
+  }
+
+  const data = await response.json();
+  console.log(
+    `[LoansService] Successfully added user ${userId} to waitlist for loan: ${loanId}`
+  );
+  return data;
 }
 
 export async function getUserLoans(userId: string) {
+  console.log(`[LoansService] Fetching loans for user: ${userId}`);
+
   const response = await fetch(`${BASE_URL}/loans/user/${userId}`);
-  if (!response.ok) throw new Error(`Failed to fetch loans for ${userId}`);
-  return response.json();
+
+  if (!response.ok) {
+    console.error(`[LoansService] Failed to fetch loans for user: ${userId}`, {
+      status: response.status,
+      statusText: response.statusText,
+    });
+    throw new Error(`Failed to fetch loans for ${userId}`);
+  }
+
+  const data = await response.json();
+  console.log(
+    `[LoansService] Successfully fetched ${
+      Array.isArray(data) ? data.length : "unknown"
+    } loans for user: ${userId}`
+  );
+  return data;
+}
+
+// === FAVORITES API METHODS ===
+
+export async function getUserFavorites(userId: string) {
+  console.log(`[LoansService] Fetching favorites for user: ${userId}`);
+
+  const response = await authenticatedFetch(
+    `${BASE_URL}/loans/user/${userId}/favorites`
+  );
+
+  const favorites = response.favorites || response || [];
+  console.log(
+    `[LoansService] Successfully fetched ${favorites.length} favorites for user: ${userId}`
+  );
+  return favorites;
+}
+
+export async function addToFavorites(userId: string, deviceId: string) {
+  console.log(
+    `[LoansService] Adding device ${deviceId} to favorites for user: ${userId}`
+  );
+
+  const result = await authenticatedFetch(
+    `${BASE_URL}/loans/user/${userId}/favorites/${deviceId}`,
+    {
+      method: "POST",
+    }
+  );
+
+  console.log(
+    `[LoansService] Successfully added device ${deviceId} to favorites for user: ${userId}`
+  );
+  return result;
+}
+
+export async function removeFromFavorites(userId: string, deviceId: string) {
+  console.log(
+    `[LoansService] Removing device ${deviceId} from favorites for user: ${userId}`
+  );
+
+  const result = await authenticatedFetch(
+    `${BASE_URL}/loans/user/${userId}/favorites/${deviceId}`,
+    {
+      method: "DELETE",
+    }
+  );
+
+  console.log(
+    `[LoansService] Successfully removed device ${deviceId} from favorites for user: ${userId}`
+  );
+  return result;
+}
+
+export async function syncAllFavorites(userId: string, favoriteIds: string[]) {
+  console.log(
+    `[LoansService] Syncing ${favoriteIds.length} favorites for user: ${userId}`,
+    favoriteIds
+  );
+
+  const result = await authenticatedFetch(
+    `${BASE_URL}/loans/user/${userId}/favorites`,
+    {
+      method: "PUT",
+      body: JSON.stringify({ favorites: favoriteIds }),
+    }
+  );
+
+  console.log(
+    `[LoansService] Successfully synced ${favoriteIds.length} favorites for user: ${userId}`
+  );
+  return result;
+}
+
+export async function clearAllFavorites(userId: string) {
+  console.log(`[LoansService] Clearing all favorites for user: ${userId}`);
+
+  const result = await authenticatedFetch(
+    `${BASE_URL}/loans/user/${userId}/favorites`,
+    {
+      method: "DELETE",
+    }
+  );
+
+  console.log(
+    `[LoansService] Successfully cleared all favorites for user: ${userId}`
+  );
+  return result;
 }

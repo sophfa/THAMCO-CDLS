@@ -1,21 +1,24 @@
-import { ref, computed } from "vue";
+import { ref, computed, onMounted } from "vue";
+import { getUser, logout as auth0Logout } from "../services/authService";
 
-const user = ref<{ username: string } | null>(null);
+const user = ref<any>(null);
 
 export function useAuth() {
   const loggedIn = computed(() => !!user.value);
 
-  function login(username: string) {
-    user.value = { username };
+  async function init() {
+    // Load user profile from localStorage or Auth0
+    const authUser = await getUser();
+    user.value = authUser || null;
   }
 
-  function signup(username: string) {
-    user.value = { username };
-  }
-
-  function logout() {
+  async function logout() {
     user.value = null;
+    await auth0Logout();
   }
 
-  return { user, loggedIn, login, signup, logout };
+  // Initialize once when composable is used
+  onMounted(init);
+
+  return { user, loggedIn, logout };
 }

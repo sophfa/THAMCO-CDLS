@@ -2,22 +2,36 @@
 import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { fetchCatalogue, type Product } from "../services/CatalogueService";
+import { useFavorites } from "../services/favouritesService";
+import { useAuth } from "../composables/useAuth";
 import SearchBar from "../components/SearchBar.vue";
 
 const products = ref<Product[]>([]);
 const searchTerm = ref("");
 const loading = ref(true);
-const favorites = ref<Set<string>>(new Set());
+const error = ref("");
 const router = useRouter();
-const isLoggedIn = ref(false); // Add this to track login status
+
+// Use auth composable for login status
+const { loggedIn } = useAuth();
+
+// Use the API-based favorites service
+const {
+  isFavorite,
+  toggleFavorite,
+  initializeFavorites,
+  isLoading: favoritesLoading,
+  lastError: favoritesError,
+} = useFavorites();
 
 onMounted(async () => {
   try {
+    // Initialize favorites from API
+    await initializeFavorites();
+
     const data = await fetchCatalogue();
     products.value = data;
     console.log("Fetched products:", data);
-    // TODO: Set isLoggedIn based on actual auth state
-    // isLoggedIn.value = checkAuthStatus();
   } catch (e: any) {
     error.value = e.message;
   } finally {
@@ -34,14 +48,6 @@ const filteredProducts = computed(() =>
   )
 );
 
-const toggleFavorite = (productId: string) => {
-  if (favorites.value.has(productId)) {
-    favorites.value.delete(productId);
-  } else {
-    favorites.value.add(productId);
-  }
-};
-
 const handleReserveOrWaitlist = (product: Product) => {
   if (product.inStock) {
     console.log(`Reserving ${product.name}`);
@@ -51,7 +57,6 @@ const handleReserveOrWaitlist = (product: Product) => {
     // Add waitlist logic here
   }
 };
-
 const viewDetails = (product: Product) => {
   console.log(`Viewing details for ${product.name}`);
 
@@ -65,7 +70,10 @@ const viewDetails = (product: Product) => {
     <h1>Device Catalogue</h1>
     <SearchBar @search="searchTerm = $event" />
     <p v-if="loading">Loading...</p>
-    <p v-if="error">{{ error }}</p>
+    <p v-if="error" class="error">{{ error }}</p>
+    <p v-if="favoritesError" class="favorites-error">
+      Favorites: {{ favoritesError }}
+    </p>
 
     <div class="grid" v-if="!loading && !error">
       <div v-for="p in filteredProducts" :key="p.id" class="card">
@@ -91,7 +99,7 @@ const viewDetails = (product: Product) => {
             See Details
           </button>
 
-          <div v-if="isLoggedIn" class="action-buttons">
+          <div v-if="loggedIn" class="action-buttons">
             <button
               @click="handleReserveOrWaitlist(p)"
               :class="[
@@ -102,12 +110,16 @@ const viewDetails = (product: Product) => {
               {{ p.inStock ? "Reserve" : "Join Waitlist" }}
             </button>
 
-            <button
-              @click="toggleFavorite(p.id)"
-              :class="['favorite-btn', { favorited: favorites.has(p.id) }]"
-            >
-              {{ favorites.has(p.id) ? "♥" : "♡" }}
-            </button>
+            <div class="favorite">
+              <button
+                @click="toggleFavorite(p.id)"
+                :class="{ 'is-favorite': isFavorite(p.id) }"
+                class="favorite-btn"
+              >
+                <span v-if="isFavorite(p.id)">★</span>
+                <span v-else>☆</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -192,17 +204,34 @@ const viewDetails = (product: Product) => {
   background-color: #e68900;
 }
 .favorite-btn {
-  padding: 0.5rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  background: white;
+  background: none;
+  border: none;
   cursor: pointer;
-  font-size: 1.2rem;
+  font-size: 24px;
+  padding: 0.5rem;
+  border-radius: 4px;
 }
-.favorite-btn.favorited {
-  color: #e74c3c;
+.favorite-btn.is-favorite {
+  color: gold;
 }
 .favorite-btn:hover {
   background-color: #f5f5f5;
+}
+
+.error {
+  color: #ef4444;
+  padding: 1rem;
+  background-color: #fef2f2;
+  border-radius: 4px;
+  margin: 1rem 0;
+}
+
+.favorites-error {
+  color: #f59e0b;
+  padding: 0.5rem;
+  background-color: #fffbeb;
+  border-radius: 4px;
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
 }
 </style>
