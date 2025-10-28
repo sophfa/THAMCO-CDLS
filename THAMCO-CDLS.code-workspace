@@ -1,0 +1,23 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "catalogue-frontend"
+		},
+		{
+			"path": "catalogue-service-func"
+		},
+		{
+			"path": "inventory-service-func"
+		},
+		{
+			"path": "loans-service-func"
+		},
+		{
+			"path": "notifications-service-func"
+		}
+	],
+	"settings": {}
+}
