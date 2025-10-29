@@ -22,5 +22,9 @@ body,
   min-height: 100vh;
   margin: 0;
   padding: 0;
+  font-family: "Gentium Book Plus", serif !important;
+  button {
+    font-family: "Gentium Book Plus", serif !important;
+  }
 }
 </style>

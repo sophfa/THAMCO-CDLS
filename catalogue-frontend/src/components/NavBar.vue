@@ -1,5 +1,8 @@
 <template>
-  <nav class="navbar">
+  <nav
+    class="navbar"
+    :style="loggedIn ? 'padding-top: 1.5rem; padding-bottom: 0.5rem;' : ''"
+  >
     <div class="brand">
       <img src="../assets/Logo.png" alt="ThAmCo Device Loans" class="logo" />
     </div>
@@ -7,9 +10,9 @@
     <ul class="nav-links">
       <li><router-link to="/">Home</router-link></li>
       <li><router-link to="/catalogue">Catalogue</router-link></li>
+      <li><router-link to="/faqs">FAQs</router-link></li>
 
       <template v-if="loggedIn">
-        <li><router-link to="/reservations">Reservations</router-link></li>
         <!-- <li><router-link to="/help">Help</router-link></li> -->
 
         <!-- Notifications -->
@@ -88,50 +91,19 @@
   </nav>
 
   <!-- Sub Navigation Bar -->
-  <div
-    class="sub-navbar !bg-gray-100 !shadow-sm !border-b !border-gray-200"
-    id="headerlinks"
-  >
-    <div class="!flex !items-center !justify-center !gap-2 !px-4 !py-2">
-      <template v-if="loggedIn">
-        <span class="!text-gray-700 !font-medium"
-          >Welcome, {{ user?.name || "User" }}</span
-        >
-        <span class="!text-gray-400">|</span>
-        <router-link
-          to="/profile"
-          class="!text-gray-600 hover:!text-blue-600 !transition-colors !no-underline"
-        >
-          My Account
-        </router-link>
-        <span class="!text-gray-400">|</span>
-        <router-link
-          to="/reservations"
-          class="!text-gray-600 hover:!text-blue-600 !transition-colors !no-underline"
-        >
-          My Reservations
-        </router-link>
-        <span class="!text-gray-400">|</span>
-        <router-link
-          to="/favourites"
-          class="!text-gray-600 hover:!text-blue-600 !transition-colors !no-underline"
-        >
-          My Favourites
-        </router-link>
-      </template>
-      <template v-else>
-        <span class="!text-gray-600 !italic"
-          >Welcome to ThAmCo Device Loans</span
-        >
-        <span class="!text-gray-400">|</span>
-        <button
-          @click="handleAuth"
-          class="auth-link !text-blue-600 hover:!text-blue-800 !font-medium !transition-colors"
-        >
-          Sign In
-        </button>
-      </template>
-    </div>
+  <div v-if="loggedIn" id="headerlinks">
+    <template v-if="loggedIn">
+      <!-- && user.role === 'user' -->
+      Welcome, {{ user?.name || "User" }} |
+      <router-link to="/profile">My Account</router-link> |
+      <router-link to="/reservations">My Reservations</router-link> |
+      <router-link to="/favourites">My Favourites</router-link>
+    </template>
+    <template v-else-if="loggedIn && user.role === 'admin'">
+      Welcome, {{ user?.name || "Admin" }} |
+      <router-link to="/profile">My Account</router-link> |
+      <router-link to="/admin/dashboard">Admin Dashboard</router-link>
+    </template>
   </div>
 </template>
 
@@ -229,8 +201,6 @@ onUnmounted(() => document.removeEventListener("click", handleClickOutside));
   background: white;
   color: black;
   padding: 1rem 2rem;
-  padding-top: 1.5rem;
-  padding-bottom: 0.5rem;
 }
 
 .nav-links {
@@ -255,6 +225,7 @@ onUnmounted(() => document.removeEventListener("click", handleClickOutside));
   color: white;
   margin-left: 0.5rem;
   cursor: pointer;
+  font-family: "Gentium Book Plus", serif !important;
 }
 
 .auth-btn:hover {
@@ -267,9 +238,9 @@ onUnmounted(() => document.removeEventListener("click", handleClickOutside));
 }
 
 .logo {
-  height: 40px;
+  height: 65px;
   width: auto;
-  max-width: 200px;
+  max-width: 250px;
   object-fit: contain;
 }
 
@@ -512,22 +483,19 @@ onUnmounted(() => document.removeEventListener("click", handleClickOutside));
 }
 
 /* Sub Navigation Bar Styling */
-.sub-navbar {
+#headerlinks {
   position: absolute;
-  right: 0;
+  right: 50px;
   top: 0;
-  border-radius: 0 0 10px 10px;
-  font-size: 0.875rem;
-  z-index: 999;
-  min-width: 300px;
   padding: 5px 10px;
-  gap: 3px;
-  background-color: #dddddd;
-  display: flex;
-  gap: 5px;
+  color: #666;
+  background: #ebebeb;
+  border-radius: 0 0 10px 10px;
+  a {
+    text-decoration: none !important;
+  }
 }
 
-/* Remove redundant styles since we're using Tailwind classes */
 .auth-link {
   background: none;
   border: none;
@@ -536,19 +504,20 @@ onUnmounted(() => document.removeEventListener("click", handleClickOutside));
 
 /* Responsive Sub Navigation */
 @media only screen and (min-width: 45em) {
-  .sub-navbar {
+  #headerlinks,
+  #top-headerlinks {
     display: block;
   }
 }
 
-@media only screen and (min-width: 941px) {
-  .sub-navbar {
-    right: 155px;
+@media only screen and (min-width: 719px) and (max-width: 941px) {
+  #headerlinks {
+    right: 40px;
   }
 }
 
 @media only screen and (max-width: 768px) {
-  .sub-navbar {
+  #headerlinks {
     position: relative;
     right: auto;
     top: auto;

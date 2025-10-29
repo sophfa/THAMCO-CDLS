@@ -14,9 +14,15 @@ import LoginView from "../views/LoginView.vue";
 import SignupView from "../views/SignupView.vue";
 import { useAuth } from "../composables/useAuth";
 import ProductPage from "../views/ProductPage.vue";
+import FAQsView from "../views/FAQsView.vue";
 
 const routes = [
   { path: "/", name: "home", component: HomeView },
+  {
+    path: "/faqs",
+    name: "faqs",
+    component: FAQsView,
+  },
   { path: "/catalogue", name: "catalogue", component: CatalogueView },
   {
     path: "/reservations",

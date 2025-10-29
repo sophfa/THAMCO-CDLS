@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: "Gentium Book Plus", serif !important;
   line-height: 1.5;
   font-weight: 400;
 
@@ -24,12 +24,13 @@ body,
   min-height: 100vh;
   margin: 0;
   padding: 0;
+  font-family: "Gentium Book Plus", serif !important;
 }
 
 body {
   display: block; /* or remove the display:flex entirely */
   background-color: #ffffff; /* optional */
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: "Gentium Book Plus", serif !important;
 }
 
 a {
