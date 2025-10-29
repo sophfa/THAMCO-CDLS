@@ -1,6 +1,8 @@
 <template>
   <nav class="navbar">
-    <div class="brand">ThAmCo Device Loans</div>
+    <div class="brand">
+      <img src="../assets/Logo.png" alt="ThAmCo Device Loans" class="logo" />
+    </div>
 
     <ul class="nav-links">
       <li><router-link to="/">Home</router-link></li>
@@ -8,7 +10,7 @@
 
       <template v-if="loggedIn">
         <li><router-link to="/reservations">Reservations</router-link></li>
-        <li><router-link to="/favourites">Favourites</router-link></li>
+        <!-- <li><router-link to="/help">Help</router-link></li> -->
 
         <!-- Notifications -->
         <li class="notifications-container">
@@ -74,7 +76,7 @@
     <div class="profile">
       <template v-if="loggedIn">
         <router-link to="/profile">
-          <i class="fas fa-user-circle"></i> {{ user?.username || "Profile" }}
+          <i class="fas fa-user-circle"></i> {{ user?.name || "Profile" }}
         </router-link>
         <button @click="logout" class="logout">Logout</button>
       </template>
@@ -84,6 +86,53 @@
       </template>
     </div>
   </nav>
+
+  <!-- Sub Navigation Bar -->
+  <div
+    class="sub-navbar !bg-gray-100 !shadow-sm !border-b !border-gray-200"
+    id="headerlinks"
+  >
+    <div class="!flex !items-center !justify-center !gap-2 !px-4 !py-2">
+      <template v-if="loggedIn">
+        <span class="!text-gray-700 !font-medium"
+          >Welcome, {{ user?.name || "User" }}</span
+        >
+        <span class="!text-gray-400">|</span>
+        <router-link
+          to="/profile"
+          class="!text-gray-600 hover:!text-blue-600 !transition-colors !no-underline"
+        >
+          My Account
+        </router-link>
+        <span class="!text-gray-400">|</span>
+        <router-link
+          to="/reservations"
+          class="!text-gray-600 hover:!text-blue-600 !transition-colors !no-underline"
+        >
+          My Reservations
+        </router-link>
+        <span class="!text-gray-400">|</span>
+        <router-link
+          to="/favourites"
+          class="!text-gray-600 hover:!text-blue-600 !transition-colors !no-underline"
+        >
+          My Favourites
+        </router-link>
+      </template>
+      <template v-else>
+        <span class="!text-gray-600 !italic"
+          >Welcome to ThAmCo Device Loans</span
+        >
+        <span class="!text-gray-400">|</span>
+        <button
+          @click="handleAuth"
+          class="auth-link !text-blue-600 hover:!text-blue-800 !font-medium !transition-colors"
+        >
+          Sign In
+        </button>
+      </template>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -177,9 +226,11 @@ onUnmounted(() => document.removeEventListener("click", handleClickOutside));
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #1e293b;
-  color: white;
+  background: white;
+  color: black;
   padding: 1rem 2rem;
+  padding-top: 1.5rem;
+  padding-bottom: 0.5rem;
 }
 
 .nav-links {
@@ -190,13 +241,14 @@ onUnmounted(() => document.removeEventListener("click", handleClickOutside));
 }
 
 .nav-links a {
-  color: white;
+  color: black;
   text-decoration: none;
+  font-size: larger;
 }
 
 .auth-btn,
 .logout {
-  background: #64748b;
+  background: #867537;
   border: none;
   padding: 0.4rem 0.8rem;
   border-radius: 4px;
@@ -214,9 +266,17 @@ onUnmounted(() => document.removeEventListener("click", handleClickOutside));
   font-size: 1.4rem;
 }
 
+.logo {
+  height: 40px;
+  width: auto;
+  max-width: 200px;
+  object-fit: contain;
+}
+
 .profile {
   display: flex;
   align-items: center;
+  gap: 1rem;
 }
 
 /* Notifications Styling */
@@ -227,7 +287,7 @@ onUnmounted(() => document.removeEventListener("click", handleClickOutside));
 .notifications-btn {
   background: none;
   border: none;
-  color: white;
+  color: #867537;
   font-size: 1.2rem;
   cursor: pointer;
   padding: 0.5rem;
@@ -449,5 +509,60 @@ onUnmounted(() => document.removeEventListener("click", handleClickOutside));
 
 .notifications-list::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+/* Sub Navigation Bar Styling */
+.sub-navbar {
+  position: absolute;
+  right: 0;
+  top: 0;
+  border-radius: 0 0 10px 10px;
+  font-size: 0.875rem;
+  z-index: 999;
+  min-width: 300px;
+  padding: 5px 10px;
+  gap: 3px;
+  background-color: #dddddd;
+  display: flex;
+  gap: 5px;
+}
+
+/* Remove redundant styles since we're using Tailwind classes */
+.auth-link {
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+/* Responsive Sub Navigation */
+@media only screen and (min-width: 45em) {
+  .sub-navbar {
+    display: block;
+  }
+}
+
+@media only screen and (min-width: 941px) {
+  .sub-navbar {
+    right: 155px;
+  }
+}
+
+@media only screen and (max-width: 768px) {
+  .sub-navbar {
+    position: relative;
+    right: auto;
+    top: auto;
+    margin-top: 0;
+    border-radius: 0;
+    background: #f5f5f5;
+    border-top: 1px solid #ddd;
+    padding: 6px 12px;
+  }
+
+  .sub-nav-content {
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
 }
 </style>

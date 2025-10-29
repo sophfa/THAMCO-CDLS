@@ -4,6 +4,7 @@ import type { Product } from "./CatalogueService";
 import {
   getUserFavorites,
   addToFavorites as apiAddToFavorites,
+  addFavourite as apiAddFavourite,
   removeFromFavorites as apiRemoveFromFavorites,
   syncAllFavorites,
   clearAllFavorites as apiClearAllFavorites,
@@ -98,7 +99,7 @@ export const saveFavoriteToAPI = async (
     );
 
     if (isFavorite) {
-      await apiAddToFavorites(userId, deviceId);
+      await apiAddFavourite(userId, deviceId);
     } else {
       await apiRemoveFromFavorites(userId, deviceId);
     }

@@ -178,6 +178,32 @@ export async function addToFavorites(userId: string, deviceId: string) {
   return result;
 }
 
+export async function addFavourite(userId: string, deviceId: string) {
+  try {
+    const response = await fetch("/api/favourites", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        userId: userId,
+        deviceId: deviceId,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      console.log("Favourites:", result.data);
+      // result.data will be an array of favourites for the user
+    } else {
+      console.error("Error:", result.error.message);
+    }
+  } catch (error) {
+    console.error("Request failed:", error);
+  }
+}
+
 export async function removeFromFavorites(userId: string, deviceId: string) {
   console.log(
     `[LoansService] Removing device ${deviceId} from favorites for user: ${userId}`

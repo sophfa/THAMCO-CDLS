@@ -131,7 +131,7 @@
           <div class="product-details flex-grow h-auto min-h-screen">
             <!-- Header -->
             <div class="space-y-4 pb-6 border-b border-gray-200">
-              <div class="flex items-center space-x-2 text-sm">
+              <div class="flex items-center space-x-2 text-sm column">
                 <span
                   class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full font-medium"
                 >
