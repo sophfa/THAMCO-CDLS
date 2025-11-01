@@ -150,7 +150,7 @@ export async function getUserFavorites(userId: string) {
   console.log(`[LoansService] Fetching favorites for user: ${userId}`);
 
   const response = await authenticatedFetch(
-    `${BASE_URL}/loans/user/${userId}/favorites`
+    `${BASE_URL}/favourites?userId=${encodeURIComponent(userId)}`
   );
 
   const favorites = response.favorites || response || [];
@@ -165,12 +165,13 @@ export async function addToFavorites(userId: string, deviceId: string) {
     `[LoansService] Adding device ${deviceId} to favorites for user: ${userId}`
   );
 
-  const result = await authenticatedFetch(
-    `${BASE_URL}/loans/user/${userId}/favorites/${deviceId}`,
-    {
-      method: "POST",
-    }
-  );
+  const result = await authenticatedFetch(`${BASE_URL}/favourites`, {
+    method: "POST",
+    body: JSON.stringify({
+      userId: userId,
+      deviceId: deviceId,
+    }),
+  });
 
   console.log(
     `[LoansService] Successfully added device ${deviceId} to favorites for user: ${userId}`
@@ -179,29 +180,22 @@ export async function addToFavorites(userId: string, deviceId: string) {
 }
 
 export async function addFavourite(userId: string, deviceId: string) {
-  try {
-    const response = await fetch("/api/favourites", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        userId: userId,
-        deviceId: deviceId,
-      }),
-    });
+  console.log(
+    `[LoansService] Adding device ${deviceId} to favorites for user: ${userId}`
+  );
 
-    const result = await response.json();
+  const result = await authenticatedFetch(`${BASE_URL}/favourites`, {
+    method: "POST",
+    body: JSON.stringify({
+      userId: userId,
+      deviceId: deviceId,
+    }),
+  });
 
-    if (result.success) {
-      console.log("Favourites:", result.data);
-      // result.data will be an array of favourites for the user
-    } else {
-      console.error("Error:", result.error.message);
-    }
-  } catch (error) {
-    console.error("Request failed:", error);
-  }
+  console.log(
+    `[LoansService] Successfully added device ${deviceId} to favorites for user: ${userId}`
+  );
+  return result;
 }
 
 export async function removeFromFavorites(userId: string, deviceId: string) {
@@ -209,12 +203,13 @@ export async function removeFromFavorites(userId: string, deviceId: string) {
     `[LoansService] Removing device ${deviceId} from favorites for user: ${userId}`
   );
 
-  const result = await authenticatedFetch(
-    `${BASE_URL}/loans/user/${userId}/favorites/${deviceId}`,
-    {
-      method: "DELETE",
-    }
-  );
+  const result = await authenticatedFetch(`${BASE_URL}/favourites`, {
+    method: "DELETE",
+    body: JSON.stringify({
+      userId: userId,
+      deviceId: deviceId,
+    }),
+  });
 
   console.log(
     `[LoansService] Successfully removed device ${deviceId} from favorites for user: ${userId}`
@@ -228,13 +223,13 @@ export async function syncAllFavorites(userId: string, favoriteIds: string[]) {
     favoriteIds
   );
 
-  const result = await authenticatedFetch(
-    `${BASE_URL}/loans/user/${userId}/favorites`,
-    {
-      method: "PUT",
-      body: JSON.stringify({ favorites: favoriteIds }),
-    }
-  );
+  const result = await authenticatedFetch(`${BASE_URL}/favourites/sync`, {
+    method: "PUT",
+    body: JSON.stringify({
+      userId: userId,
+      favorites: favoriteIds,
+    }),
+  });
 
   console.log(
     `[LoansService] Successfully synced ${favoriteIds.length} favorites for user: ${userId}`
@@ -245,12 +240,12 @@ export async function syncAllFavorites(userId: string, favoriteIds: string[]) {
 export async function clearAllFavorites(userId: string) {
   console.log(`[LoansService] Clearing all favorites for user: ${userId}`);
 
-  const result = await authenticatedFetch(
-    `${BASE_URL}/loans/user/${userId}/favorites`,
-    {
-      method: "DELETE",
-    }
-  );
+  const result = await authenticatedFetch(`${BASE_URL}/favourites/clear`, {
+    method: "DELETE",
+    body: JSON.stringify({
+      userId: userId,
+    }),
+  });
 
   console.log(
     `[LoansService] Successfully cleared all favorites for user: ${userId}`

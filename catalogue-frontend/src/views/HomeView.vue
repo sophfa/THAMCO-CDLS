@@ -1,8 +1,11 @@
 <template>
-  <div class="home">
+  <div
+    class="home"
+    :style="{ backgroundImage: `url(${cloudinaryAssets.ui.paperBackground})` }"
+  >
     <div class="hero-section">
       <img
-        src="../assets/browse-writing.png"
+        :src="cloudinaryAssets.ui.browseWriting"
         alt="Browse devices, view reservations, and manage your favourites"
         class="browse-writing"
       />
@@ -13,7 +16,7 @@
         <!-- Laptop -->
         <div class="device-item laptop-container">
           <img
-            src="../assets/Laptop-writing.png"
+            :src="cloudinaryAssets.pointers.laptopWriting"
             alt="Laptop pointer"
             class="device-pointer"
           />
@@ -24,7 +27,7 @@
               aria-label="Browse laptops"
             >
               <img
-                src="../assets/laptop.png"
+                :src="cloudinaryAssets.devices.laptop"
                 alt="Laptop"
                 class="device-image"
               />
@@ -35,7 +38,7 @@
         <!-- Tablet -->
         <div class="device-item">
           <img
-            src="../assets/Tablets-writing.png"
+            :src="cloudinaryAssets.pointers.tabletsWriting"
             alt="Tablet pointer"
             class="device-pointer"
           />
@@ -46,7 +49,7 @@
               aria-label="Browse tablets"
             >
               <img
-                src="../assets/tablet-white.png"
+                :src="cloudinaryAssets.devices.tablet"
                 alt="Tablet"
                 class="device-image"
               />
@@ -57,7 +60,7 @@
         <!-- Camera -->
         <div class="device-item">
           <img
-            src="../assets/Cameras-writing.png"
+            :src="cloudinaryAssets.pointers.camerasWriting"
             alt="Camera pointer"
             class="device-pointer"
           />
@@ -68,7 +71,7 @@
               aria-label="Browse cameras"
             >
               <img
-                src="../assets/camera.png"
+                :src="cloudinaryAssets.devices.camera"
                 alt="Camera"
                 class="device-image"
               />
@@ -82,6 +85,7 @@
 
 <script setup lang="ts">
 import { useRouter } from "vue-router";
+import { cloudinaryAssets } from "../assets/cloudinary";
 
 const router = useRouter();
 
@@ -96,7 +100,6 @@ const navigateToDevice = (deviceType: string) => {
 <style scoped>
 .home {
   min-height: 100vh;
-  background-image: url("../assets/paper.png");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;

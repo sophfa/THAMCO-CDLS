@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from "vue";
 import { fetchCatalogue, type Product } from "../services/CatalogueService";
 import { useFavorites } from "../services/favouritesService";
 import { useRouter } from "vue-router";
+import { getCloudinaryUrl } from "../assets/cloudinary";
 
 const products = ref<Product[]>([]);
 const loading = ref(true);
@@ -85,7 +86,7 @@ const handleReserveOrWaitlist = (product: Product) => {
         <div class="card-content">
           <img
             class="image-class"
-            :src="'src/assets/' + product.imageUrl"
+            :src="getCloudinaryUrl(product.imageUrl)"
             :alt="product.name"
             style="max-width: 100%; height: auto"
           />

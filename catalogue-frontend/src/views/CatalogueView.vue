@@ -5,6 +5,7 @@ import { fetchCatalogue, type Product } from "../services/CatalogueService";
 import { useFavorites } from "../services/favouritesService";
 import { useAuth } from "../composables/useAuth";
 import SearchBar from "../components/SearchBar.vue";
+import { getCloudinaryUrl } from "../assets/cloudinary";
 
 const products = ref<Product[]>([]);
 const searchTerm = ref("");
@@ -80,7 +81,7 @@ const viewDetails = (product: Product) => {
         <div class="card-content">
           <img
             class="image-class"
-            :src="'src/assets/' + p.imageUrl"
+            :src="getCloudinaryUrl(p.imageUrl)"
             :alt="p.name"
             style="max-width: 100%; height: auto"
           />

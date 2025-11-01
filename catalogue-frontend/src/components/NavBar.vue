@@ -4,7 +4,11 @@
     :style="loggedIn ? 'padding-top: 1.5rem; padding-bottom: 0.5rem;' : ''"
   >
     <div class="brand">
-      <img src="../assets/Logo.png" alt="ThAmCo Device Loans" class="logo" />
+      <img
+        :src="cloudinaryAssets.ui.logo"
+        alt="ThAmCo Device Loans"
+        class="logo"
+      />
     </div>
 
     <ul class="nav-links">
@@ -112,6 +116,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useAuth } from "../composables/useAuth";
 import { getUserId, login } from "../services/authService";
 import { getNotificationsForUser } from "../services/api/notificationsService";
+import { cloudinaryAssets } from "../assets/cloudinary";
 
 const { user, loggedIn, logout } = useAuth();
 
