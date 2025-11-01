@@ -146,18 +146,28 @@ export async function getUserLoans(userId: string) {
 
 // === FAVORITES API METHODS ===
 
-export async function getUserFavorites(userId: string) {
+export async function getUserFavorites(userId: string): Promise<string[]> {
   console.log(`[LoansService] Fetching favorites for user: ${userId}`);
 
   const response = await authenticatedFetch(
-    `${BASE_URL}/loans/user/${userId}/favorites`
+    `${BASE_URL}/loans/user/${encodeURIComponent(userId)}/favorites`
   );
 
-  const favorites = response.data || response || [];
+  const payload = (response && (response.data ?? response)) || [];
+  const items: unknown[] = Array.isArray(payload) ? payload : [];
+
+  const deviceIds = items
+    .map((item) =>
+      typeof item === "string" ? item : (item as any)?.deviceId ?? ""
+    )
+    .filter((id): id is string => typeof id === "string" && id.length > 0);
+
+  const unique = Array.from(new Set(deviceIds));
+
   console.log(
-    `[LoansService] Successfully fetched ${favorites.length} favorites for user: ${userId}`
+    `[LoansService] Successfully fetched ${unique.length} favorites for user: ${userId}`
   );
-  return favorites;
+  return unique;
 }
 
 export async function addToFavorites(userId: string, deviceId: string) {
