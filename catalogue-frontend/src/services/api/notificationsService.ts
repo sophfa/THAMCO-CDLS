@@ -1,7 +1,9 @@
 const BASE_URL = import.meta.env.VITE_NOTIFICATIONS_API_URL;
 
 export async function getNotificationsForUser(userId: string) {
-  const response = await fetch(`${BASE_URL}/notifications/${userId}`);
+  const response = await fetch(
+    `${BASE_URL}/notifications/${encodeURIComponent(userId)}`
+  );
   if (!response.ok)
     throw new Error(`Failed to fetch notifications for ${userId}`);
   return response.json();

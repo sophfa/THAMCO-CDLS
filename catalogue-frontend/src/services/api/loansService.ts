@@ -42,7 +42,7 @@ async function authenticatedFetch(url: string, options: RequestInit = {}) {
   return data;
 }
 
-async function createLoan(deviceId: string) {
+export async function createLoan(deviceId: string) {
   console.log(`[LoansService] Creating loan for device: ${deviceId}`);
 
   const userId = await getUserId();
@@ -55,9 +55,8 @@ async function createLoan(deviceId: string) {
   };
 
   try {
-    await fetch(`${import.meta.env.VITE_LOANS_API_URL}/loans`, {
+    await authenticatedFetch(`${import.meta.env.VITE_LOANS_API_URL}/loans`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
     console.log(
@@ -122,10 +121,32 @@ export async function addToWaitlist(loanId: string, userId: string) {
   return data;
 }
 
+export async function joinWaitlistForDevice(deviceId: string) {
+  console.log(`[LoansService] Joining waitlist for device: ${deviceId}`);
+
+  const userId = await getUserId();
+  if (!userId) throw new Error("User not authenticated");
+
+  const data = await authenticatedFetch(
+    `${BASE_URL}/loans/device/${encodeURIComponent(deviceId)}/waitlist`,
+    {
+      method: "POST",
+      body: JSON.stringify({ userId }),
+    }
+  );
+
+  console.log(
+    `[LoansService] Successfully joined waitlist for device: ${deviceId}`
+  );
+  return data;
+}
+
 export async function getUserLoans(userId: string) {
   console.log(`[LoansService] Fetching loans for user: ${userId}`);
 
-  const response = await fetch(`${BASE_URL}/loans/user/${userId}`);
+  const response = await fetch(
+    `${BASE_URL}/loans/user/${encodeURIComponent(userId)}`
+  );
 
   if (!response.ok) {
     console.error(`[LoansService] Failed to fetch loans for user: ${userId}`, {
