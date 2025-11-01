@@ -15,19 +15,27 @@ app.http("clearFavouritesHttp", {
   authLevel: "anonymous",
   handler: async (req, ctx) => {
     const { userId } = req.params;
-
     try {
+      const normalizedUserId = decodeURIComponent(userId ?? "").trim();
       const { resources } = await container.items
         .query({
           query: "SELECT * FROM c WHERE c.userId = @userId",
-          parameters: [{ name: "@userId", value: userId }],
+          parameters: [{ name: "@userId", value: normalizedUserId }],
         })
         .fetchAll();
 
-      // Delete all found favourites
+      // Delete all found favourites with partition key fallback
       for (const fav of resources) {
         try {
-          await container.item(fav.id, fav.id).delete();
+          try {
+            await container.item(fav.id, fav.userId).delete();
+          } catch (inner: any) {
+            if (inner?.code === 404 || inner?.code === 400) {
+              await container.item(fav.id, fav.id).delete();
+            } else {
+              throw inner;
+            }
+          }
         } catch (deleteError: any) {
           // Log individual delete errors but continue
           ctx.log(`Failed to delete favourite ${fav.id}:`, deleteError);

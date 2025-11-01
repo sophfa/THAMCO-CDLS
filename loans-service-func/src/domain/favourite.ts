@@ -14,6 +14,7 @@ export interface Favourite {
  * Input parameters for creating a Favourite
  */
 export interface CreateFavouriteParams {
+  readonly id: string;
   readonly deviceId: string;
   readonly userId: string;
   readonly addedAt: Date;
@@ -67,12 +68,12 @@ const validateId = (id: string): FavouriteValidationError[] => {
   const errors: FavouriteValidationError[] = [];
 
   if (!id || id.trim().length === 0) {
-    errors.push({ field: "id", message: "Device ID is required" });
+    errors.push({ field: "id", message: "ID is required" });
   } else if (!/^[a-zA-Z0-9-_]+$/.test(id.trim())) {
     errors.push({
       field: "id",
       message:
-        "Device ID can only contain alphanumeric characters, hyphens, and underscores",
+        "ID can only contain alphanumeric characters, hyphens, and underscores",
     });
   }
 
@@ -104,6 +105,7 @@ const validateFavourite = (
   params: CreateFavouriteParams
 ): FavouriteValidationError[] => {
   return [
+    ...validateId(params.id),
     ...validateDeviceId(params.deviceId),
     ...validateUserId(params.userId),
     ...validateAddedAt(params.addedAt),
@@ -124,7 +126,7 @@ export const createFavourite = (
   }
 
   const favourite: Favourite = {
-    id: `${params.userId}:${params.deviceId}`,
+    id: params.id.trim(),
     deviceId: params.deviceId,
     userId: params.userId,
     addedAt: params.addedAt,

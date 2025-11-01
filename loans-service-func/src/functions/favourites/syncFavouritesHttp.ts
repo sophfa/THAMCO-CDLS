@@ -1,5 +1,6 @@
 import { app } from "@azure/functions";
 import { CosmosClient } from "@azure/cosmos";
+import { buildFavouriteIdentity } from "./favouriteIdentity";
 
 const client = new CosmosClient({
   endpoint: process.env.COSMOS_ENDPOINT!,
@@ -14,59 +15,56 @@ app.http("syncFavouritesHttp", {
   route: "loans/user/{userId}/favorites",
   authLevel: "anonymous",
   handler: async (req, ctx) => {
-    const { userId } = req.params;
-
     try {
-      const body = (await req.json()) as { favorites: string[] };
-      const { favorites } = body;
+      const { userId } = req.params;
+      const normalisedUserId = decodeURIComponent(userId ?? "").trim();
+      const body = (await req.json()) as { favorites?: unknown };
+      const favouritesArray = Array.isArray(body?.favorites)
+        ? (body.favorites as unknown[])
+        : [];
 
-      // Delete existing favourites for this user
+      const deviceIds = Array.from(
+        new Set(
+          favouritesArray
+            .map((value) => (typeof value === "string" ? value.trim() : ""))
+            .filter((value): value is string => value.length > 0)
+        )
+      );
+
+      // Delete existing
       const { resources } = await container.items
         .query({
           query: "SELECT * FROM c WHERE c.userId = @userId",
-          parameters: [{ name: "@userId", value: userId }],
+          parameters: [{ name: "@userId", value: normalisedUserId }],
         })
         .fetchAll();
       for (const fav of resources) {
-        try {
-          await container.item(fav.id, fav.id).delete();
-        } catch (deleteError: any) {
-          ctx.log(`Failed to delete favourite ${fav.id}:`, deleteError);
-        }
+        await container.item(fav.id, fav.userId).delete();
       }
 
-      // Add new favourites using composite ID format
-      const newItems = favorites.map((deviceId: string) => ({
-        id: `${userId}:${deviceId}`,
-        userId,
-        deviceId,
-        addedAt: new Date(),
-      }));
+      // Add new
+      const newItems = deviceIds.map((deviceId) => {
+        const identity = buildFavouriteIdentity(normalisedUserId, deviceId);
+        return {
+          id: identity.id,
+          userId: identity.userId,
+          deviceId: identity.deviceId,
+          addedAt: new Date().toISOString(),
+        };
+      });
 
       for (const item of newItems) {
-        try {
-          await container.items.create(item);
-        } catch (error: any) {
-          // Log but continue if item already exists
-          if (error.code !== 409) {
-            ctx.log(`Failed to create favourite ${item.id}:`, error);
-          }
-        }
+        await container.items.create(item, {
+          disableAutomaticIdGeneration: true,
+        });
       }
 
-      return {
-        status: 200,
-        jsonBody: {
-          message: "Favourites synced successfully",
-          syncedCount: newItems.length,
-          data: newItems,
-        },
-      };
+      return { status: 200, jsonBody: newItems };
     } catch (error: any) {
-      ctx.log("Error syncing favourites:", error);
+      ctx.log("Failed to sync favourites:", error);
       return {
         status: 500,
-        jsonBody: { message: "Internal server error while syncing favourites" },
+        jsonBody: { message: "Failed to sync favourites" },
       };
     }
   },

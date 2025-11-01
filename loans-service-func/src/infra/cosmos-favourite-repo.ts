@@ -26,7 +26,7 @@ interface FavouriteDocument {
   readonly id: string;
   readonly deviceId: string;
   readonly userId: string;
-  readonly addedAt: Date;
+  readonly addedAt: string;
 }
 
 /**
@@ -76,7 +76,7 @@ export class CosmosFavouriteRepo implements FavouriteRepo {
       id: favourite.id,
       deviceId: favourite.deviceId,
       userId: favourite.userId,
-      addedAt: favourite.addedAt,
+      addedAt: favourite.addedAt.toISOString(),
     };
   }
 

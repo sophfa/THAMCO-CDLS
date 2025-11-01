@@ -9,6 +9,7 @@ import {
 import { Favourite } from "../../domain/favourite";
 import { FavouriteRepo } from "../../domain/favourites-repo";
 import { CosmosFavouriteRepo } from "../../infra/cosmos-favourite-repo";
+import { buildFavouriteIdentity } from "./favouriteIdentity";
 
 // Configuration from environment variables
 const cosmosOptions = {
@@ -97,11 +98,12 @@ export async function addFavouriteHttp(
     }
 
     // Create new favourite object
+    const favouriteIdentity = buildFavouriteIdentity(userId, deviceId);
 
     const newFavourite: Favourite = {
-      id: `${userId.trim()}:${deviceId.trim()}`,
-      userId: userId.trim(),
-      deviceId: deviceId.trim(),
+      id: favouriteIdentity.id,
+      userId: favouriteIdentity.userId,
+      deviceId: favouriteIdentity.deviceId,
       addedAt: new Date(),
     };
     console.log("adding new favourite with body: ", newFavourite);
@@ -115,9 +117,8 @@ export async function addFavouriteHttp(
       if (listResult.success) {
         // Filter favourites for this user
         const userFavourites = listResult.data.filter(
-          (fav) => fav.userId === userId.trim()
+          (fav) => fav.userId === favouriteIdentity.userId
         );
-
         const response: AddFavouriteResponse = {
           success: true,
           data: userFavourites,
