@@ -5,16 +5,16 @@ import {
   HttpRequest,
   HttpResponseInit,
   InvocationContext,
-} from '@azure/functions';
-import { Favourite } from '../../domain/favourite';
-import { FavouriteRepo } from '../../domain/favourites-repo';
-import { CosmosFavouriteRepo } from '../../infra/cosmos-favourite-repo';
+} from "@azure/functions";
+import { Favourite } from "../../domain/favourite";
+import { FavouriteRepo } from "../../domain/favourites-repo";
+import { CosmosFavouriteRepo } from "../../infra/cosmos-favourite-repo";
 
 // Configuration from environment variables
 const cosmosOptions = {
-  endpoint: process.env.COSMOS_ENDPOINT || 'https://localhost:8081',
-  databaseId: process.env.COSMOS_DATABASE || 'loans-db',
-  containerId: process.env.COSMOS_CONTAINER_FAVOURITES || 'Favourites',
+  endpoint: process.env.COSMOS_ENDPOINT || "https://localhost:8081",
+  databaseId: process.env.COSMOS_DATABASE || "loans-db",
+  containerId: process.env.COSMOS_CONTAINER_FAVOURITES || "Favourites",
   key: process.env.COSMOS_KEY,
 };
 
@@ -52,11 +52,11 @@ export async function addFavouriteHttp(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
-  context.log('HTTP trigger function processed a request to add favourite');
+  context.log("HTTP trigger function processed a request to add favourite");
 
   try {
     // Parse request body
-    const requestBody = await request.json() as AddFavouriteRequest;
+    const requestBody = (await request.json()) as AddFavouriteRequest;
     const { userId, deviceId } = requestBody;
 
     // Validate input parameters
@@ -64,15 +64,15 @@ export async function addFavouriteHttp(
       const errorResponse: AddFavouriteResponse = {
         success: false,
         error: {
-          code: 'INVALID_INPUT',
-          message: 'userId is required',
+          code: "INVALID_INPUT",
+          message: "userId is required",
         },
       };
 
       return {
         status: 400,
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(errorResponse, null, 2),
       };
@@ -82,38 +82,42 @@ export async function addFavouriteHttp(
       const errorResponse: AddFavouriteResponse = {
         success: false,
         error: {
-          code: 'INVALID_INPUT',
-          message: 'deviceId is required',
+          code: "INVALID_INPUT",
+          message: "deviceId is required",
         },
       };
 
       return {
         status: 400,
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(errorResponse, null, 2),
       };
     }
 
     // Create new favourite object
+
     const newFavourite: Favourite = {
+      id: `${userId.trim()}:${deviceId.trim()}`,
       userId: userId.trim(),
       deviceId: deviceId.trim(),
       addedAt: new Date(),
     };
-
+    console.log("adding new favourite with body: ", newFavourite);
     // Add favourite to repository
     const createResult = await favouriteRepo.create(newFavourite);
 
     if (createResult.success) {
       // Get updated list of favourites for the user
       const listResult = await favouriteRepo.list();
-      
+
       if (listResult.success) {
         // Filter favourites for this user
-        const userFavourites = listResult.data.filter(fav => fav.userId === userId.trim());
-        
+        const userFavourites = listResult.data.filter(
+          (fav) => fav.userId === userId.trim()
+        );
+
         const response: AddFavouriteResponse = {
           success: true,
           data: userFavourites,
@@ -122,7 +126,7 @@ export async function addFavouriteHttp(
         return {
           status: 201,
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify(response, null, 2),
         };
@@ -137,7 +141,7 @@ export async function addFavouriteHttp(
       return {
         status: 201,
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(response, null, 2),
       };
@@ -145,9 +149,8 @@ export async function addFavouriteHttp(
 
     // Handle repository errors
     const error = (createResult as { success: false; error: any }).error;
-    const statusCode = error.code === 'ALREADY_EXISTS' ? 409 : 500;
+    const statusCode = error.code === "ALREADY_EXISTS" ? 409 : 500;
 
-   
     const errorResponse: AddFavouriteResponse = {
       success: false,
       error: {
@@ -159,25 +162,25 @@ export async function addFavouriteHttp(
     return {
       status: statusCode,
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(errorResponse, null, 2),
     };
   } catch (error: any) {
-    context.log('Error adding favourite:', error);
+    context.log("Error adding favourite:", error);
 
     const errorResponse: AddFavouriteResponse = {
       success: false,
       error: {
-        code: 'INTERNAL_ERROR',
-        message: 'An unexpected error occurred while adding the favourite',
+        code: "INTERNAL_ERROR",
+        message: "An unexpected error occurred while adding the favourite",
       },
     };
 
     return {
       status: 500,
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(errorResponse, null, 2),
     };
@@ -185,9 +188,9 @@ export async function addFavouriteHttp(
 }
 
 // Register the function with Azure Functions runtime
-app.http('addFavourite', {
-  methods: ['POST'],
-  authLevel: 'anonymous',
-  route: 'favourites',
+app.http("addFavourite", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "favourites",
   handler: addFavouriteHttp,
 });

@@ -4,9 +4,10 @@
  * Favourite value object representing an immutable favourite entity
  */
 export interface Favourite {
-readonly deviceId: string;
-readonly userId: string;
-readonly addedAt: Date;
+  readonly id: string;
+  readonly deviceId: string;
+  readonly userId: string;
+  readonly addedAt: Date;
 }
 
 /**
@@ -40,12 +41,11 @@ const validateDeviceId = (deviceId: string): FavouriteValidationError[] => {
   const errors: FavouriteValidationError[] = [];
 
   if (!deviceId || deviceId.trim().length === 0) {
-    errors.push({ field: 'deviceId', message: 'Device ID is required' });
+    errors.push({ field: "deviceId", message: "Device ID is required" });
   }
 
   return errors;
 };
-
 
 /**
  * Validates a favourite added date
@@ -54,7 +54,7 @@ const validateAddedAt = (addedAt: Date): FavouriteValidationError[] => {
   const errors: FavouriteValidationError[] = [];
 
   if (!addedAt || isNaN(addedAt.getTime())) {
-    errors.push({ field: 'addedAt', message: 'Added date is required' });
+    errors.push({ field: "addedAt", message: "Added date is required" });
   }
 
   return errors;
@@ -67,12 +67,12 @@ const validateId = (id: string): FavouriteValidationError[] => {
   const errors: FavouriteValidationError[] = [];
 
   if (!id || id.trim().length === 0) {
-    errors.push({ field: 'id', message: 'Device ID is required' });
+    errors.push({ field: "id", message: "Device ID is required" });
   } else if (!/^[a-zA-Z0-9-_]+$/.test(id.trim())) {
     errors.push({
-      field: 'id',
+      field: "id",
       message:
-        'Device ID can only contain alphanumeric characters, hyphens, and underscores',
+        "Device ID can only contain alphanumeric characters, hyphens, and underscores",
     });
   }
 
@@ -85,12 +85,12 @@ const validateUserId = (id: string): FavouriteValidationError[] => {
   const errors: FavouriteValidationError[] = [];
 
   if (!id || id.trim().length === 0) {
-    errors.push({ field: 'id', message: 'User ID is required' });
+    errors.push({ field: "id", message: "User ID is required" });
   } else if (!/^[a-zA-Z0-9-_]+$/.test(id.trim())) {
     errors.push({
-      field: 'id',
+      field: "id",
       message:
-        'User ID can only contain alphanumeric characters, hyphens, and underscores',
+        "User ID can only contain alphanumeric characters, hyphens, and underscores",
     });
   }
 
@@ -124,6 +124,7 @@ export const createFavourite = (
   }
 
   const favourite: Favourite = {
+    id: `${params.userId}:${params.deviceId}`,
     deviceId: params.deviceId,
     userId: params.userId,
     addedAt: params.addedAt,

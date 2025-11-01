@@ -317,9 +317,10 @@
 </template>
 
 <script>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import { useRoute } from "vue-router";
 import { fetchProductById } from "../services/CatalogueService";
+import { useFavorites } from "../services/favouritesService";
 import { getCloudinaryUrl } from "../assets/cloudinary";
 
 export default {
@@ -329,7 +330,18 @@ export default {
     const product = ref(null);
     const loading = ref(true);
     const error = ref("");
-    const isFavorited = ref(false);
+
+    // Use the favorites service
+    const {
+      isFavorite,
+      toggleFavorite: serviceToggleFavorite,
+      initializeFavorites,
+    } = useFavorites();
+
+    // Computed property to check if current product is favorited
+    const isFavorited = computed(() => {
+      return product.value ? isFavorite(product.value.id) : false;
+    });
 
     const selectImage = (image) => {
       if (product.value) product.value.mainImage = image;
@@ -339,17 +351,21 @@ export default {
       if (product.value) console.log("Added to cart:", product.value.name);
     };
 
-    const toggleFavorite = () => {
-      isFavorited.value = !isFavorited.value;
-      if (product.value)
+    const toggleFavorite = async () => {
+      if (product.value) {
+        await serviceToggleFavorite(product.value.id);
         console.log(
           isFavorited.value ? "Added to favorites:" : "Removed from favorites:",
           product.value.name
         );
+      }
     };
 
     onMounted(async () => {
       try {
+        // Initialize favorites
+        await initializeFavorites();
+
         const productId = route.params.id;
         if (productId) {
           const fetched = await fetchProductById(productId);

@@ -7,10 +7,10 @@ import { Favourite } from "./favourite";
  */
 export interface RepositoryError {
   readonly code:
-    | 'NOT_FOUND'
-    | 'ALREADY_EXISTS'
-    | 'PERSISTENCE_ERROR'
-    | 'VALIDATION_ERROR';
+    | "NOT_FOUND"
+    | "ALREADY_EXISTS"
+    | "PERSISTENCE_ERROR"
+    | "VALIDATION_ERROR";
   readonly message: string;
   readonly field?: string;
 }
@@ -45,4 +45,12 @@ export interface FavouriteRepo {
    * @returns Promise resolving to either the found favourite or a repository error
    */
   get(id: string): Promise<RepositoryResult<Favourite>>;
+
+  /**
+   * Deletes a favourite by its unique identifier
+   *
+   * @param id - The unique favourite identifier
+   * @returns Promise resolving to either success or a repository error
+   */
+  delete(id: string): Promise<RepositoryResult<void>>;
 }

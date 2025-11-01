@@ -1,5 +1,5 @@
-import { app } from '@azure/functions';
-import { CosmosClient } from '@azure/cosmos';
+import { app } from "@azure/functions";
+import { CosmosClient } from "@azure/cosmos";
 
 const client = new CosmosClient({
   endpoint: process.env.COSMOS_ENDPOINT!,
@@ -7,27 +7,32 @@ const client = new CosmosClient({
 });
 const container = client
   .database(process.env.COSMOS_DATABASE!)
-  .container('Favourites');
+  .container("Favourites");
 
-app.http('removeFavouriteHttp', {
-  methods: ['DELETE'],
-  route: 'loans/user/{userId}/favorites/{deviceId}',
-  authLevel: 'anonymous',
+app.http("removeFavouriteHttp", {
+  methods: ["DELETE"],
+  route: "loans/user/{userId}/favorites/{deviceId}",
+  authLevel: "anonymous",
   handler: async (req, ctx) => {
     const { userId, deviceId } = req.params;
-    const query = {
-      query:
-        'SELECT * FROM c WHERE c.userId = @userId AND c.deviceId = @deviceId',
-      parameters: [
-        { name: '@userId', value: userId },
-        { name: '@deviceId', value: deviceId },
-      ],
-    };
-    const { resources } = await container.items.query(query).fetchAll();
-    if (resources.length === 0) {
-      return { status: 404, jsonBody: { message: 'Favourite not found' } };
+
+    // Construct the composite ID using the same format as creation
+    const favouriteId = `${userId}:${deviceId}`;
+
+    try {
+      // Directly delete using the composite ID
+      await container.item(favouriteId, favouriteId).delete();
+      return { status: 200, jsonBody: { message: "Favourite removed" } };
+    } catch (error: any) {
+      if (error.code === 404) {
+        return { status: 404, jsonBody: { message: "Favourite not found" } };
+      }
+      // Handle other errors
+      ctx.log("Error removing favourite:", error);
+      return {
+        status: 500,
+        jsonBody: { message: "Internal server error while removing favourite" },
+      };
     }
-    await container.item(resources[0].id, resources[0].id).delete();
-    return { status: 200, jsonBody: { message: 'Favourite removed' } };
   },
 });

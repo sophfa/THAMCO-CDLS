@@ -98,9 +98,18 @@ Content-Type: application/json
 GET {{baseUrl}}/api/loans/NON-EXISTENT
 Content-Type: application/json
 
+### Add a favourite
+POST {{baseUrl}}/api/favourites
+Content-Type: application/json
+
+{
+  "userId": "user123",
+  "deviceId": "DEVICE-001"
+}
+
 ### Test with different environments
-### Loanion (uncomment when needed)
-# @baseUrl = https://your-function-app.azurewebsites.net
+### Production (uncomment when needed)
+# @baseUrl = https://loans-service-func.azurewebsites.net
 
 ### Staging (uncomment when needed)  
 # @baseUrl = https://your-function-app-staging.azurewebsites.net

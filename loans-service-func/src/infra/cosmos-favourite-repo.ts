@@ -1,12 +1,12 @@
 // Cosmos DB Favourite Repository Implementation - Infrastructure Layer
 
-import { CosmosClient, Container, ItemResponse } from '@azure/cosmos';
-import { Favourite } from '../domain/favourite';
+import { CosmosClient, Container, ItemResponse } from "@azure/cosmos";
+import { Favourite } from "../domain/favourite";
 import {
   FavouriteRepo,
   RepositoryResult,
   RepositoryError,
-} from '../domain/favourites-repo';
+} from "../domain/favourites-repo";
 
 /**
  * Configuration options for Cosmos DB connection
@@ -23,6 +23,7 @@ export interface CosmosFavouriteRepoOptions {
  * Separate from the domain model to allow for storage-specific concerns
  */
 interface FavouriteDocument {
+  readonly id: string;
   readonly deviceId: string;
   readonly userId: string;
   readonly addedAt: Date;
@@ -55,7 +56,7 @@ export class CosmosFavouriteRepo implements FavouriteRepo {
 
   async list(): Promise<RepositoryResult<Favourite[]>> {
     try {
-      const query = 'SELECT * FROM c';
+      const query = "SELECT * FROM c";
       const { resources } = await this.container.items
         .query<FavouriteDocument>(query)
         .fetchAll();
@@ -71,11 +72,12 @@ export class CosmosFavouriteRepo implements FavouriteRepo {
    * Converts domain Favourite to Cosmos DB document format
    */
   private toDocument(favourite: Favourite): FavouriteDocument {
-   return{
+    return {
+      id: favourite.id,
       deviceId: favourite.deviceId,
       userId: favourite.userId,
       addedAt: favourite.addedAt,
-   }
+    };
   }
 
   /**
@@ -83,6 +85,7 @@ export class CosmosFavouriteRepo implements FavouriteRepo {
    */
   private toDomain(document: FavouriteDocument): Favourite {
     return {
+      id: document.id,
       deviceId: document.deviceId,
       userId: document.userId,
       addedAt: new Date(document.addedAt),
@@ -95,29 +98,29 @@ export class CosmosFavouriteRepo implements FavouriteRepo {
   private mapCosmosError(error: any): RepositoryError {
     if (error.code === 409) {
       return {
-        code: 'ALREADY_EXISTS',
-        message: 'A favourite with this ID already exists',
+        code: "ALREADY_EXISTS",
+        message: "A favourite with this ID already exists",
       };
     }
 
     if (error.code === 404) {
       return {
-        code: 'NOT_FOUND',
-        message: 'Favourite not found',
+        code: "NOT_FOUND",
+        message: "Favourite not found",
       };
     }
 
     if (error.code >= 400 && error.code < 500) {
       return {
-        code: 'VALIDATION_ERROR',
-        message: error.message || 'Invalid request',
+        code: "VALIDATION_ERROR",
+        message: error.message || "Invalid request",
       };
     }
 
     return {
-      code: 'PERSISTENCE_ERROR',
+      code: "PERSISTENCE_ERROR",
       message:
-        error.message || 'An error occurred while accessing the database',
+        error.message || "An error occurred while accessing the database",
     };
   }
 
@@ -141,8 +144,8 @@ export class CosmosFavouriteRepo implements FavouriteRepo {
       return {
         success: false,
         error: {
-          code: 'PERSISTENCE_ERROR',
-          message: 'Failed to create favourite - no resource returned',
+          code: "PERSISTENCE_ERROR",
+          message: "Failed to create favourite - no resource returned",
         },
       };
     } catch (error: any) {
@@ -170,10 +173,25 @@ export class CosmosFavouriteRepo implements FavouriteRepo {
       return {
         success: false,
         error: {
-          code: 'NOT_FOUND',
+          code: "NOT_FOUND",
           message: `Favourite with ID '${id}' not found`,
         },
       };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: this.mapCosmosError(error),
+      };
+    }
+  }
+
+  /**
+   * Deletes a favourite by ID from Cosmos DB
+   */
+  async delete(id: string): Promise<RepositoryResult<void>> {
+    try {
+      await this.container.item(id, id).delete();
+      return { success: true, data: undefined };
     } catch (error: any) {
       return {
         success: false,
