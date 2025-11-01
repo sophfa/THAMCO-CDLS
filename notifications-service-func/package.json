@@ -1,8 +1,8 @@
 {
-  "name": "",
+  "name": "notifications-service-func",
   "version": "1.0.0",
   "description": "",
-  "main": "dist/src/functions/*.js",
+  "main": "index.js",
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",

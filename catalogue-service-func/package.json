@@ -2,6 +2,7 @@
   "name": "catalogue-service-func",
   "version": "1.0.0",
   "description": "Azure Functions catalogue service",
+  "main": "dist/src/functions/index.js",
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
