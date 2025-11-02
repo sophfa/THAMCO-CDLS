@@ -29,9 +29,8 @@ export async function returnLoanHttp(
       return { status: 404, jsonBody: { error: `Loan ${loanId} not found` } };
     }
 
-    // Update the loan status
-    loan.loaned = false;
-    loan.lastReturnedDate = new Date().toISOString();
+    // Update the loan status to fit the new model
+    loan.status = 'Returned';
 
     await container.items.upsert(loan);
 

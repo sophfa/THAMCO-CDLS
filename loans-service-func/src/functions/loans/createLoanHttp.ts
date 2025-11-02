@@ -35,13 +35,19 @@ export async function createLoanHttp(
       };
     }
 
+    const now = new Date();
+    const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
+    const from = now;
+    const till = new Date(now.getTime() + oneWeekMs);
+
     const newLoan = {
       id: `LOAN-${Date.now()}`,
       deviceId,
-      loaned: true,
       userId,
-      waitlist: [],
-      lastLoanedDate: new Date().toISOString(),
+      createdAt: now.toISOString(),
+      from: from.toISOString(),
+      till: till.toISOString(),
+      status: 'Requested' as const,
     };
 
     await container.items.upsert(newLoan);

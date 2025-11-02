@@ -1,70 +1,161 @@
 <template>
   <section class="reservations">
-    <h1>My Reservations</h1>
+    <h1>My Reservations and Loans</h1>
 
-    <div v-if="!loggedIn" class="info">Please log in to view your reservations.</div>
+    <div v-if="!loggedIn" class="info">
+      Please log in to view your reservations.
+    </div>
 
     <div v-else>
-      <div v-if="loading" class="info">Loading your loans…</div>
+      <div v-if="loading" class="info">Loading your account…</div>
       <div v-if="error" class="error">{{ error }}</div>
 
       <div v-if="!loading && !error">
-        <div v-if="loans.length === 0" class="info">You have no current loans.</div>
+        <!-- Reservations Calendar -->
+        <section class="calendar-section">
+          <div class="calendar-header">
+            <button class="nav" @click="prevMonth">‹</button>
+            <h2>{{ monthLabel }}</h2>
+            <button class="nav" @click="nextMonth">›</button>
+          </div>
+          <div class="calendar-grid">
+            <div
+              class="dow"
+              v-for="d in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']"
+              :key="d"
+            >
+              {{ d }}
+            </div>
+            <div
+              v-for="d in calendarDays"
+              :key="d.toISOString()"
+              class="day"
+              :class="[
+                statusClassForDay(d),
+                { other: d.getMonth() !== currentMonth.getMonth() },
+              ]"
+            >
+              <span class="date">{{ d.getDate() }}</span>
+            </div>
+          </div>
+          <div class="legend">
+            <span class="legend-item"
+              ><i class="swatch active"></i> Active (Collected)</span
+            >
+            <span class="legend-item"
+              ><i class="swatch approved"></i> Approved</span
+            >
+            <span class="legend-item"
+              ><i class="swatch reserved"></i> Requested</span
+            >
+          </div>
 
-        <ul v-else class="loans">
-          <li v-for="loan in loans" :key="loan.id" class="loan">
-            <div class="loan-main">
-              <div class="loan-title">
-                <strong>Device:</strong> {{ loan.deviceId }}
+          <div class="reservation-list" v-if="reservations.length">
+            <h3>Upcoming Reservations</h3>
+            <ul>
+              <li v-for="r in reservations" :key="r.id">
+                <strong>{{ r.deviceName }}</strong>
+                <span>
+                  • {{ new Date(r.from as any).toLocaleDateString() }} →
+                  {{ new Date(r.till as any).toLocaleDateString() }}
+                </span>
+                <span class="status"> ({{ r.status }})</span>
+              </li>
+            </ul>
+          </div>
+          <div v-else class="info">You have no upcoming reservations.</div>
+        </section>
+
+        <!-- Active Loans -->
+        <section class="loans-section">
+          <h2>Active Loans</h2>
+          <div v-if="activeLoans.length === 0" class="info">
+            You have no active loans.
+          </div>
+          <ul v-else class="loans">
+            <li v-for="loan in activeLoans" :key="loan.id" class="loan">
+              <div class="loan-main">
+                <div class="loan-title">
+                  <strong>Device:</strong> {{ loan.deviceName }}
+                </div>
+                <div class="loan-status" :class="{ active: loan.loaned }">
+                  {{ loan.loaned ? "Active" : "Returned" }}
+                </div>
               </div>
-              <div class="loan-status" :class="{ active: loan.loaned }">
-                {{ loan.loaned ? 'Active' : 'Returned' }}
+              <div class="loan-meta">
+                <div>
+                  <strong>From:</strong>
+                  {{ new Date(loan.from as any).toLocaleString() }}
+                </div>
+                <div>
+                  <strong>Until:</strong>
+                  {{ new Date(loan.till as any).toLocaleString() }}
+                </div>
               </div>
-            </div>
-            <div class="loan-meta">
-              <div v-if="loan.lastLoanedDate"><strong>Loaned:</strong> {{ new Date(loan.lastLoanedDate).toLocaleString() }}</div>
-              <div v-if="loan.lastReturnedDate"><strong>Returned:</strong> {{ new Date(loan.lastReturnedDate).toLocaleString() }}</div>
-            </div>
-            <div class="loan-actions">
-              <button
-                :disabled="!loan.loaned || returningId === loan.id"
-                @click="handleReturn(loan.id)"
-              >
-                {{ returningId === loan.id ? 'Returning…' : 'Return Device' }}
-              </button>
-            </div>
-          </li>
-        </ul>
+              <div class="loan-actions">
+                <button
+                  :disabled="
+                    loan.status !== 'Collected' || returningId === loan.id
+                  "
+                  @click="handleReturn(loan.id)"
+                >
+                  {{ returningId === loan.id ? "Returning…" : "Return Device" }}
+                </button>
+              </div>
+            </li>
+          </ul>
+        </section>
       </div>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { useAuth } from '../composables/useAuth';
-import { getUserId } from '../services/authService';
-import { getUserLoans, returnLoan } from '../services/api/loansService';
+import { ref, onMounted, computed } from "vue";
+import { useAuth } from "../composables/useAuth";
+import { getUserId } from "../services/authService";
+import { getUserLoans, returnLoan } from "../services/api/loansService";
+import { getProductById } from "../services/api/catalogueService";
+import type { LoanWithDeviceName } from "../types/models";
 
 const { loggedIn } = useAuth();
 
-const loans = ref<any[]>([]);
+const loans = ref<LoanWithDeviceName[]>([]);
+const reservations = ref<LoanWithDeviceName[]>([]);
 const loading = ref(true);
-const error = ref('');
+const error = ref("");
 const returningId = ref<string | null>(null);
 
-const loadLoans = async () => {
+const loadData = async () => {
   try {
     loading.value = true;
-    error.value = '';
+    error.value = "";
     const userId = await getUserId();
     if (!userId) {
       loans.value = [];
+      reservations.value = [];
       return;
     }
-    loans.value = await getUserLoans(userId);
+    const rawLoans = await getUserLoans(userId);
+    loans.value = await Promise.all(
+      rawLoans.map(async (l) => {
+        const product = await getProductById(l.deviceId);
+        return {
+          ...l,
+          deviceName: product.name,
+          deviceImage:
+            (product as any).deviceImage ?? (product as any).imageUrl,
+        };
+      })
+    );
+    console.log("loans:", loans.value);
+    // Reservations are loans in Requested/Approved state
+    reservations.value = loans.value.filter(
+      (l) => l.status === "Requested" || l.status === "Approved"
+    );
+    console.log("reservations:", reservations.value);
   } catch (e: any) {
-    error.value = e?.message || 'Failed to load loans';
+    error.value = e?.message || "Failed to load loans";
   } finally {
     loading.value = false;
   }
@@ -75,22 +166,202 @@ const handleReturn = async (loanId: string) => {
     returningId.value = loanId;
     await returnLoan(loanId);
     loans.value = loans.value.map((l) =>
-      l.id === loanId ? { ...l, loaned: false, lastReturnedDate: new Date().toISOString() } : l
+      l.id === loanId
+        ? { ...l, loaned: false, lastReturnedDate: new Date().toISOString() }
+        : l
     );
   } catch (e) {
     // Surface a simple error; could be enhanced with a toast
-    error.value = 'Failed to return loan';
+    error.value = "Failed to return loan";
   } finally {
     returningId.value = null;
   }
 };
 
-onMounted(loadLoans);
+onMounted(loadData);
+
+const activeLoans = computed(() =>
+  loans.value.filter((l) => l.status === "Collected")
+);
+
+// Calendar state & helpers
+const currentMonth = ref(
+  new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+);
+const monthLabel = computed(() =>
+  currentMonth.value.toLocaleString(undefined, {
+    month: "long",
+    year: "numeric",
+  })
+);
+function startOfWeek(d: Date) {
+  const date = new Date(d);
+  const day = (date.getDay() + 6) % 7; // Monday=0
+  date.setDate(date.getDate() - day);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+function endOfWeek(d: Date) {
+  const date = new Date(d);
+  const day = (date.getDay() + 6) % 7;
+  date.setDate(date.getDate() + (6 - day));
+  date.setHours(23, 59, 59, 999);
+  return date;
+}
+const calendarDays = computed(() => {
+  const start = startOfWeek(new Date(currentMonth.value));
+  const monthEnd = new Date(
+    currentMonth.value.getFullYear(),
+    currentMonth.value.getMonth() + 1,
+    0
+  );
+  const end = endOfWeek(monthEnd);
+  const days: Date[] = [];
+  const cursor = new Date(start);
+  while (cursor <= end) {
+    days.push(new Date(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return days;
+});
+function inRange(date: Date, startIso: string, endIso: string) {
+  const d = new Date(date.toDateString());
+  const s = new Date(new Date(startIso).toDateString());
+  const e = new Date(new Date(endIso).toDateString());
+  return d >= s && d <= e;
+}
+
+function statusClassForDay(date: Date) {
+  // Priority: active (Collected) > approved > reserved
+  const has = (statuses: Array<"Requested" | "Approved" | "Collected">) =>
+    loans.value.some(
+      (l) =>
+        statuses.includes(l.status as any) &&
+        inRange(date, l.from as any, l.till as any)
+    );
+  if (has(["Collected"])) return "active";
+  if (has(["Approved"])) return "approved";
+  if (has(["Requested"])) return "reserved";
+  return "";
+}
+function prevMonth() {
+  currentMonth.value = new Date(
+    currentMonth.value.getFullYear(),
+    currentMonth.value.getMonth() - 1,
+    1
+  );
+}
+function nextMonth() {
+  currentMonth.value = new Date(
+    currentMonth.value.getFullYear(),
+    currentMonth.value.getMonth() + 1,
+    1
+  );
+}
 </script>
 
 <style scoped>
 .reservations {
   padding: 2rem;
+}
+.calendar-section {
+  margin: 1.5rem 0 2rem;
+}
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.calendar-header .nav {
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  border-radius: 6px;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+}
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-top: 0.75rem;
+}
+.dow {
+  text-align: center;
+  font-weight: 600;
+  color: #6b7280;
+  padding: 0.25rem 0;
+}
+.day {
+  min-height: 56px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 0.25rem;
+  position: relative;
+}
+.day.other {
+  background: #fafafa;
+  color: #9ca3af;
+}
+.day.hasReservation {
+  background: #ecfeff;
+  border-color: #06b6d4;
+}
+.day.active {
+  background: #ecfeff; /* cyan-50 */
+  border-color: #06b6d4; /* cyan-500 */
+}
+.day.approved {
+  background: #f5f3ff; /* violet-50 */
+  border-color: #8b5cf6; /* violet-500 */
+}
+.day.reserved {
+  background: #fffbeb; /* amber-50 */
+  border-color: #f59e0b; /* amber-500 */
+}
+.legend {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-top: 0.5rem;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid #d1d5db;
+}
+.swatch.active {
+  background: #ecfeff;
+  border-color: #06b6d4;
+}
+.swatch.approved {
+  background: #f5f3ff;
+  border-color: #8b5cf6;
+}
+.swatch.reserved {
+  background: #fffbeb;
+  border-color: #f59e0b;
+}
+.day .date {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+.reservation-list {
+  margin-top: 0.75rem;
+}
+.loans-section h2 {
+  margin-top: 1rem;
 }
 .info {
   background: #f3f4f6;

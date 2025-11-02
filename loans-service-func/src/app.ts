@@ -2,6 +2,7 @@
 // This file imports all function modules to ensure they are registered
 
 import './functions/loans/listLoansHttp';
+import './functions/loans/authLoanHttp';
 import './functions/loans/createLoanHttp';
 import './functions/loans/getLoanHttp';
 import './functions/loans/getUserLoansHttp';

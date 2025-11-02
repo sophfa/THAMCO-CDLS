@@ -24,25 +24,12 @@ export interface CosmosLoanRepoOptions {
  */
 interface LoanDocument {
   readonly id: string;
-  readonly name: string;
-  readonly brand: string;
-  readonly category: string;
-  readonly model: string;
-  readonly processor: string;
-  readonly ram: string;
-  readonly storage: string;
-  readonly gpu: string;
-  readonly display: string;
-  readonly os: string;
-  readonly batteryLife: string;
-  readonly weight: string;
-  readonly ports: string[];
-  readonly connectivity: string[];
-  readonly description?: string;
-  readonly imageUrl?: string;
-  readonly price: number;
-  readonly inStock: boolean;
-  readonly createdAt: Date;
+  readonly deviceId: string;
+  readonly userId: string;
+  readonly createdAt: string; // ISO string in storage
+  readonly from: string; // ISO string in storage
+  readonly till: string; // ISO string in storage
+  readonly status: 'Requested' | 'Approved' | 'Rejected' | 'Collected' | 'Returned';
 }
 
 /**
@@ -90,25 +77,12 @@ export class CosmosLoanRepo implements LoanRepo {
   private toDocument(loan: Loan): LoanDocument {
     return {
       id: loan.id,
-      name: loan.name,
-      brand: loan.brand,
-      category: loan.category,
-      model: loan.model,
-      processor: loan.processor,
-      ram: loan.ram,
-      storage: loan.storage,
-      gpu: loan.gpu,
-      display: loan.display,
-      os: loan.os,
-      batteryLife: loan.batteryLife,
-      weight: loan.weight,
-      ports: loan.ports,
-      connectivity: loan.connectivity,
-      description: loan.description,
-      imageUrl: loan.imageUrl,
-      price: loan.price,
-      inStock: loan.inStock,
-      createdAt: loan.createdAt,
+      deviceId: loan.deviceId,
+      userId: loan.userId,
+      createdAt: loan.createdAt.toISOString(),
+      from: loan.from.toISOString(),
+      till: loan.till.toISOString(),
+      status: loan.status,
     };
   }
 
@@ -118,25 +92,12 @@ export class CosmosLoanRepo implements LoanRepo {
   private toDomain(document: LoanDocument): Loan {
     return {
       id: document.id,
-      name: document.name,
-      brand: document.brand,
-      category: document.category,
-      model: document.model,
-      processor: document.processor,
-      ram: document.ram,
-      storage: document.storage,
-      gpu: document.gpu,
-      display: document.display,
-      os: document.os,
-      batteryLife: document.batteryLife,
-      weight: document.weight,
-      ports: document.ports,
-      connectivity: document.connectivity,
-      description: document.description,
-      imageUrl: document.imageUrl,
-      price: document.price,
-      inStock: document.inStock,
+      deviceId: document.deviceId,
+      userId: document.userId,
       createdAt: new Date(document.createdAt),
+      from: new Date(document.from),
+      till: new Date(document.till),
+      status: document.status,
     };
   }
 

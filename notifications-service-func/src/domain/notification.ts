@@ -3,28 +3,21 @@
 /**
  * Notification value object representing an immutable notification entity
  */
-export interface Notification {
+export interface Notification<T = any> {
   readonly id: string;
-  readonly name: string;
-  readonly brand: string;
-  readonly category: string;
-  readonly model: string;
-  readonly processor: string;
-  readonly ram: string;
-  readonly storage: string;
-  readonly gpu: string;
-  readonly display: string;
-  readonly os: string;
-  readonly batteryLife: string;
-  readonly weight: string;
-  readonly ports: string[];
-  readonly connectivity: string[];
-  readonly description?: string;
-  readonly imageUrl?: string;
-  readonly price: number;
-  readonly inStock: boolean;
+  readonly userId: string;
+  readonly type:
+    | 'Reservation'
+    | 'Accepted'
+    | 'Rejected'
+    | 'Cancelled'
+    | 'Collected'
+    | 'Returned';
+  readonly content: T;
   readonly createdAt: Date;
 }
+
+
 
 /**
  * Input parameters for creating a Notification

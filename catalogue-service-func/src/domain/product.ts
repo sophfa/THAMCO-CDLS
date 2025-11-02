@@ -1,7 +1,7 @@
-// Product Domain Model - Pure Functional Approach
+// Product Domain Model - Pure Functional Approach with Category-Specific Properties
 
 /**
- * Product value object representing an immutable product entity
+ * Base product interface with common properties for all product types
  */
 export interface Product {
   readonly id: string;
@@ -24,10 +24,90 @@ export interface Product {
   readonly price: number;
   readonly inStock: boolean;
   readonly createdAt: Date;
+
+  // Cosmos DB metadata (optional for domain model, required for persistence)
+  readonly _rid?: string;
+  readonly _self?: string;
+  readonly _etag?: string;
+  readonly _attachments?: string;
+  readonly _ts?: number;
+
+  // Tablet-specific properties (optional)
+  readonly cameras?: {
+    readonly rear?: string;
+    readonly front?: string;
+    readonly video?: string;
+  };
+  readonly sensors?: string[];
+  readonly materials?: string[];
+  readonly accessories?: string[];
+
+  // Camera-specific properties (optional)
+  readonly sensor?: string;
+  readonly imageProcessor?: string;
+  readonly isoRange?: string;
+  readonly lensMount?: string;
+  readonly lens?: string;
+  readonly stabilization?: string;
+  readonly video?: string;
+  readonly photo?: string;
+  readonly waterproof?: string;
 }
 
 /**
- * Input parameters for creating a Product
+ * Category-narrowed product variants
+ */
+export interface LaptopProduct extends Product {
+  readonly category: "Laptop";
+}
+
+export interface TabletProduct extends Product {
+  readonly category: "Tablet";
+  readonly cameras?: {
+    readonly rear?: string;
+    readonly front?: string;
+    readonly video?: string;
+  };
+  readonly sensors?: string[];
+  readonly materials?: string[];
+  readonly accessories?: string[];
+}
+
+export interface CameraProduct extends Product {
+  readonly category: "Camera";
+  readonly sensor?: string;
+  readonly imageProcessor?: string;
+  readonly isoRange?: string;
+  readonly lensMount?: string;
+  readonly lens?: string;
+  readonly stabilization?: string;
+  readonly video?: string;
+  readonly photo?: string;
+  readonly waterproof?: string;
+}
+
+/**
+ * Union type for all category-specific products
+ */
+export type CategoryProduct = LaptopProduct | TabletProduct | CameraProduct;
+
+/**
+ * Type guards for product categories
+ */
+export function isTablet(product: Product): product is TabletProduct {
+  return product?.category === "Tablet";
+}
+
+export function isCamera(product: Product): product is CameraProduct {
+  return product?.category === "Camera";
+}
+
+export function isLaptop(product: Product): product is LaptopProduct {
+  return product?.category === "Laptop";
+}
+
+/**
+ * Input parameters for creating a Product with category-specific properties
  */
 export interface CreateProductParams {
   readonly id: string;
@@ -50,6 +130,27 @@ export interface CreateProductParams {
   readonly price: number;
   readonly inStock: boolean;
   readonly createdAt: Date;
+
+  // Tablet-specific properties (optional)
+  readonly cameras?: {
+    readonly rear?: string;
+    readonly front?: string;
+    readonly video?: string;
+  };
+  readonly sensors?: string[];
+  readonly materials?: string[];
+  readonly accessories?: string[];
+
+  // Camera-specific properties (optional)
+  readonly sensor?: string;
+  readonly imageProcessor?: string;
+  readonly isoRange?: string;
+  readonly lensMount?: string;
+  readonly lens?: string;
+  readonly stabilization?: string;
+  readonly video?: string;
+  readonly photo?: string;
+  readonly waterproof?: string;
 }
 
 /**
@@ -163,7 +264,7 @@ const validateDescription = (
 };
 
 /**
- * Combines all validation results
+ * Combines all validation results including category-specific validation
  */
 const validateProduct = (
   params: CreateProductParams
@@ -174,11 +275,12 @@ const validateProduct = (
     ...validatePrice(params.price),
     ...validateCategory(params.category),
     ...validateDescription(params.description),
+    ...validateCategorySpecificProperties(params),
   ];
 };
 
 /**
- * Factory function to create a Product with validation
+ * Factory function to create a Product with validation and category-specific properties
  * Returns either a valid Product or validation errors
  */
 export const createProduct = (
@@ -190,7 +292,7 @@ export const createProduct = (
     return { success: false, errors };
   }
 
-  const product: Product = {
+  const baseProduct = {
     id: params.id.trim(),
     name: params.name.trim(),
     brand: params.brand.trim(),
@@ -211,6 +313,26 @@ export const createProduct = (
     price: params.price,
     inStock: params.inStock,
     createdAt: params.createdAt,
+  };
+
+  // Add category-specific properties based on product type
+  const product: Product = {
+    ...baseProduct,
+    // Tablet-specific properties
+    ...(params.cameras && { cameras: { ...params.cameras } }),
+    ...(params.sensors && { sensors: [...params.sensors] }),
+    ...(params.materials && { materials: [...params.materials] }),
+    ...(params.accessories && { accessories: [...params.accessories] }),
+    // Camera-specific properties
+    ...(params.sensor && { sensor: params.sensor.trim() }),
+    ...(params.imageProcessor && { imageProcessor: params.imageProcessor.trim() }),
+    ...(params.isoRange && { isoRange: params.isoRange.trim() }),
+    ...(params.lensMount && { lensMount: params.lensMount.trim() }),
+    ...(params.lens && { lens: params.lens.trim() }),
+    ...(params.stabilization && { stabilization: params.stabilization.trim() }),
+    ...(params.video && { video: params.video.trim() }),
+    ...(params.photo && { photo: params.photo.trim() }),
+    ...(params.waterproof && { waterproof: params.waterproof.trim() }),
   };
 
   return { success: true, product };
@@ -279,4 +401,73 @@ export const calculateDiscountedPrice = (
   }
 
   return product.price * (1 - discountPercent / 100);
+};
+
+/**
+ * Helper function to get category-specific properties for display
+ */
+export const getCategorySpecificProperties = (product: Product): Record<string, any> => {
+  if (isCamera(product)) {
+    return {
+      sensor: product.sensor,
+      imageProcessor: product.imageProcessor,
+      isoRange: product.isoRange,
+      lensMount: product.lensMount,
+      lens: product.lens,
+      stabilization: product.stabilization,
+      video: product.video,
+      photo: product.photo,
+      waterproof: product.waterproof,
+    };
+  }
+
+  if (isTablet(product)) {
+    return {
+      cameras: product.cameras,
+      sensors: product.sensors,
+      materials: product.materials,
+      accessories: product.accessories,
+    };
+  }
+
+  // Laptop or unknown category - return empty object
+  return {};
+};
+
+/**
+ * Helper function to validate category-specific properties
+ */
+export const validateCategorySpecificProperties = (
+  params: CreateProductParams
+): ProductValidationError[] => {
+  const errors: ProductValidationError[] = [];
+  const category = params.category?.toLowerCase();
+
+  // For cameras, some properties might be required
+  if (category === 'camera') {
+    if (params.sensor && params.sensor.trim().length > 100) {
+      errors.push({
+        field: 'sensor',
+        message: 'Sensor description cannot exceed 100 characters',
+      });
+    }
+  }
+
+  // For tablets, validate arrays if provided
+  if (category === 'tablet') {
+    if (params.sensors && params.sensors.length > 20) {
+      errors.push({
+        field: 'sensors',
+        message: 'Cannot have more than 20 sensors listed',
+      });
+    }
+    if (params.accessories && params.accessories.length > 10) {
+      errors.push({
+        field: 'accessories',
+        message: 'Cannot have more than 10 accessories listed',
+      });
+    }
+  }
+
+  return errors;
 };

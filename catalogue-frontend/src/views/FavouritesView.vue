@@ -224,7 +224,7 @@ const handleReserveOrWaitlist = (product: Product) => {
 
 .image-class {
   width: 100%;
-  height: auto;
+  height: 200px;
   object-fit: contain;
   margin-bottom: 0.5rem;
   border-radius: 4px;

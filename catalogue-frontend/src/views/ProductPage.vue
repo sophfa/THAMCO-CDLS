@@ -281,6 +281,110 @@
                   <div class="spec-label">Weight</div>
                   <div class="spec-value">{{ product.weight }}</div>
                 </div>
+
+                <!-- Tablet-specific specs -->
+                <template v-if="product.category === 'Tablet'">
+                  <div
+                    v-if="
+                      product.cameras &&
+                      (product.cameras.rear || product.cameras.front)
+                    "
+                    class="spec-card-wide"
+                  >
+                    <div class="spec-label">Cameras</div>
+                    <div class="spec-value">
+                      <div v-if="product.cameras.rear">
+                        <strong>Rear:</strong> {{ product.cameras.rear }}
+                      </div>
+                      <div v-if="product.cameras.front">
+                        <strong>Front:</strong> {{ product.cameras.front }}
+                      </div>
+                      <div v-if="product.cameras.video">
+                        <strong>Video:</strong> {{ product.cameras.video }}
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    v-if="
+                      Array.isArray(product.sensors) && product.sensors.length
+                    "
+                    class="spec-card-wide"
+                  >
+                    <div class="spec-label">Sensors</div>
+                    <div class="spec-value">
+                      {{ product.sensors.join(", ") }}
+                    </div>
+                  </div>
+                  <div
+                    v-if="
+                      Array.isArray(product.materials) &&
+                      product.materials.length
+                    "
+                    class="spec-card-wide"
+                  >
+                    <div class="spec-label">Materials</div>
+                    <div class="spec-value">
+                      {{ product.materials.join(", ") }}
+                    </div>
+                  </div>
+                  <div
+                    v-if="
+                      Array.isArray(product.accessories) &&
+                      product.accessories.length
+                    "
+                    class="spec-card-wide"
+                  >
+                    <div class="spec-label">Accessories</div>
+                    <div class="spec-value">
+                      {{ product.accessories.join(", ") }}
+                    </div>
+                  </div>
+                </template>
+
+                <!-- Camera-specific specs -->
+                <template v-if="product.category === 'Camera'">
+                  <div v-if="product.sensor" class="spec-card">
+                    <div class="spec-label">Sensor</div>
+                    <div class="spec-value">{{ product.sensor }}</div>
+                  </div>
+                  <div
+                    v-if="product.imageProcessor || product.processor"
+                    class="spec-card"
+                  >
+                    <div class="spec-label">Image Processor</div>
+                    <div class="spec-value">
+                      {{ product.imageProcessor || product.processor }}
+                    </div>
+                  </div>
+                  <div v-if="product.isoRange" class="spec-card">
+                    <div class="spec-label">ISO Range</div>
+                    <div class="spec-value">{{ product.isoRange }}</div>
+                  </div>
+                  <div v-if="product.lensMount" class="spec-card">
+                    <div class="spec-label">Lens Mount</div>
+                    <div class="spec-value">{{ product.lensMount }}</div>
+                  </div>
+                  <div v-if="product.lens" class="spec-card">
+                    <div class="spec-label">Lens</div>
+                    <div class="spec-value">{{ product.lens }}</div>
+                  </div>
+                  <div v-if="product.stabilization" class="spec-card">
+                    <div class="spec-label">Stabilization</div>
+                    <div class="spec-value">{{ product.stabilization }}</div>
+                  </div>
+                  <div v-if="product.video" class="spec-card-wide">
+                    <div class="spec-label">Video</div>
+                    <div class="spec-value">{{ product.video }}</div>
+                  </div>
+                  <div v-if="product.photo" class="spec-card-wide">
+                    <div class="spec-label">Photo</div>
+                    <div class="spec-value">{{ product.photo }}</div>
+                  </div>
+                  <div v-if="product.waterproof" class="spec-card">
+                    <div class="spec-label">Waterproof</div>
+                    <div class="spec-value">{{ product.waterproof }}</div>
+                  </div>
+                </template>
               </div>
 
               <!-- Additional specs -->
@@ -317,7 +421,7 @@
 </template>
 
 <script>
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, computed, watch } from "vue";
 import { useRoute } from "vue-router";
 import { fetchProductById } from "../services/CatalogueService";
 import { useFavorites } from "../services/favouritesService";
@@ -382,7 +486,10 @@ export default {
         loading.value = false;
       }
     });
-
+    // Debug: log the current product object (not the Ref wrapper)
+    console.log("product:", product.value);
+    // Also log whenever it changes
+    watch(product, (v) => console.log("product changed:", v));
     return {
       product,
       loading,

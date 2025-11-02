@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, computed, onMounted, watch, reactive } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { fetchCatalogue, type Product } from "../services/CatalogueService";
 import {
@@ -10,6 +10,8 @@ import { useFavorites } from "../services/favouritesService";
 import { useAuth } from "../composables/useAuth";
 import SearchBar from "../components/SearchBar.vue";
 import { getCloudinaryUrl } from "../assets/cloudinary";
+import { getUserId } from "../services/authService";
+import { sendNotification } from "../services/api/notificationsService";
 
 const products = ref<Product[]>([]);
 const searchTerm = ref("");
@@ -28,6 +30,65 @@ const loading = ref(true);
 const error = ref("");
 const router = useRouter();
 const route = useRoute();
+
+// Confirmation / result dialog state
+const dialog = reactive({
+  open: false as boolean,
+  kind: "reserve" as "reserve" | "waitlist",
+  state: "confirm" as "confirm" | "success" | "error",
+  loading: false as boolean,
+  error: "" as string,
+  product: null as null | Product,
+  startDate: "" as string,
+  endDate: "" as string,
+});
+
+async function confirmDialog() {
+  if (!dialog.product) return;
+  dialog.loading = true;
+  dialog.error = "";
+  try {
+    if (dialog.kind === "reserve") {
+      // Fallback to today/tomorrow if missing
+      const start = dialog.startDate || new Date().toISOString().slice(0, 10);
+      const end =
+        dialog.endDate ||
+        new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+      await createLoan(dialog.product.id, start, end, "Requested");
+    } else {
+      await joinWaitlistForDevice(dialog.product.id);
+    }
+    // Fire-and-forget notification
+    try {
+      const uid = await getUserId();
+      if (uid) {
+        const message =
+          dialog.kind === "reserve"
+            ? `Your reservation for ${dialog.product.name} is confirmed (${dialog.startDate} → ${dialog.endDate}). A receipt has been emailed to you.`
+            : `You joined the waitlist for ${dialog.product.name}. We'll notify you when it's available.`;
+        await sendNotification(uid, message, dialog.kind);
+      }
+    } catch (e) {
+      console.warn("Notification failed:", e);
+    }
+    dialog.state = "success";
+  } catch (e: any) {
+    dialog.state = "error";
+    dialog.error = e?.message || "Operation failed";
+  } finally {
+    dialog.loading = false;
+  }
+}
+
+function closeDialog() {
+  dialog.open = false;
+  dialog.loading = false;
+  dialog.error = "";
+  dialog.product = null;
+  dialog.state = "confirm";
+  dialog.startDate = "";
+  dialog.endDate = "";
+}
 
 // Use auth composable for login status
 const { loggedIn } = useAuth();
@@ -276,16 +337,16 @@ watch(
 );
 
 const handleReserveOrWaitlist = async (product: Product) => {
-  try {
-    if (product.inStock) {
-      console.log(`Reserving ${product.name}`);
-      await createLoan(product.id);
-    } else {
-      console.log(`Joining waitlist for ${product.name}`);
-      await joinWaitlistForDevice(product.id);
-    }
-  } catch (e) {
-    console.error("Failed to handle reserve/waitlist action:", e);
+  // Open confirmation dialog instead of immediately performing the action
+  dialog.open = true;
+  dialog.kind = product.inStock ? "reserve" : "waitlist";
+  dialog.product = product;
+  dialog.state = "confirm";
+  if (product.inStock) {
+    const today = new Date();
+    const tomorrow = new Date(Date.now() + 86400000);
+    dialog.startDate = today.toISOString().slice(0, 10);
+    dialog.endDate = tomorrow.toISOString().slice(0, 10);
   }
 };
 const viewDetails = (product: Product) => {
@@ -594,6 +655,89 @@ const viewDetails = (product: Product) => {
       </div>
     </div>
   </section>
+
+  <!-- Confirmation / Result Dialog -->
+  <div v-if="dialog.open" class="modal-backdrop">
+    <div class="modal">
+      <h3 class="modal-title">
+        <span v-if="dialog.state === 'confirm'">
+          {{
+            dialog.kind === "reserve" ? "Confirm Reservation" : "Join Waitlist"
+          }}
+        </span>
+        <span v-else-if="dialog.state === 'success'">
+          {{
+            dialog.kind === "reserve"
+              ? "Reservation Confirmed"
+              : "Waitlist Joined"
+          }}
+        </span>
+        <span v-else> Action Failed </span>
+      </h3>
+
+      <div class="modal-body">
+        <template v-if="dialog.state === 'confirm' && dialog.product">
+          <p>
+            {{
+              dialog.kind === "reserve"
+                ? `Reserve ${dialog.product.name}?`
+                : `Join the waitlist for ${dialog.product.name}?`
+            }}
+          </p>
+          <div v-if="dialog.kind === 'reserve'" class="date-range">
+            <div class="date-field">
+              <label>From</label>
+              <input type="date" v-model="dialog.startDate" />
+            </div>
+            <div class="date-field">
+              <label>Until</label>
+              <input
+                type="date"
+                v-model="dialog.endDate"
+                :min="dialog.startDate"
+              />
+            </div>
+          </div>
+        </template>
+
+        <template v-else-if="dialog.state === 'success' && dialog.product">
+          <p v-if="dialog.kind === 'reserve'">
+            Device reserved. A receipt has been emailed to you.
+          </p>
+          <p v-else>
+            You have joined the waitlist. We'll notify you when it's available.
+          </p>
+        </template>
+
+        <template v-else>
+          <p>{{ dialog.error || "Something went wrong. Please try again." }}</p>
+        </template>
+      </div>
+
+      <div class="modal-actions">
+        <template v-if="dialog.state === 'confirm'">
+          <button class="btn-secondary" @click="closeDialog">Cancel</button>
+          <button
+            class="btn-primary"
+            :disabled="dialog.loading"
+            @click="confirmDialog"
+          >
+            {{
+              dialog.loading
+                ? "Working…"
+                : dialog.kind === "reserve"
+                ? "Confirm"
+                : "Join"
+            }}
+          </button>
+        </template>
+
+        <template v-else>
+          <button class="btn-primary" @click="closeDialog">Close</button>
+        </template>
+      </div>
+    </div>
+  </div>
 </template>
 
 <style scoped>
@@ -612,7 +756,7 @@ const viewDetails = (product: Product) => {
   padding: 0.75rem 1rem;
   border-radius: 8px;
   border: 1px solid #d1d5db;
-  background: linear-gradient(135deg, #867537 0%, #caad63 100%);
+  background: linear-gradient(135deg, #867537 0%, #bcad86 100%);
   color: white;
   cursor: pointer;
   font-weight: 500;
@@ -678,7 +822,7 @@ const viewDetails = (product: Product) => {
   justify-content: space-between;
   align-items: center;
   padding: 1.25rem 1.5rem;
-  background: linear-gradient(135deg, #867537 0%, #caad63 100%);
+  background: linear-gradient(135deg, #867537 0%, #bcad86 100%);
   color: white;
   margin: 0;
 }
@@ -713,6 +857,7 @@ const viewDetails = (product: Product) => {
   padding: 1.5rem;
   max-height: calc(100vh - 8rem);
   overflow-y: auto;
+  background-color: #fff;
 }
 
 /* Quick Actions */
@@ -788,6 +933,7 @@ const viewDetails = (product: Product) => {
   font-weight: 500;
   color: #374151;
   margin-bottom: 0.5rem;
+  width: fit-content;
 }
 
 /* Select Wrapper */
@@ -876,6 +1022,9 @@ const viewDetails = (product: Product) => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  flex-direction: column;
+  align-content: flex-start;
+  flex-wrap: wrap;
 }
 
 .price-input-wrapper {
@@ -1012,6 +1161,7 @@ const viewDetails = (product: Product) => {
   .drawer-content {
     max-height: calc(100vh - 5rem);
     padding: 1rem;
+    background-color: #fff;
   }
 
   .drawer-header {
@@ -1061,7 +1211,7 @@ const viewDetails = (product: Product) => {
 }
 .image-class {
   width: 100%;
-  height: auto;
+  height: 200px;
   object-fit: contain;
   margin-bottom: 0.5rem;
   border-radius: 4px;
@@ -1102,18 +1252,18 @@ const viewDetails = (product: Product) => {
   font-weight: bold;
 }
 .reserve-btn {
-  background-color: #4caf50;
+  background-color: #3b82f6;
   color: white;
 }
 .reserve-btn:hover {
-  background-color: #45a049;
+  background-color: #2563eb;
 }
 .waitlist-btn {
-  background-color: #ff9800;
+  background-color: #6b7280;
   color: white;
 }
 .waitlist-btn:hover {
-  background-color: #e68900;
+  background-color: #4b5563;
 }
 .favorite-btn {
   background: none;
@@ -1145,5 +1295,73 @@ const viewDetails = (product: Product) => {
   border-radius: 4px;
   margin: 0.5rem 0;
   font-size: 0.9rem;
+}
+</style>
+
+<style scoped>
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.modal {
+  background: #fff;
+  border-radius: 12px;
+  width: 95%;
+  max-width: 480px;
+  padding: 1.25rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+.modal-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+.modal-body {
+  color: #374151;
+  margin-bottom: 1rem;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+.date-range {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+.date-field label {
+  display: block;
+  font-size: 0.85rem;
+  color: #374151;
+  margin-bottom: 0.25rem;
+}
+.date-field input[type="date"] {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 0.4rem 0.5rem;
+}
+.btn-primary {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.btn-secondary {
+  background: #e5e7eb;
+  color: #111827;
+  border: none;
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  cursor: pointer;
 }
 </style>

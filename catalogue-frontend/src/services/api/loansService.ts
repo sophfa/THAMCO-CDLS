@@ -1,4 +1,5 @@
 import { getUserId, getToken } from "../authService";
+import type { Loan } from "../../types/models";
 
 const BASE_URL = import.meta.env.VITE_LOANS_API_URL;
 
@@ -42,26 +43,34 @@ async function authenticatedFetch(url: string, options: RequestInit = {}) {
   return data;
 }
 
-export async function createLoan(deviceId: string) {
-  console.log(`[LoansService] Creating loan for device: ${deviceId}`);
+export async function createLoan(
+  deviceId: string,
+  from: string,
+  till: string,
+  status: Loan["status"] = "Requested"
+): Promise<Loan> {
+  console.log(
+    `[LoansService] Creating loan for device: ${deviceId} from ${from} to ${till} (${status})`
+  );
 
   const userId = await getUserId();
-  console.log(`[LoansService] User ID for loan creation: ${userId}`);
+  if (!userId) throw new Error("User not authenticated");
 
   const payload = {
     deviceId,
     userId,
-    loaned: true,
+    from,
+    till,
+    status,
   };
 
   try {
-    await authenticatedFetch(`${import.meta.env.VITE_LOANS_API_URL}/loans`, {
+    const loan = await authenticatedFetch(`${BASE_URL}/loans`, {
       method: "POST",
       body: JSON.stringify(payload),
     });
-    console.log(
-      `[LoansService] Loan created successfully for device: ${deviceId}`
-    );
+    console.log(`[LoansService] Loan created successfully for device: ${deviceId}`);
+    return loan as Loan;
   } catch (error) {
     console.error(
       `[LoansService] Failed to create loan for device: ${deviceId}`,
@@ -71,13 +80,13 @@ export async function createLoan(deviceId: string) {
   }
 }
 
-export async function returnLoan(loanId: string) {
+export async function returnLoan(loanId: string): Promise<Loan> {
   console.log(`[LoansService] Returning loan: ${loanId}`);
 
   const response = await fetch(`${BASE_URL}/loans/${loanId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ loaned: false }),
+    body: JSON.stringify({ status: "Returned" }),
   });
 
   if (!response.ok) {
@@ -88,7 +97,7 @@ export async function returnLoan(loanId: string) {
     throw new Error(`Failed to return loan`);
   }
 
-  const data = await response.json();
+  const data = (await response.json()) as Loan;
   console.log(`[LoansService] Loan returned successfully: ${loanId}`);
   return data;
 }
@@ -141,7 +150,7 @@ export async function joinWaitlistForDevice(deviceId: string) {
   return data;
 }
 
-export async function getUserLoans(userId: string) {
+export async function getUserLoans(userId: string): Promise<Loan[]> {
   console.log(`[LoansService] Fetching loans for user: ${userId}`);
 
   const response = await fetch(
@@ -156,7 +165,7 @@ export async function getUserLoans(userId: string) {
     throw new Error(`Failed to fetch loans for ${userId}`);
   }
 
-  const data = await response.json();
+  const data = (await response.json()) as Loan[];
   console.log(
     `[LoansService] Successfully fetched ${
       Array.isArray(data) ? data.length : "unknown"
