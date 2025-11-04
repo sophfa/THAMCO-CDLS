@@ -7,7 +7,23 @@ export interface Loan {
   readonly createdAt: Date | string;
   readonly from: Date | string;
   readonly till: Date | string;
-  readonly status: "Requested" | "Approved" | "Rejected" | "Collected" | "Returned";
+  readonly status:
+    | "Requested"
+    | "Approved"
+    | "Rejected"
+    | "Collected"
+    | "Returned";
+}
+
+export interface WaitlistEntry {
+  id: string;
+  deviceId: string;
+  userId: string;
+  position: number;
+  joinedDate: string;
+  estimatedAvailability?: string;
+  deviceName?: string;
+  deviceImage?: string;
 }
 
 export interface Product {

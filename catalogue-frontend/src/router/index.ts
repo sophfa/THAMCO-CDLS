@@ -15,6 +15,7 @@ import SignupView from "../views/SignupView.vue";
 import { useAuth } from "../composables/useAuth";
 import ProductPage from "../views/ProductPage.vue";
 import FAQsView from "../views/FAQsView.vue";
+import AdminDashboard from "../views/AdminDashboard.vue";
 
 const routes = [
   { path: "/", name: "home", component: HomeView },
@@ -46,6 +47,12 @@ const routes = [
   },
   { path: "/login", name: "login", component: LoginView },
   { path: "/signup", name: "signup", component: SignupView },
+  {
+    path: "/admin/dashboard",
+    name: "admin-dashboard",
+    component: AdminDashboard,
+    meta: { requiresAuth: true, requiresAdmin: true },
+  },
 ];
 
 const router = createRouter({
@@ -60,10 +67,12 @@ router.beforeEach(
     from: RouteLocationNormalized,
     next: NavigationGuardNext
   ) => {
-    const { loggedIn } = useAuth();
+    const { loggedIn, user } = useAuth();
 
     if (to.meta.requiresAuth && !loggedIn.value) {
       next("/login");
+    } else if (to.meta.requiresAdmin && user.value?.role !== "Admin") {
+      next("/");
     } else {
       next();
     }

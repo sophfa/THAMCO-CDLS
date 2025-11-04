@@ -1,41 +1,155 @@
-import { app, HttpRequest, HttpResponseInit } from "@azure/functions";
-import { CosmosClient } from "@azure/cosmos";
-import "dotenv/config";
+// Azure Function - Get Notifications by User ID HTTP Trigger
 
-// Configure Cosmos with safe defaults
-const client = new CosmosClient({
-  endpoint: process.env.COSMOS_ENDPOINT || "https://localhost:8081",
-  key: process.env.COSMOS_KEY,
-});
-const databaseId = process.env.COSMOS_DATABASE || "notifications-db";
-const containerId = process.env.COSMOS_CONTAINER || "Notifications";
-const container = client.database(databaseId).container(containerId);
+import {
+  app,
+  HttpRequest,
+  HttpResponseInit,
+  InvocationContext,
+} from '@azure/functions';
+import { Notification } from '../domain/notification';
+import {
+  getNotificationRepo,
+  MissingCosmosConfigurationError,
+} from '../infra/notificationRepoFactory';
 
+/**
+ * Response format for get notifications by user API
+ */
+interface GetNotificationsByUserResponse {
+  readonly success: boolean;
+  readonly data?: Notification[];
+  readonly error?: {
+    readonly code: string;
+    readonly message: string;
+  };
+}
+
+/**
+ * Azure Function to get all notifications for a specific user
+ *
+ * GET /api/notifications/{userId}
+ *
+ * Returns all notifications for the specified user ID
+ */
 export async function getNotificationsByUserHttp(
-  req: HttpRequest
+  request: HttpRequest,
+  context: InvocationContext
 ): Promise<HttpResponseInit> {
+  const userId = request.params.userId;
+
+  context.log(
+    `HTTP trigger function processed a request to get notifications for user: ${userId}`
+  );
+
+  // Validate user ID parameter
+  if (!userId || userId.trim().length === 0) {
+    const errorResponse: GetNotificationsByUserResponse = {
+      success: false,
+      error: {
+        code: 'INVALID_INPUT',
+        message: 'User ID is required',
+      },
+    };
+
+    return {
+      status: 400,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(errorResponse, null, 2),
+    };
+  }
+
   try {
-    const rawUserId = req.params.userId ?? "";
-    const userId = decodeURIComponent(rawUserId).trim();
+    // Get notifications from repository
+    const repo = getNotificationRepo();
+    const result = await repo.getByUserId(userId.trim());
 
-    const query = `SELECT * FROM c WHERE c.userId = @userId`;
-    const { resources } = await container.items
-      .query({ query, parameters: [{ name: "@userId", value: userId }] })
-      .fetchAll();
+    if (result.success) {
+      const response: GetNotificationsByUserResponse = {
+        success: true,
+        data: result.data,
+      };
 
-    return { status: 200, jsonBody: resources };
+      return {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'public, max-age=60', // Cache for 1 minute
+        },
+        body: JSON.stringify(response, null, 2),
+      };
+    }
+
+    // Handle repository errors
+    const error = (result as { success: false; error: any }).error;
+    const statusCode = error.code === 'NOT_FOUND' ? 404 : 500;
+
+    const errorResponse: GetNotificationsByUserResponse = {
+      success: false,
+      error: {
+        code: error.code,
+        message: error.message,
+      },
+    };
+
+    return {
+      status: statusCode,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(errorResponse, null, 2),
+    };
   } catch (error: any) {
-    console.error("Failed to fetch notifications:", error);
+    if (error instanceof MissingCosmosConfigurationError) {
+      context.log(
+        'Missing Cosmos configuration settings:',
+        error.missingSettings.join(', ')
+      );
+
+      const errorResponse: GetNotificationsByUserResponse = {
+        success: false,
+        error: {
+          code: 'CONFIGURATION_ERROR',
+          message:
+            'Cosmos DB configuration is incomplete. Please configure COSMOS_ENDPOINT, COSMOS_DATABASE, COSMOS_CONTAINER, and COSMOS_KEY.',
+        },
+      };
+
+      return {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(errorResponse, null, 2),
+      };
+    }
+
+    context.log('Error getting notifications for user:', error);
+
+    const errorResponse: GetNotificationsByUserResponse = {
+      success: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message:
+          'An unexpected error occurred while retrieving notifications',
+      },
+    };
+
     return {
       status: 500,
-      jsonBody: { message: "Failed to fetch notifications" },
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(errorResponse, null, 2),
     };
   }
 }
 
-app.http("getNotificationsByUserHttp", {
-  route: "notifications/{userId}",
-  methods: ["GET"],
-  authLevel: "anonymous",
+// Register the function with Azure Functions runtime
+app.http('getNotificationsByUserHttp', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'notifications/user/{userId}',
   handler: getNotificationsByUserHttp,
 });

@@ -24,25 +24,19 @@ export interface CosmosNotificationRepoOptions {
  */
 interface NotificationDocument {
   readonly id: string;
-  readonly name: string;
-  readonly brand: string;
-  readonly category: string;
-  readonly model: string;
-  readonly processor: string;
-  readonly ram: string;
-  readonly storage: string;
-  readonly gpu: string;
-  readonly display: string;
-  readonly os: string;
-  readonly batteryLife: string;
-  readonly weight: string;
-  readonly ports: string[];
-  readonly connectivity: string[];
-  readonly description?: string;
-  readonly imageUrl?: string;
-  readonly price: number;
-  readonly inStock: boolean;
-  readonly createdAt: Date;
+  readonly userId: string;
+  readonly type:
+    | 'Waitlist'
+    | 'Reservation'
+    | 'Accepted'
+    | 'Rejected'
+    | 'Cancelled'
+    | 'Collected'
+    | 'Returned'
+    | 'Custom';
+  readonly message: string;
+  readonly payload: any;
+  readonly createdAt: string;
 }
 
 /**
@@ -90,24 +84,10 @@ export class CosmosNotificationRepo implements NotificationRepo {
   private toDocument(notification: Notification): NotificationDocument {
     return {
       id: notification.id,
-      name: notification.name,
-      brand: notification.brand,
-      category: notification.category,
-      model: notification.model,
-      processor: notification.processor,
-      ram: notification.ram,
-      storage: notification.storage,
-      gpu: notification.gpu,
-      display: notification.display,
-      os: notification.os,
-      batteryLife: notification.batteryLife,
-      weight: notification.weight,
-      ports: notification.ports,
-      connectivity: notification.connectivity,
-      description: notification.description,
-      imageUrl: notification.imageUrl,
-      price: notification.price,
-      inStock: notification.inStock,
+      userId: notification.userId,
+      type: notification.type,
+      message: notification.message,
+      payload: notification.payload,
       createdAt: notification.createdAt,
     };
   }
@@ -118,25 +98,11 @@ export class CosmosNotificationRepo implements NotificationRepo {
   private toDomain(document: NotificationDocument): Notification {
     return {
       id: document.id,
-      name: document.name,
-      brand: document.brand,
-      category: document.category,
-      model: document.model,
-      processor: document.processor,
-      ram: document.ram,
-      storage: document.storage,
-      gpu: document.gpu,
-      display: document.display,
-      os: document.os,
-      batteryLife: document.batteryLife,
-      weight: document.weight,
-      ports: document.ports,
-      connectivity: document.connectivity,
-      description: document.description,
-      imageUrl: document.imageUrl,
-      price: document.price,
-      inStock: document.inStock,
-      createdAt: new Date(document.createdAt),
+      userId: document.userId,
+      type: document.type,
+      message: document.message,
+      payload: document.payload,
+      createdAt: document.createdAt,
     };
   }
 
@@ -180,6 +146,7 @@ export class CosmosNotificationRepo implements NotificationRepo {
   ): Promise<RepositoryResult<Notification>> {
     try {
       const document = this.toDocument(notification);
+console.log('creating db entry');
 
       const response: ItemResponse<NotificationDocument> =
         await this.container.items.create(document, {
@@ -232,6 +199,26 @@ export class CosmosNotificationRepo implements NotificationRepo {
         success: false,
         error: this.mapCosmosError(error),
       };
+    }
+  }
+
+  /**
+   * Retrieves all notifications for a specific user from Cosmos DB
+   */
+  async getByUserId(userId: string): Promise<RepositoryResult<Notification[]>> {
+    try {
+      const query = 'SELECT * FROM c WHERE c.userId = @userId ORDER BY c.createdAt DESC';
+      const { resources } = await this.container.items
+        .query<NotificationDocument>({
+          query,
+          parameters: [{ name: '@userId', value: userId }]
+        })
+        .fetchAll();
+
+      const notifications = resources.map((doc) => this.toDomain(doc));
+      return { success: true, data: notifications };
+    } catch (error: any) {
+      return { success: false, error: this.mapCosmosError(error) };
     }
   }
 }

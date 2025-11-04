@@ -107,6 +107,38 @@ Content-Type: application/json
   "deviceId": "DEVICE-001"
 }
 
+### Add user to waitlist
+POST {{baseUrl}}/api/loans/LOAN-001/waitlist
+Content-Type: application/json
+
+{
+  "userId": "user456"
+}
+
+### Test adding same user to waitlist again (should fail with 409)
+POST {{baseUrl}}/api/loans/LOAN-001/waitlist
+Content-Type: application/json
+
+{
+  "userId": "user456"
+}
+
+### Test adding user to non-existent loan waitlist
+POST {{baseUrl}}/api/loans/NON-EXISTENT/waitlist
+Content-Type: application/json
+
+{
+  "userId": "user789"
+}
+
+### Test adding user with empty userId
+POST {{baseUrl}}/api/loans/LOAN-001/waitlist
+Content-Type: application/json
+
+{
+  "userId": ""
+}
+
 ### Test with different environments
 ### Production (uncomment when needed)
 # @baseUrl = https://loans-service-func.azurewebsites.net

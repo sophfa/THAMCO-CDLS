@@ -45,4 +45,12 @@ export interface NotificationRepo {
    * @returns Promise resolving to either the found notification or a repository error
    */
   get(id: string): Promise<RepositoryResult<Notification>>;
+
+  /**
+   * Retrieves all notifications for a specific user
+   *
+   * @param userId - The user identifier
+   * @returns Promise resolving to either the found notifications or a repository error
+   */
+  getByUserId(userId: string): Promise<RepositoryResult<Notification[]>>;
 }

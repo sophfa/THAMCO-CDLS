@@ -96,17 +96,16 @@
 
   <!-- Sub Navigation Bar -->
   <div v-if="loggedIn" id="headerlinks">
-    <template v-if="loggedIn">
-      <!-- && user.role === 'user' -->
-      Welcome, {{ user?.name || "User" }} |
-      <router-link to="/profile">My Account</router-link> |
-      <router-link to="/reservations">My Reservations</router-link> |
-      <router-link to="/favourites">My Favourites</router-link>
-    </template>
-    <template v-else-if="loggedIn && user.role === 'admin'">
+    <template v-if="user?.role === 'Admin'">
       Welcome, {{ user?.name || "Admin" }} |
       <router-link to="/profile">My Account</router-link> |
       <router-link to="/admin/dashboard">Admin Dashboard</router-link>
+    </template>
+    <template v-else>
+      Welcome, {{ user?.name || "User" }} |
+      <router-link to="/profile">My Account</router-link> |
+      <router-link to="/reservations">My Loans</router-link> |
+      <router-link to="/favourites">My Favourites</router-link>
     </template>
   </div>
 </template>
@@ -128,6 +127,8 @@ async function handleAuth() {
 watch(loggedIn, async (isLoggedIn) => {
   if (isLoggedIn) {
     const userId = await getUserId();
+    const userRole = user.value?.role;
+    console.log("User role:", userRole);
     try {
       console.log("Loading notifications for user:", userId);
       notifications.value = await getNotificationsForUser(userId as string);

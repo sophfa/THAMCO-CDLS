@@ -1,10 +1,8 @@
 <template>
   <section class="reservations">
-    <h1>My Reservations and Loans</h1>
+    <h1>My Loans</h1>
 
-    <div v-if="!loggedIn" class="info">
-      Please log in to view your reservations.
-    </div>
+    <div v-if="!loggedIn" class="info">Please log in to view your loans.</div>
 
     <div v-else>
       <div v-if="loading" class="info">Loading your account…</div>
@@ -105,6 +103,62 @@
             </li>
           </ul>
         </section>
+
+        <!-- Waitlist -->
+        <section class="waitlist-section">
+          <h2>Waitlist Status</h2>
+          <div v-if="waitlistLoading" class="info">
+            Loading waitlist status...
+          </div>
+          <div v-else-if="waitlistEntries.length === 0" class="info">
+            You are not on any waitlists.
+          </div>
+          <ul v-else class="waitlist">
+            <li
+              v-for="entry in waitlistEntries"
+              :key="entry.id"
+              class="waitlist-entry"
+            >
+              <div class="waitlist-main">
+                <div class="waitlist-title">
+                  <strong>Device:</strong>
+                  {{ entry.deviceName || entry.deviceId }}
+                </div>
+                <div
+                  class="waitlist-position"
+                  :class="getPositionClass(entry.position)"
+                >
+                  Position #{{ entry.position }}
+                </div>
+              </div>
+              <div class="waitlist-meta">
+                <div>
+                  <strong>Joined:</strong>
+                  {{ new Date(entry.joinedDate).toLocaleDateString() }}
+                </div>
+                <div v-if="entry.estimatedAvailability">
+                  <strong>Est. Available:</strong>
+                  {{
+                    new Date(entry.estimatedAvailability).toLocaleDateString()
+                  }}
+                </div>
+              </div>
+              <div class="waitlist-actions">
+                <button
+                  @click="handleLeaveWaitlist(entry.deviceId)"
+                  :disabled="leavingWaitlistId === entry.deviceId"
+                  class="leave-btn"
+                >
+                  {{
+                    leavingWaitlistId === entry.deviceId
+                      ? "Leaving..."
+                      : "Leave Waitlist"
+                  }}
+                </button>
+              </div>
+            </li>
+          </ul>
+        </section>
       </div>
     </div>
   </section>
@@ -113,18 +167,27 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from "vue";
 import { useAuth } from "../composables/useAuth";
-import { getUserId } from "../services/authService";
-import { getUserLoans, returnLoan } from "../services/api/loansService";
+import { getUserId, getUserEmail } from "../services/authService";
+import {
+  getUserLoans,
+  returnLoan,
+  getUserWaitlistEntries,
+  removeFromWaitlist,
+} from "../services/api/loansService";
+import { createNotification } from "../services/api/notificationsService";
 import { getProductById } from "../services/api/catalogueService";
-import type { LoanWithDeviceName } from "../types/models";
+import type { LoanWithDeviceName, WaitlistEntry } from "../types/models";
 
 const { loggedIn } = useAuth();
 
 const loans = ref<LoanWithDeviceName[]>([]);
 const reservations = ref<LoanWithDeviceName[]>([]);
+const waitlistEntries = ref<WaitlistEntry[]>([]);
 const loading = ref(true);
+const waitlistLoading = ref(false);
 const error = ref("");
 const returningId = ref<string | null>(null);
+const leavingWaitlistId = ref<string | null>(null);
 
 const loadData = async () => {
   try {
@@ -134,8 +197,11 @@ const loadData = async () => {
     if (!userId) {
       loans.value = [];
       reservations.value = [];
+      waitlistEntries.value = [];
       return;
     }
+
+    // Load loans data
     const rawLoans = await getUserLoans(userId);
     loans.value = await Promise.all(
       rawLoans.map(async (l) => {
@@ -149,15 +215,53 @@ const loadData = async () => {
       })
     );
     console.log("loans:", loans.value);
+
     // Reservations are loans in Requested/Approved state
     reservations.value = loans.value.filter(
       (l) => l.status === "Requested" || l.status === "Approved"
     );
     console.log("reservations:", reservations.value);
+
+    // Load waitlist data
+    await loadWaitlistData(userId);
   } catch (e: any) {
-    error.value = e?.message || "Failed to load loans";
+    error.value = e?.message || "Failed to load data";
   } finally {
     loading.value = false;
+  }
+};
+
+const loadWaitlistData = async (userId: string) => {
+  try {
+    waitlistLoading.value = true;
+    const waitlistData = await getUserWaitlistEntries(userId);
+
+    // Enhance waitlist entries with device names
+    waitlistEntries.value = await Promise.all(
+      waitlistData.map(async (entry) => {
+        try {
+          const product = await getProductById(entry.deviceId);
+          return {
+            ...entry,
+            deviceName: product.name,
+            deviceImage:
+              (product as any).deviceImage ?? (product as any).imageUrl,
+          };
+        } catch (e) {
+          console.warn(
+            `Failed to load product data for device ${entry.deviceId}:`,
+            e
+          );
+          return entry; // Return entry without device name if product lookup fails
+        }
+      })
+    );
+    console.log("waitlist entries:", waitlistEntries.value);
+  } catch (e: any) {
+    console.error("Failed to load waitlist data:", e);
+    // Don't set error here as it's secondary data - just log it
+  } finally {
+    waitlistLoading.value = false;
   }
 };
 
@@ -165,6 +269,19 @@ const handleReturn = async (loanId: string) => {
   try {
     returningId.value = loanId;
     await returnLoan(loanId);
+    // Fire-and-forget: notify user that device was returned
+    try {
+      const uid = await getUserId();
+      const email = await getUserEmail();
+      const returnedLoan = loans.value.find((l) => l.id === loanId);
+      if (uid && returnedLoan) {
+        await createNotification(uid, "Returned", returnedLoan.deviceId, {
+          userEmail: email || undefined,
+        });
+      }
+    } catch (e) {
+      console.warn("Return notification failed:", e);
+    }
     loans.value = loans.value.map((l) =>
       l.id === loanId
         ? { ...l, loaned: false, lastReturnedDate: new Date().toISOString() }
@@ -176,6 +293,34 @@ const handleReturn = async (loanId: string) => {
   } finally {
     returningId.value = null;
   }
+};
+
+const handleLeaveWaitlist = async (deviceId: string) => {
+  try {
+    leavingWaitlistId.value = deviceId;
+    const userId = await getUserId();
+    if (!userId) return;
+
+    await removeFromWaitlist(userId, deviceId);
+
+    // Remove from local state
+    waitlistEntries.value = waitlistEntries.value.filter(
+      (entry) => entry.deviceId !== deviceId
+    );
+
+    console.log(`Successfully left waitlist for device ${deviceId}`);
+  } catch (e: any) {
+    console.error("Failed to leave waitlist:", e);
+    error.value = "Failed to leave waitlist";
+  } finally {
+    leavingWaitlistId.value = null;
+  }
+};
+
+const getPositionClass = (position: number) => {
+  if (position === 1) return "first";
+  if (position <= 3) return "top";
+  return "waiting";
 };
 
 onMounted(loadData);
@@ -419,6 +564,90 @@ function nextMonth() {
   cursor: pointer;
 }
 .loan-actions button[disabled] {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+/* Waitlist Section */
+.waitlist-section {
+  margin-top: 2rem;
+}
+.waitlist-section h2 {
+  margin-bottom: 1rem;
+  color: #374151;
+}
+.waitlist {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.waitlist-entry {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1rem;
+  background: #fafafa;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem 1rem;
+}
+.waitlist-main {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+}
+.waitlist-title {
+  font-weight: 500;
+}
+.waitlist-position {
+  font-weight: 700;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+.waitlist-position.first {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+.waitlist-position.top {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+.waitlist-position.waiting {
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+.waitlist-meta {
+  grid-column: 1 / -1;
+  color: #6b7280;
+  font-size: 0.9rem;
+  display: flex;
+  gap: 1rem;
+}
+.waitlist-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.waitlist-actions .leave-btn {
+  background: #dc2626;
+  color: white;
+  border: none;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.waitlist-actions .leave-btn:hover {
+  background: #b91c1c;
+}
+.waitlist-actions .leave-btn[disabled] {
   background: #9ca3af;
   cursor: not-allowed;
 }

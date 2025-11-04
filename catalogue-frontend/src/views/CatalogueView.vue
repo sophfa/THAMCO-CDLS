@@ -10,8 +10,8 @@ import { useFavorites } from "../services/favouritesService";
 import { useAuth } from "../composables/useAuth";
 import SearchBar from "../components/SearchBar.vue";
 import { getCloudinaryUrl } from "../assets/cloudinary";
-import { getUserId } from "../services/authService";
-import { sendNotification } from "../services/api/notificationsService";
+import { getUserId, getUserEmail } from "../services/authService";
+import { createNotification } from "../services/api/notificationsService";
 
 const products = ref<Product[]>([]);
 const searchTerm = ref("");
@@ -56,17 +56,38 @@ async function confirmDialog() {
         new Date(Date.now() + 86400000).toISOString().slice(0, 10);
       await createLoan(dialog.product.id, start, end, "Requested");
     } else {
-      await joinWaitlistForDevice(dialog.product.id);
+      const _wl = await joinWaitlistForDevice(dialog.product.id);
+      (dialog as any)._waitlistResult = _wl;
     }
     // Fire-and-forget notification
     try {
       const uid = await getUserId();
+      const email = await getUserEmail();
       if (uid) {
         const message =
           dialog.kind === "reserve"
             ? `Your reservation for ${dialog.product.name} is confirmed (${dialog.startDate} → ${dialog.endDate}). A receipt has been emailed to you.`
             : `You joined the waitlist for ${dialog.product.name}. We'll notify you when it's available.`;
-        await sendNotification(uid, message, dialog.kind);
+        if (dialog.kind === "reserve") {
+          const start = dialog.startDate || new Date().toISOString().slice(0, 10);
+          await createNotification(uid, "Reservation", dialog.product.id, {
+            collectionDate: start,
+            userEmail: email || undefined,
+          });
+        } else {
+          const wl = ((dialog as any)._waitlistResult as any)?.waitlist as
+            | string[]
+            | undefined;
+          let position: number | undefined;
+          if (Array.isArray(wl)) {
+            const idx = wl.indexOf(uid);
+            position = idx >= 0 ? idx + 1 : wl.length;
+          }
+          await createNotification(uid, "Waitlist", dialog.product.id, {
+            numInQueue: position,
+            userEmail: email || undefined,
+          });
+        }
       }
     } catch (e) {
       console.warn("Notification failed:", e);

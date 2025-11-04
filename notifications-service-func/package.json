@@ -2,7 +2,7 @@
   "name": "notifications-service-func",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "dist/src/app.js",
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
@@ -12,12 +12,14 @@
     "test": "echo \"No tests yet...\""
   },
   "dependencies": {
+    "@azure/cosmos": "^4.7.0",
     "@azure/functions": "^4.0.0",
-    "dotenv": "^17.2.3"
+    "dotenv": "^17.2.3",
+    "resend": "^6.4.0"
   },
   "devDependencies": {
-    "@azure/cosmos": "^4.7.0",
     "@types/node": "^18.19.130",
+    "@types/react": "^19.2.2",
     "rimraf": "^5.0.0",
     "typescript": "^4.9.5"
   }

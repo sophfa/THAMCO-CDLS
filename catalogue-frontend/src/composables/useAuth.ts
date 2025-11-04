@@ -10,6 +10,7 @@ export function useAuth() {
     // Load user profile from localStorage or Auth0
     const authUser = await getUser();
     user.value = authUser || null;
+    user.value.role = "Admin"; // Temporary hardcoded role
   }
 
   async function logout() {

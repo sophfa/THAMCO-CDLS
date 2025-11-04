@@ -99,8 +99,133 @@ GET {{baseUrl}}/api/notifications/NON-EXISTENT
 Content-Type: application/json
 
 ### Test with different environments
-### Notificationion (uncomment when needed)
+### Production (uncomment when needed)
 # @baseUrl = https://your-function-app.azurewebsites.net
 
 ### Staging (uncomment when needed)  
 # @baseUrl = https://your-function-app-staging.azurewebsites.net
+
+### ===== CREATE NOTIFICATION EXAMPLES =====
+
+### Create Reservation Notification
+POST {{baseUrl}}/api/notifications
+Content-Type: application/json
+
+{
+  "userId": "user123",
+  "type": "Reservation",
+  "deviceName": "MacBook Pro 16-inch",
+  "collectionDate": "2025-11-05",
+  "userEmail": "c2595690@live.tees.ac.uk"
+}
+
+### Create Accepted Notification
+POST {{baseUrl}}/api/notifications
+Content-Type: application/json
+
+{
+  "userId": "user123",
+  "type": "Accepted",
+  "deviceName": "MacBook Pro 16-inch",
+  "collectionDate": "2025-11-05",
+  "userEmail": "c2595690@live.tees.ac.uk"
+}
+
+### Create Rejected Notification
+POST {{baseUrl}}/api/notifications
+Content-Type: application/json
+
+{
+  "userId": "user123",
+  "type": "Rejected",
+  "deviceName": "MacBook Pro 16-inch",
+  "reason": "Device not available on requested date",
+  "userEmail": "c2595690@live.tees.ac.uk"
+}
+
+### Create Cancelled Notification
+POST {{baseUrl}}/api/notifications
+Content-Type: application/json
+
+{
+  "userId": "user123",
+  "type": "Cancelled",
+  "deviceName": "MacBook Pro 16-inch",
+  "reason": "User requested cancellation",
+  "userEmail": "c2595690@live.tees.ac.uk"
+}
+
+### Create Collected Notification
+POST {{baseUrl}}/api/notifications
+Content-Type: application/json
+
+{
+  "userId": "user123",
+  "type": "Collected",
+  "deviceName": "MacBook Pro 16-inch",
+  "returnDate": "2025-11-12",
+  "userEmail": "c2595690@live.tees.ac.uk"
+}
+
+### Create Returned Notification
+POST {{baseUrl}}/api/notifications
+Content-Type: application/json
+
+{
+  "userId": "user123",
+  "type": "Returned",
+  "deviceName": "MacBook Pro 16-inch",
+  "userEmail": "c2595690@live.tees.ac.uk"
+}
+
+### Create Custom Notification
+POST {{baseUrl}}/api/notifications
+Content-Type: application/json
+
+{
+  "userId": "user123",
+  "type": "Custom",
+  "content": "Your device maintenance is scheduled for next week. Please ensure it's available.",
+  "userEmail": "c2595690@live.tees.ac.uk"
+}
+
+### Create Notification without Email (will only store in database)
+POST {{baseUrl}}/api/notifications
+Content-Type: application/json
+
+{
+  "userId": "user456",
+  "type": "Reservation",
+  "deviceName": "iPad Pro",
+  "collectionDate": "2025-11-06"
+}
+
+### Test Error Cases
+
+### Missing required fields
+POST {{baseUrl}}/api/notifications
+Content-Type: application/json
+
+{
+  "userId": "user123"
+}
+
+### Invalid notification type
+POST {{baseUrl}}/api/notifications
+Content-Type: application/json
+
+{
+  "userId": "user123",
+  "type": "InvalidType",
+  "content": "test"
+}
+
+### Missing device name for reservation
+POST {{baseUrl}}/api/notifications
+Content-Type: application/json
+
+{
+  "userId": "user123",
+  "type": "Reservation",
+  "collectionDate": "2025-11-05"
+}

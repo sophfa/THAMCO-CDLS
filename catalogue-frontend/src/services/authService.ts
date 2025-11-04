@@ -51,6 +51,17 @@ export async function getUserId(): Promise<string | null> {
   return user?.sub ?? null;
 }
 
+export async function getUserEmail(): Promise<string | null> {
+  const user = await getUser();
+  return user?.email ?? null;
+}
+
+export async function getUserRole(): Promise<string | null> {
+  const user = await getUser();
+  console.log("user: ", user);
+  return user.role;
+}
+
 // Login via Auth0 redirect
 export async function login() {
   await auth0?.loginWithRedirect({

@@ -7,21 +7,10 @@ import {
   InvocationContext,
 } from '@azure/functions';
 import { Notification } from '../domain/notification';
-import { NotificationRepo } from '../domain/notification-repo';
-import { CosmosNotificationRepo } from '../infra/cosmos-notification-repo';
-
-// Configuration from environment variables
-const cosmosOptions = {
-  endpoint: process.env.COSMOS_ENDPOINT || 'https://localhost:8081',
-  databaseId: process.env.COSMOS_DATABASE || 'NotificationsDB',
-  containerId: process.env.COSMOS_CONTAINER || 'Notifications',
-  key: process.env.COSMOS_KEY,
-};
-
-// Initialize repository
-const notificationRepo: NotificationRepo = new CosmosNotificationRepo(
-  cosmosOptions
-);
+import {
+  getNotificationRepo,
+  MissingCosmosConfigurationError,
+} from '../infra/notificationRepoFactory';
 
 /**
  * Response format for single notification API
@@ -73,7 +62,8 @@ export async function getNotificationByIdHttp(
 
   try {
     // Get notification from repository
-    const result = await notificationRepo.get(notificationId.trim());
+    const repo = getNotificationRepo();
+    const result = await repo.get(notificationId.trim());
 
     if (result.success) {
       const response: GetNotificationResponse = {
@@ -111,6 +101,30 @@ export async function getNotificationByIdHttp(
       body: JSON.stringify(errorResponse, null, 2),
     };
   } catch (error: any) {
+    if (error instanceof MissingCosmosConfigurationError) {
+      context.log(
+        'Missing Cosmos configuration settings:',
+        error.missingSettings.join(', ')
+      );
+
+      const errorResponse: GetNotificationResponse = {
+        success: false,
+        error: {
+          code: 'CONFIGURATION_ERROR',
+          message:
+            'Cosmos DB configuration is incomplete. Please configure COSMOS_ENDPOINT, COSMOS_DATABASE, COSMOS_CONTAINER, and COSMOS_KEY.',
+        },
+      };
+
+      return {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(errorResponse, null, 2),
+      };
+    }
+
     context.log('Error getting notification:', error);
 
     const errorResponse: GetNotificationResponse = {

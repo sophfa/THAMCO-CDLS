@@ -15,3 +15,4 @@ import './functions/favourites/removeFavouriteHttp';
 import './functions/favourites/syncFavouritesHttp';
 
 import './functions/waitlist/addToWaitlistHttp';
+import './functions/waitlist/addToWaitlistByDeviceHttp';
