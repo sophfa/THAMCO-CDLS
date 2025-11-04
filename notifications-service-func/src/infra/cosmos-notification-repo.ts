@@ -37,6 +37,8 @@ interface NotificationDocument {
   readonly message: string;
   readonly payload: any;
   readonly createdAt: string;
+  readonly read?: boolean;
+  readonly readAt?: string;
 }
 
 /**
@@ -89,6 +91,8 @@ export class CosmosNotificationRepo implements NotificationRepo {
       message: notification.message,
       payload: notification.payload,
       createdAt: notification.createdAt,
+      read: (notification as any).read,
+      readAt: (notification as any).readAt,
     };
   }
 
@@ -96,7 +100,7 @@ export class CosmosNotificationRepo implements NotificationRepo {
    * Converts Cosmos DB document to domain Notification
    */
   private toDomain(document: NotificationDocument): Notification {
-    return {
+    const notification: any = {
       id: document.id,
       userId: document.userId,
       type: document.type,
@@ -104,6 +108,15 @@ export class CosmosNotificationRepo implements NotificationRepo {
       payload: document.payload,
       createdAt: document.createdAt,
     };
+
+    if (document.read !== undefined) {
+      notification.read = document.read;
+    }
+    if (document.readAt !== undefined) {
+      notification.readAt = document.readAt;
+    }
+
+    return notification;
   }
 
   /**
@@ -146,8 +159,6 @@ export class CosmosNotificationRepo implements NotificationRepo {
   ): Promise<RepositoryResult<Notification>> {
     try {
       const document = this.toDocument(notification);
-console.log('creating db entry');
-
       const response: ItemResponse<NotificationDocument> =
         await this.container.items.create(document, {
           disableAutomaticIdGeneration: true,

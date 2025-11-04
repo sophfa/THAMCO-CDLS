@@ -139,6 +139,18 @@ Content-Type: application/json
   "userId": ""
 }
 
+### Approve (authorize) a loan - Change status to 'Approved'
+PUT {{baseUrl}}/api/loans/LOAN-001/authorize
+Content-Type: application/json
+
+### Test approving a loan that's already approved (should fail with 400)
+PUT {{baseUrl}}/api/loans/LOAN-003/authorize
+Content-Type: application/json
+
+### Test approving a non-existent loan (should fail with 404)
+PUT {{baseUrl}}/api/loans/NON-EXISTENT/authorize
+Content-Type: application/json
+
 ### Test with different environments
 ### Production (uncomment when needed)
 # @baseUrl = https://loans-service-func.azurewebsites.net

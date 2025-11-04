@@ -12,64 +12,191 @@
       No loans found.
     </div>
 
-    <table v-if="!loading && loans.length > 0" class="loans-table">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>User</th>
-          <th>Device</th>
-          <th>Status</th>
-          <th>From</th>
-          <th>Till</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="loan in loans" :key="loan.id">
-          <td>{{ loan.id }}</td>
-          <td>{{ loan.userId }}</td>
-          <td>{{ loan.deviceId }}</td>
-          <td>
-            <span :class="['badge', loan.status.toLowerCase()]">{{
-              loan.status
-            }}</span>
-          </td>
-          <td>{{ formatDate(loan.from) }}</td>
-          <td>{{ formatDate(loan.till) }}</td>
-          <td class="actions">
-            <button
-              v-if="loan.status === 'Requested'"
-              @click="approve(loan)"
-              :disabled="busyId === loan.id"
-            >
-              Approve
-            </button>
-            <button
-              v-if="loan.status === 'Requested'"
-              disabled
-              title="Backend endpoint not implemented yet"
-            >
-              Deny
-            </button>
-            <button
-              v-if="loan.status !== 'Returned'"
-              @click="markReturned(loan)"
-              :disabled="busyId === loan.id"
-            >
-              Confirm Return
-            </button>
-            <button disabled title="Cancel endpoint not implemented yet">
-              Cancel
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <!-- Requested (highest urgency) -->
+    <section class="section">
+      <h2>Requested ({{ requestedLoans.length }})</h2>
+      <table class="loans-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Device</th>
+            <th>Status</th>
+            <th>Requested At</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-if="requestedLoans.length === 0">
+            <td colspan="6">No loans in this state</td>
+          </tr>
+          <tr v-for="loan in requestedLoans" :key="loan.id">
+            <td>{{ loan.id }}</td>
+            <td>{{ loan.deviceId }}</td>
+            <td>
+              <span :class="['badge', statusClass(loan.status)]">{{
+                loan.status || "Unknown"
+              }}</span>
+            </td>
+            <td>{{ formatDate(loan.createdAt) }}</td>
+            <td class="actions">
+              <button @click="approve(loan)" :disabled="busyId === loan.id">
+                Approve
+              </button>
+              <button disabled title="Backend endpoint not implemented yet">
+                Deny
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Approved (awaiting collection) -->
+    <section class="section">
+      <h2>Approved ({{ approvedLoans.length }})</h2>
+      <table class="loans-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>User</th>
+            <th>Device</th>
+            <th>Status</th>
+            <th>From</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-if="approvedLoans.length === 0">
+            <td colspan="6">No loans in this state</td>
+          </tr>
+          <tr v-for="loan in approvedLoans" :key="loan.id">
+            <td>{{ loan.id }}</td>
+            <td>{{ displayUser(loan.userId) }}</td>
+            <td>{{ loan.deviceId }}</td>
+            <td>
+              <span :class="['badge', statusClass(loan.status)]">{{
+                loan.status || "Unknown"
+              }}</span>
+            </td>
+            <td>{{ formatDate(loan.from) }}</td>
+            <td class="actions">
+              <button disabled title="Cancel endpoint not implemented yet">
+                Cancel
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Collected (due soonest first) -->
+    <section class="section">
+      <h2>Collected ({{ collectedLoans.length }})</h2>
+      <table class="loans-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>User</th>
+            <th>Device</th>
+            <th>Status</th>
+            <th>Due (Till)</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-if="collectedLoans.length === 0">
+            <td colspan="6">No loans in this state</td>
+          </tr>
+          <tr v-for="loan in collectedLoans" :key="loan.id">
+            <td>{{ loan.id }}</td>
+            <td>{{ displayUser(loan.userId) }}</td>
+            <td>{{ loan.deviceId }}</td>
+            <td>
+              <span :class="['badge', statusClass(loan.status)]">{{
+                loan.status || "Unknown"
+              }}</span>
+            </td>
+            <td>{{ formatDate(loan.till) }}</td>
+            <td class="actions">
+              <button
+                @click="markReturned(loan)"
+                :disabled="busyId === loan.id"
+              >
+                Confirm Return
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Rejected/Returned (lowest urgency) -->
+    <section class="section">
+      <h2>Rejected ({{ rejectedLoans.length }})</h2>
+      <table class="loans-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>User</th>
+            <th>Device</th>
+            <th>Status</th>
+            <th>Updated</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-if="rejectedLoans.length === 0">
+            <td colspan="5">No loans in this state</td>
+          </tr>
+          <tr v-for="loan in rejectedLoans" :key="loan.id">
+            <td>{{ loan.id }}</td>
+            <td>{{ displayUser(loan.userId) }}</td>
+            <td>{{ loan.deviceId }}</td>
+            <td>
+              <span :class="['badge', statusClass(loan.status)]">{{
+                loan.status || "Unknown"
+              }}</span>
+            </td>
+            <td>{{ formatDate(loan.createdAt) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section">
+      <h2>Returned ({{ returnedLoans.length }})</h2>
+      <table class="loans-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>User</th>
+            <th>Device</th>
+            <th>Status</th>
+            <th>Returned At</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-if="returnedLoans.length === 0">
+            <td colspan="5">No loans in this state</td>
+          </tr>
+          <tr v-for="loan in returnedLoans" :key="loan.id">
+            <td>{{ loan.id }}</td>
+            <td>{{ displayUser(loan.userId) }}</td>
+            <td>{{ loan.deviceId }}</td>
+            <td>
+              <span :class="['badge', statusClass(loan.status)]">{{
+                loan.status || "Unknown"
+              }}</span>
+            </td>
+            <td>{{ formatDate(loan.createdAt) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { onMounted, ref, computed } from "vue";
 import type { Loan } from "../types/models";
 import {
   listAllLoans,
@@ -91,12 +218,60 @@ function formatDate(d: string | Date) {
   }
 }
 
+function statusClass(status?: string) {
+  return (status || "unknown").toLowerCase();
+}
+
+function displayUser(_userId: string) {
+  // Do not expose user identifiers in the dashboard UI
+  return "Hidden";
+}
+
+const requestedLoans = computed(() =>
+  loans.value
+    .filter((l) => l.status === "Requested")
+    .sort(
+      (a, b) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    )
+);
+
+const approvedLoans = computed(() =>
+  loans.value
+    .filter((l) => l.status === "Approved")
+    .sort((a, b) => new Date(a.from).getTime() - new Date(b.from).getTime())
+);
+
+const collectedLoans = computed(() =>
+  loans.value
+    .filter((l) => l.status === "Collected")
+    .sort((a, b) => new Date(a.till).getTime() - new Date(b.till).getTime())
+);
+
+const rejectedLoans = computed(() =>
+  loans.value
+    .filter((l) => l.status === "Rejected")
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
+);
+
+const returnedLoans = computed(() =>
+  loans.value
+    .filter((l) => l.status === "Returned")
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
+);
+
 async function loadLoans() {
   loading.value = true;
   error.value = "";
   try {
     loans.value = await listAllLoans();
-    console.log("list of all loans: ", loans.value);
+    console.log("loans: ", loans.value);
   } catch (e: any) {
     error.value = e?.message || "Failed to load loans";
   } finally {
@@ -108,7 +283,6 @@ async function approve(loan: Loan) {
   busyId.value = loan.id;
   try {
     const res = await authorizeLoan(loan.id);
-    // Map backend response to our status union if present
     const newStatus = (res?.status || "Approved").toString();
     loan.status = (newStatus.charAt(0).toUpperCase() +
       newStatus.slice(1).toLowerCase()) as Loan["status"];
@@ -122,8 +296,8 @@ async function approve(loan: Loan) {
 async function markReturned(loan: Loan) {
   busyId.value = loan.id;
   try {
-    const updated = await returnLoan(loan.id);
-    loan.status = updated?.status || "Returned";
+    await returnLoan(loan.id);
+    await loadLoans();
   } catch (e: any) {
     alert(e?.message || "Failed to mark as returned");
   } finally {
@@ -143,6 +317,9 @@ onMounted(loadLoans);
   gap: 1rem;
   align-items: center;
   margin-bottom: 1rem;
+}
+.section {
+  margin-top: 1rem;
 }
 .error {
   color: #b00020;

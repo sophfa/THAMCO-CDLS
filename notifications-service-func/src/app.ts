@@ -12,3 +12,4 @@ import './functions/createNotificationHttp';
 // Export the shared app instance so the Azure Functions runtime can discover registered handlers
 export { app };
 export default app;
+import './functions/markNotificationReadHttp';

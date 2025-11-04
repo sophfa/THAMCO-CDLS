@@ -107,7 +107,9 @@ export async function returnLoan(loanId: string): Promise<Loan> {
 
 // Admin: list all loans
 export async function listAllLoans(): Promise<Loan[]> {
-  const res = await fetch(`${BASE_URL}/loans`, { headers: { "Content-Type": "application/json" } });
+  const res = await fetch(`${BASE_URL}/loans`, {
+    headers: { "Content-Type": "application/json" },
+  });
   if (!res.ok) throw new Error(`Failed to fetch loans: ${res.status}`);
   const body = await res.json();
   // Support either { success, data } or raw array
@@ -117,13 +119,30 @@ export async function listAllLoans(): Promise<Loan[]> {
 
 // Admin: approve (authorize) a requested loan
 export async function authorizeLoan(loanId: string): Promise<any> {
-  const codeParam = LOANS_FUNCTION_CODE ? `?code=${encodeURIComponent(LOANS_FUNCTION_CODE)}` : "";
-  const url = `${BASE_URL}/loans/${encodeURIComponent(loanId)}/authorize${codeParam}`;
-  const res = await fetch(url, { method: "PUT", headers: { "Content-Type": "application/json" } });
-  if (!res.ok) throw new Error(`Failed to authorize loan ${loanId}: ${res.status}`);
+  const codeParam = LOANS_FUNCTION_CODE
+    ? `?code=${encodeURIComponent(LOANS_FUNCTION_CODE)}`
+    : "";
+  const url = `${BASE_URL}/loans/${encodeURIComponent(
+    loanId
+  )}/authorize${codeParam}`;
+  const res = await fetch(url, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+  });
+
+  if (!res.ok) {
+    const errorData = await res
+      .json()
+      .catch(() => ({ error: "Unknown error" }));
+    throw new Error(
+      `Failed to authorize loan ${loanId}: ${res.status} - ${
+        errorData.error || errorData.message
+      }`
+    );
+  }
+
   return res.json();
 }
-
 export async function addToWaitlist(
   deviceId: string,
   userId: string,

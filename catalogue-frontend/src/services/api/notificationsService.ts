@@ -9,8 +9,35 @@ export async function getNotificationsForUser(userId: string) {
   );
   if (!response.ok)
     throw new Error(`Failed to fetch notifications for ${userId}`);
-  console.log("responce: ", response);
-  return response.json();
+  const body = await response.json();
+  // Backend returns { success, data } or an array; normalize to UI-friendly array
+  const raw = Array.isArray(body) ? body : body?.data || [];
+  const mapped = raw.map((n: any) => {
+    const ts = n?.createdAt || n?.timestamp;
+    const date = ts ? new Date(ts) : n?._ts ? new Date(n._ts * 1000) : new Date();
+    return {
+      id: n?.id || n?.notificationId || n?._id,
+      title: n?.title || n?.type || "Notification",
+      message: n?.message || n?.content || n?.payload?.message || "",
+      type: String(n?.type || "system").toLowerCase(),
+      read: Boolean(n?.read),
+      timestamp: date,
+    };
+  });
+  return mapped;
+}
+
+export async function markNotificationRead(id: string, read: boolean = true) {
+  const res = await fetch(
+    `${BASE_URL}/notifications/${encodeURIComponent(id)}/read`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ read }),
+    }
+  );
+  if (!res.ok) throw new Error(`Failed to update read status for ${id}`);
+  return res.json();
 }
 
 export async function sendNotification(

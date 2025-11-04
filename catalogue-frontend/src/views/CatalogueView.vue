@@ -17,7 +17,7 @@ const products = ref<Product[]>([]);
 const searchTerm = ref("");
 const selectedCategory = ref<string>("");
 const onlyInStock = ref<boolean>(false);
-const showFilters = ref<boolean>(true);
+const showFilters = ref<boolean>(false);
 
 // Faceted filter state
 const selectedBrands = ref<string[]>([]);
@@ -69,7 +69,8 @@ async function confirmDialog() {
             ? `Your reservation for ${dialog.product.name} is confirmed (${dialog.startDate} → ${dialog.endDate}). A receipt has been emailed to you.`
             : `You joined the waitlist for ${dialog.product.name}. We'll notify you when it's available.`;
         if (dialog.kind === "reserve") {
-          const start = dialog.startDate || new Date().toISOString().slice(0, 10);
+          const start =
+            dialog.startDate || new Date().toISOString().slice(0, 10);
           await createNotification(uid, "Reservation", dialog.product.id, {
             collectionDate: start,
             userEmail: email || undefined,

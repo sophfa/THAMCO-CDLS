@@ -114,7 +114,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useAuth } from "../composables/useAuth";
 import { getUserId, login } from "../services/authService";
-import { getNotificationsForUser } from "../services/api/notificationsService";
+import { getNotificationsForUser, markNotificationRead } from "../services/api/notificationsService";
 import { cloudinaryAssets } from "../assets/cloudinary";
 
 const { user, loggedIn, logout } = useAuth();
@@ -132,6 +132,7 @@ watch(loggedIn, async (isLoggedIn) => {
     try {
       console.log("Loading notifications for user:", userId);
       notifications.value = await getNotificationsForUser(userId as string);
+      console.log("notifications: ", notifications.value);
     } catch (err) {
       console.error("Failed to load notifications:", err);
       notifications.value = [];
@@ -153,12 +154,25 @@ const hasUnreadNotifications = computed(() => unreadCount.value > 0);
 const toggleNotifications = () => {
   showNotifications.value = !showNotifications.value;
 };
-const markAsRead = (id: number) => {
+const markAsRead = async (id: string) => {
   const n = notifications.value.find((n) => n.id === id);
-  if (n) n.read = true;
+  if (!n || n.read) return;
+  const prev = n.read;
+  n.read = true;
+  try {
+    await markNotificationRead(id, true);
+  } catch (e) {
+    n.read = prev;
+  }
 };
-const markAllAsRead = () => {
-  notifications.value.forEach((n) => (n.read = true));
+const markAllAsRead = async () => {
+  const toMark = notifications.value.filter((n) => !n.read);
+  toMark.forEach((n) => (n.read = true));
+  try {
+    await Promise.all(toMark.map((n) => markNotificationRead(n.id, true)));
+  } catch (e) {
+    console.error('Failed to persist read status for some notifications', e);
+  }
 };
 const getNotificationIcon = (type: string) => {
   const icons: Record<string, string> = {

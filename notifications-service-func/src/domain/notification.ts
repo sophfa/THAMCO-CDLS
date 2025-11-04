@@ -80,6 +80,8 @@ export interface Notification<T extends NotificationType = NotificationType> {
   readonly message: string;
   readonly payload: NotificationPayloadMap[T];
   readonly createdAt: string;
+  readonly read?: boolean;
+  readonly readAt?: string;
 }
 
 export interface CreateNotificationParams<

@@ -4,6 +4,15 @@ import {
   HttpResponseInit,
   InvocationContext,
 } from '@azure/functions';
+import { CosmosClient } from '@azure/cosmos';
+
+const client = new CosmosClient({
+  endpoint: process.env.COSMOS_ENDPOINT!,
+  key: process.env.COSMOS_KEY!,
+});
+const container = client
+  .database(process.env.COSMOS_DATABASE!)
+  .container(process.env.COSMOS_CONTAINER!);
 
 export async function authLoanHttp(
   request: HttpRequest,
@@ -21,20 +30,48 @@ export async function authLoanHttp(
       };
     }
 
-    // TODO: Add authentication/authorization logic here
+    // Get the loan record
+    const { resource: loan } = await container.item(loanId, loanId).read();
 
-    // TODO: Validate loan exists and is in 'requested' status
+    if (!loan) {
+      return {
+        status: 404,
+        jsonBody: { error: `Loan with ID '${loanId}' not found` },
+      };
+    }
 
-    // TODO: Update loan status to 'approved'
+    // Check if loan is in 'Requested' status
+    if (loan.status !== 'Requested') {
+      return {
+        status: 400,
+        jsonBody: {
+          error: `Loan cannot be approved. Current status: '${loan.status}'`,
+          message: 'Only loans with status "Requested" can be approved'
+        },
+      };
+    }
 
-    // TODO: Add any business logic for loan approval (credit checks, etc.)
+    // Update loan status to 'Approved'
+    loan.status = 'Approved';
+    loan.approvedAt = new Date().toISOString();
+
+    await container.items.upsert(loan);
+
+    context.log(`Loan ${loanId} status updated to 'Approved'`);
 
     return {
       status: 200,
       jsonBody: {
         message: 'Loan approved successfully',
         loanId: loanId,
-        status: 'approved',
+        status: 'Approved',
+        approvedAt: loan.approvedAt,
+        loan: {
+          id: loan.id,
+          deviceId: loan.deviceId,
+          userId: loan.userId,
+          status: loan.status
+        }
       },
     };
   } catch (error) {
@@ -49,6 +86,6 @@ export async function authLoanHttp(
 app.http('authLoan', {
   methods: ['PUT', 'PATCH'],
   route: 'loans/{loanId}/authorize',
-  authLevel: 'function',
+  authLevel: 'anonymous',
   handler: authLoanHttp,
 });
