@@ -47,9 +47,11 @@
               ><i class="swatch reserved"></i> Requested</span
             >
           </div>
+        </section>
 
+        <section class="reservations-section">
+          <h2>Reservations</h2>
           <div class="reservation-list" v-if="reservations.length">
-            <h3>Upcoming Reservations</h3>
             <ul>
               <li v-for="r in reservations" :key="r.id">
                 <strong>{{ r.deviceName }}</strong>
@@ -75,9 +77,6 @@
               <div class="loan-main">
                 <div class="loan-title">
                   <strong>Device:</strong> {{ loan.deviceName }}
-                </div>
-                <div class="loan-status" :class="{ active: loan.loaned }">
-                  {{ loan.loaned ? "Active" : "Returned" }}
                 </div>
               </div>
               <div class="loan-meta">
@@ -132,10 +131,6 @@
                 </div>
               </div>
               <div class="waitlist-meta">
-                <div>
-                  <strong>Joined:</strong>
-                  {{ new Date(entry.joinedDate).toLocaleDateString() }}
-                </div>
                 <div v-if="entry.estimatedAvailability">
                   <strong>Est. Available:</strong>
                   {{
@@ -145,12 +140,12 @@
               </div>
               <div class="waitlist-actions">
                 <button
-                  @click="handleLeaveWaitlist(entry.deviceId)"
-                  :disabled="leavingWaitlistId === entry.deviceId"
+                  @click="handleLeaveWaitlist(entry.id)"
+                  :disabled="leavingWaitlistId === entry.id"
                   class="leave-btn"
                 >
                   {{
-                    leavingWaitlistId === entry.deviceId
+                    leavingWaitlistId === entry.id
                       ? "Leaving..."
                       : "Leave Waitlist"
                   }}
@@ -165,7 +160,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, computed, watch } from "vue";
 import { useAuth } from "../composables/useAuth";
 import { getUserId, getUserEmail } from "../services/authService";
 import {
@@ -193,11 +188,22 @@ const loadData = async () => {
   try {
     loading.value = true;
     error.value = "";
+
+    // Wait for auth to be ready
+    if (!loggedIn.value) {
+      loans.value = [];
+      reservations.value = [];
+      waitlistEntries.value = [];
+      loading.value = false;
+      return;
+    }
+
     const userId = await getUserId();
     if (!userId) {
       loans.value = [];
       reservations.value = [];
       waitlistEntries.value = [];
+      loading.value = false;
       return;
     }
 
@@ -235,7 +241,7 @@ const loadWaitlistData = async (userId: string) => {
   try {
     waitlistLoading.value = true;
     const waitlistData = await getUserWaitlistEntries(userId);
-
+    console.log("raw response: ", waitlistData);
     // Enhance waitlist entries with device names
     waitlistEntries.value = await Promise.all(
       waitlistData.map(async (entry) => {
@@ -295,20 +301,19 @@ const handleReturn = async (loanId: string) => {
   }
 };
 
-const handleLeaveWaitlist = async (deviceId: string) => {
+const handleLeaveWaitlist = async (id: string) => {
   try {
-    leavingWaitlistId.value = deviceId;
+    leavingWaitlistId.value = id;
     const userId = await getUserId();
     if (!userId) return;
 
-    await removeFromWaitlist(userId, deviceId);
-
+    await removeFromWaitlist(userId, id);
     // Remove from local state
     waitlistEntries.value = waitlistEntries.value.filter(
-      (entry) => entry.deviceId !== deviceId
+      (entry) => entry.id !== id
     );
 
-    console.log(`Successfully left waitlist for device ${deviceId}`);
+    console.log(`Successfully left waitlist for loan ${id}`);
   } catch (e: any) {
     console.error("Failed to leave waitlist:", e);
     error.value = "Failed to leave waitlist";
@@ -324,6 +329,13 @@ const getPositionClass = (position: number) => {
 };
 
 onMounted(loadData);
+
+// Watch for login state changes and reload data
+watch(loggedIn, (isLoggedIn) => {
+  if (isLoggedIn) {
+    loadData();
+  }
+});
 
 const activeLoans = computed(() =>
   loans.value.filter((l) => l.status === "Collected")
@@ -548,7 +560,7 @@ function nextMonth() {
   color: #374151;
 }
 .loan-status.active {
-  color: #059669;
+  color: #6c7c69;
 }
 .loan-meta {
   grid-column: 1 / -1;
@@ -556,7 +568,7 @@ function nextMonth() {
   font-size: 0.9rem;
 }
 .loan-actions button {
-  background: #2563eb;
+  background: #6c7c69;
   color: white;
   border: none;
   padding: 0.5rem 0.75rem;
@@ -636,7 +648,7 @@ function nextMonth() {
   align-items: center;
 }
 .waitlist-actions .leave-btn {
-  background: #dc2626;
+  background: #a6383e;
   color: white;
   border: none;
   padding: 0.5rem 0.75rem;

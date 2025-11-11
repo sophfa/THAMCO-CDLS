@@ -5,19 +5,22 @@ import { fetchCatalogue, type Product } from "../services/CatalogueService";
 import {
   createLoan,
   joinWaitlistForDevice,
+  getUserWaitlistEntries,
 } from "../services/api/loansService";
 import { useFavorites } from "../services/favouritesService";
 import { useAuth } from "../composables/useAuth";
 import SearchBar from "../components/SearchBar.vue";
 import { getCloudinaryUrl } from "../assets/cloudinary";
-import { getUserId, getUserEmail } from "../services/authService";
+import { getUserId, getUserEmail, getUserRole } from "../services/authService";
 import { createNotification } from "../services/api/notificationsService";
+const { user, loggedIn, logout } = useAuth();
 
 const products = ref<Product[]>([]);
 const searchTerm = ref("");
 const selectedCategory = ref<string>("");
 const onlyInStock = ref<boolean>(false);
 const showFilters = ref<boolean>(false);
+const userWaitlistDeviceIds = ref<Set<string>>(new Set());
 
 // Faceted filter state
 const selectedBrands = ref<string[]>([]);
@@ -43,6 +46,64 @@ const dialog = reactive({
   endDate: "" as string,
 });
 
+const userRole = ref<string | null>(null);
+
+// Keep track of the user's role when auth state changes (and on first render)
+watch(
+  loggedIn,
+  async (isLoggedIn) => {
+    if (isLoggedIn) {
+      try {
+        // Prefer service call; falls back to composable user if needed
+        const role = (await getUserRole()) ?? user.value?.role ?? null;
+        userRole.value = role;
+        console.log("User role:", role);
+      } catch (e) {
+        console.warn("Failed to get user role", e);
+        userRole.value = user.value?.role ?? null;
+      }
+    } else {
+      userRole.value = null;
+    }
+  },
+  { immediate: true }
+);
+
+// Function to refresh product catalogue
+async function refreshProductCatalogue() {
+  try {
+    const data = await fetchCatalogue();
+    products.value = data;
+    console.log("[Catalogue] Refreshed products:", data);
+  } catch (e: any) {
+    console.error("[Catalogue] Failed to refresh products:", e);
+  }
+}
+
+// Function to load user's waitlist entries
+async function loadUserWaitlist() {
+  try {
+    const userId = await getUserId();
+    if (!userId) return;
+
+    const waitlistEntries = await getUserWaitlistEntries(userId);
+    userWaitlistDeviceIds.value = new Set(
+      waitlistEntries.map((entry) => entry.deviceId)
+    );
+    console.log(
+      "[Catalogue] User is on waitlist for:",
+      Array.from(userWaitlistDeviceIds.value)
+    );
+  } catch (e) {
+    console.warn("[Catalogue] Failed to load user waitlist:", e);
+  }
+}
+
+// Check if user is on waitlist for a device
+function isOnWaitlist(deviceId: string): boolean {
+  return userWaitlistDeviceIds.value.has(deviceId);
+}
+
 async function confirmDialog() {
   if (!dialog.product) return;
   dialog.loading = true;
@@ -58,6 +119,9 @@ async function confirmDialog() {
     } else {
       const _wl = await joinWaitlistForDevice(dialog.product.id);
       (dialog as any)._waitlistResult = _wl;
+
+      // After successfully joining waitlist, refresh the catalogue and waitlist
+      await Promise.all([refreshProductCatalogue(), loadUserWaitlist()]);
     }
     // Fire-and-forget notification
     try {
@@ -112,9 +176,6 @@ function closeDialog() {
   dialog.endDate = "";
 }
 
-// Use auth composable for login status
-const { loggedIn } = useAuth();
-
 // Use the API-based favorites service
 const {
   isFavorite,
@@ -132,6 +193,11 @@ onMounted(async () => {
     const data = await fetchCatalogue();
     products.value = data;
     console.log("[Catalogue] Fetched products:", data);
+
+    // Load user's waitlist entries if logged in
+    if (loggedIn.value) {
+      await loadUserWaitlist();
+    }
 
     // Prefill from route query if present
     console.log("[Catalogue] Initial route query:", route.query);
@@ -238,6 +304,11 @@ const applyFilters = () => {
   });
   router.push({ path: "/catalogue", query });
 };
+
+function viewWaitlist(p: Product) {
+  // Navigate to admin dashboard with a device filter; dashboard can adopt this later
+  router.push({ path: "/admin/dashboard", query: { deviceId: p.id } });
+}
 
 const categories = computed(() =>
   Array.from(new Set(products.value.map((p) => p.category))).sort()
@@ -627,37 +698,56 @@ const viewDetails = (product: Product) => {
       <div class="content" v-if="!loading && !error">
         <div class="grid">
           <div v-for="p in filteredProducts" :key="p.id" class="card">
+            <!-- Status Corner Banner -->
+            <div
+              class="absolute top-0 right-0 z-20"
+              :class="
+                p.inStock ? 'status-banner-available' : 'status-banner-loaned'
+              "
+            >
+              <div class="status-banner-text">
+                {{ p.inStock ? "AVAILABLE" : "LOANED" }}
+              </div>
+            </div>
+
             <div class="card-content">
-              <img
-                class="image-class"
-                :src="getCloudinaryUrl(p.imageUrl)"
-                :alt="p.name"
-                style="max-width: 100%; height: auto"
-              />
+              <div class="image-container">
+                <img
+                  class="image-class"
+                  :src="getCloudinaryUrl(p.imageUrl)"
+                  :alt="p.name"
+                  style="max-width: 100%; height: auto"
+                />
+              </div>
               <h2>{{ p.name }}</h2>
               <p><strong>Category:</strong> {{ p.category }}</p>
               <p><strong>Price:</strong> £{{ p.price }}</p>
-              <p>
-                <strong>Status:</strong>
-                {{ p.inStock ? "Available" : "Loaned Out" }}
-              </p>
               <p v-if="p.description">{{ p.description }}</p>
             </div>
 
-            <div class="button-group">
+            <div
+              class="button-group"
+              v-if="(userRole || '').toLowerCase() !== 'admin'"
+            >
               <button @click="viewDetails(p)" class="details-btn">
                 See Details
               </button>
 
-              <div v-if="loggedIn" class="action-buttons">
+              <div
+                v-if="loggedIn && (userRole || '').toLowerCase() !== 'admin'"
+                class="action-buttons"
+              >
                 <button
                   @click="handleReserveOrWaitlist(p)"
+                  :disabled="!p.inStock && isOnWaitlist(p.id)"
                   :class="[
                     'action-btn',
                     p.inStock ? 'reserve-btn' : 'waitlist-btn',
                   ]"
                 >
-                  {{ p.inStock ? "Reserve" : "Join Waitlist" }}
+                  <span v-if="p.inStock">Reserve</span>
+                  <span v-else-if="isOnWaitlist(p.id)">On Waitlist</span>
+                  <span v-else>Join Waitlist</span>
                 </button>
 
                 <div class="favorite">
@@ -671,6 +761,14 @@ const viewDetails = (product: Product) => {
                   </button>
                 </div>
               </div>
+            </div>
+            <div class="button-group" v-else>
+              <button @click="viewDetails(p)" class="details-btn">
+                See Details
+              </button>
+              <button @click="viewWaitlist(p)" class="waitlist-btn">
+                View Waitlist
+              </button>
             </div>
           </div>
         </div>
@@ -810,6 +908,8 @@ const viewDetails = (product: Product) => {
   height: 100%;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
+  position: relative;
+  overflow: hidden;
 }
 .card:hover {
   transform: translateY(-2px);
@@ -817,7 +917,6 @@ const viewDetails = (product: Product) => {
 }
 .layout {
   display: grid;
-  grid-template-columns: 320px 1fr;
   gap: 2rem;
   align-items: start;
 }
@@ -1123,14 +1222,14 @@ const viewDetails = (product: Product) => {
 }
 
 .btn-apply {
-  background: #3b82f6;
+  background: #6c7c69;
   color: white;
-  border: 1px solid #3b82f6;
+  border: 1px solid #6c7c69;
 }
 
 .btn-apply:hover {
-  background: #2563eb;
-  border-color: #2563eb;
+  background: #5a6857;
+  border-color: #5a6857;
 }
 
 .btn-clear {
@@ -1254,15 +1353,15 @@ const viewDetails = (product: Product) => {
 }
 .details-btn {
   padding: 0.5rem 1rem;
-  border: 1px solid #007bff;
+  border: 1px solid #867537;
   border-radius: 4px;
   background: white;
-  color: #007bff;
+  color: #867537;
   cursor: pointer;
   font-weight: bold;
 }
 .details-btn:hover {
-  background-color: #007bff;
+  background-color: #867537;
   color: white;
 }
 .action-btn {
@@ -1274,18 +1373,23 @@ const viewDetails = (product: Product) => {
   font-weight: bold;
 }
 .reserve-btn {
-  background-color: #3b82f6;
+  background-color: #6c7c69;
   color: white;
 }
 .reserve-btn:hover {
-  background-color: #2563eb;
+  background-color: #5a6857;
 }
 .waitlist-btn {
   background-color: #6b7280;
   color: white;
 }
-.waitlist-btn:hover {
+.waitlist-btn:hover:not(:disabled) {
   background-color: #4b5563;
+}
+.waitlist-btn:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 .favorite-btn {
   background: none;
@@ -1296,14 +1400,14 @@ const viewDetails = (product: Product) => {
   border-radius: 4px;
 }
 .favorite-btn.is-favorite {
-  color: gold;
+  color: #b49d4b;
 }
 .favorite-btn:hover {
   background-color: #f5f5f5;
 }
 
 .error {
-  color: #ef4444;
+  color: #a6383e;
   padding: 1rem;
   background-color: #fef2f2;
   border-radius: 4px;
@@ -1371,7 +1475,7 @@ const viewDetails = (product: Product) => {
   padding: 0.4rem 0.5rem;
 }
 .btn-primary {
-  background: #2563eb;
+  background: #6c7c69;
   color: #fff;
   border: none;
   padding: 0.5rem 0.9rem;
@@ -1385,5 +1489,74 @@ const viewDetails = (product: Product) => {
   padding: 0.5rem 0.9rem;
   border-radius: 8px;
   cursor: pointer;
+}
+
+/* Image container */
+.image-container {
+  overflow: hidden;
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+}
+
+/* Corner Banner Styles */
+.status-banner-available,
+.status-banner-loaned {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.status-banner-available::before,
+.status-banner-loaned::before {
+  content: "";
+  position: absolute;
+  top: -100px;
+  right: -75px;
+  width: 139px;
+  height: 150px;
+  transform: rotate(45deg);
+  transform-origin: center;
+}
+
+.status-banner-available::before {
+  background: linear-gradient(135deg, #6c7c69 0%, #5a6857 100%);
+}
+
+.status-banner-loaned::before {
+  background: linear-gradient(135deg, #a6383e 0%, #8a2f34 100%);
+}
+
+.status-banner-text {
+  position: absolute;
+  top: 21px;
+  right: -20px;
+  transform: rotate(45deg);
+  color: white;
+  font-weight: bold;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  z-index: 1;
+  width: 100px;
+  text-align: center;
+}
+
+.absolute {
+  position: absolute;
+}
+
+.top-0 {
+  top: 0;
+}
+
+.right-0 {
+  right: 0;
+}
+
+.z-20 {
+  z-index: 20;
 }
 </style>

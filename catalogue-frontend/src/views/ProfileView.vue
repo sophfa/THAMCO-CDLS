@@ -16,7 +16,7 @@
         alt="Profile Picture"
         class="profile-pic"
       />
-      <p><strong>Name:</strong> {{ user.name }}</p>
+      <p><strong>Name:</strong> {{ user.nickname }}</p>
       <p><strong>Email:</strong> {{ user.email }}</p>
 
       <button class="auth-btn" @click="handleLogout">Log Out</button>

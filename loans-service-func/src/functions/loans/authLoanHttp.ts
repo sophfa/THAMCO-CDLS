@@ -4,15 +4,7 @@ import {
   HttpResponseInit,
   InvocationContext,
 } from '@azure/functions';
-import { CosmosClient } from '@azure/cosmos';
-
-const client = new CosmosClient({
-  endpoint: process.env.COSMOS_ENDPOINT!,
-  key: process.env.COSMOS_KEY!,
-});
-const container = client
-  .database(process.env.COSMOS_DATABASE!)
-  .container(process.env.COSMOS_CONTAINER!);
+import { loansContainer } from '../../config/cosmosClient';
 
 export async function authLoanHttp(
   request: HttpRequest,
@@ -31,7 +23,7 @@ export async function authLoanHttp(
     }
 
     // Get the loan record
-    const { resource: loan } = await container.item(loanId, loanId).read();
+    const { resource: loan } = await loansContainer.item(loanId, loanId).read();
 
     if (!loan) {
       return {
@@ -55,7 +47,7 @@ export async function authLoanHttp(
     loan.status = 'Approved';
     loan.approvedAt = new Date().toISOString();
 
-    await container.items.upsert(loan);
+    await loansContainer.items.upsert(loan);
 
     context.log(`Loan ${loanId} status updated to 'Approved'`);
 

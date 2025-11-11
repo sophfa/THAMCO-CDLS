@@ -20,7 +20,6 @@ export interface WaitlistEntry {
   deviceId: string;
   userId: string;
   position: number;
-  joinedDate: string;
   estimatedAvailability?: string;
   deviceName?: string;
   deviceImage?: string;

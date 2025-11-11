@@ -6,6 +6,22 @@
 **/.vscode/
 *.log
 
+# Test / Coverage / Build artifacts
+**/coverage/
+**/clover.xml
+**/coverage-final.json
+**/nyc_output/
+**/bin/
+**/obj/
+**/temp/
+*.lcov
+
+# lock files per sub-function (prevents conflicts)
+catalogue-service-func/package-lock.json
+inventory-service-func/package-lock.json
+loans-service-func/package-lock.json
+notifications-service-func/package-lock.json
+
 # System / OS
 .DS_Store
 Thumbs.db

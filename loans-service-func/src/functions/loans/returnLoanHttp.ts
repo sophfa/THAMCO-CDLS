@@ -4,16 +4,8 @@ import {
   HttpResponseInit,
   InvocationContext,
 } from "@azure/functions";
-import { CosmosClient } from "@azure/cosmos";
 import "dotenv/config";
-
-const client = new CosmosClient({
-  endpoint: process.env.COSMOS_ENDPOINT!,
-  key: process.env.COSMOS_KEY!,
-});
-const container = client
-  .database(process.env.COSMOS_DATABASE!)
-  .container(process.env.COSMOS_CONTAINER!);
+import { loansContainer } from "../../config/cosmosClient";
 
 export async function returnLoanHttp(
   req: HttpRequest,
@@ -23,7 +15,7 @@ export async function returnLoanHttp(
 
   try {
     // Read the existing loan record
-    const { resource: loan } = await container.item(loanId, loanId).read();
+    const { resource: loan } = await loansContainer.item(loanId, loanId).read();
 
     if (!loan) {
       return { status: 404, jsonBody: { error: `Loan ${loanId} not found` } };
@@ -32,7 +24,7 @@ export async function returnLoanHttp(
     // Update the loan status to fit the new model
     loan.status = 'Returned';
 
-    await container.items.upsert(loan);
+    await loansContainer.items.upsert(loan);
 
     context.log(`Loan ${loanId} marked as returned.`);
     return { status: 200, jsonBody: loan };

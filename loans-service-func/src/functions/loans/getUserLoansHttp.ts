@@ -1,34 +1,59 @@
-import { app } from '@azure/functions';
-import { CosmosClient } from '@azure/cosmos';
+import {
+  app,
+  HttpRequest,
+  HttpResponseInit,
+  InvocationContext,
+} from "@azure/functions";
+import { validateToken, verifyUserAccess } from "../../utils/auth";
+import { loansContainer } from "../../config/cosmosClient";
 
-const client = new CosmosClient({
-  endpoint: process.env.COSMOS_ENDPOINT || 'https://localhost:8081',
-  key: process.env.COSMOS_KEY,
-});
-const databaseId = process.env.COSMOS_DATABASE || 'loans-db';
-const containerId = process.env.COSMOS_CONTAINER || 'Loans';
-const container = client.database(databaseId).container(containerId);
-
-app.http('getUserLoansHttp', {
-  methods: ['GET'],
-  route: 'loans/user/{userId}',
-  authLevel: 'anonymous',
-  handler: async (req, ctx) => {
-    try {
-      const raw = req.params.userId ?? '';
-      const userId = decodeURIComponent(raw).trim();
-
-      const { resources } = await container.items
-        .query({
-          query: 'SELECT * FROM c WHERE c.userId = @userId',
-          parameters: [{ name: '@userId', value: userId }],
-        })
-        .fetchAll();
-
-      return { status: 200, jsonBody: resources };
-    } catch (error: any) {
-      ctx.log('Failed to get loans for user:', error);
-      return { status: 500, jsonBody: { message: 'Failed to fetch user loans' } };
+export async function getUserLoansHttp(
+  req: HttpRequest,
+  ctx: InvocationContext
+): Promise<HttpResponseInit> {
+  try {
+    // Validate authentication token
+    const authResult = validateToken(req, ctx);
+    if (!authResult.isValid) {
+      ctx.log("Authentication failed:", authResult.error);
+      return {
+        status: 401,
+        jsonBody: { message: authResult.error || "Unauthorized" },
+      };
     }
-  },
+
+    const raw = req.params.userId ?? "";
+    const userId = decodeURIComponent(raw).trim();
+
+    // Verify the authenticated user is requesting their own data
+    if (!verifyUserAccess(authResult.userId!, userId)) {
+      ctx.log("Access denied: User mismatch");
+      return {
+        status: 403,
+        jsonBody: { message: "Access denied: Cannot access other user data" },
+      };
+    }
+
+    const { resources } = await loansContainer.items
+      .query({
+        query: "SELECT * FROM c WHERE c.userId = @userId",
+        parameters: [{ name: "@userId", value: userId }],
+      })
+      .fetchAll();
+
+    return { status: 200, jsonBody: resources };
+  } catch (error: any) {
+    ctx.log("Failed to get loans for user:", error);
+    return {
+      status: 500,
+      jsonBody: { message: "Failed to fetch user loans" },
+    };
+  }
+}
+
+app.http("getUserLoansHttp", {
+  methods: ["GET"],
+  route: "loans/user/{userId}",
+  authLevel: "anonymous",
+  handler: getUserLoansHttp,
 });

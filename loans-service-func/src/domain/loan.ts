@@ -10,6 +10,8 @@ export interface Loan {
     | 'Requested'
     | 'Approved'
     | 'Rejected'
+    | 'Cancelled'
     | 'Collected'
-    | 'Returned';
+    | 'Returned'
+    | 'Overdue';
 }

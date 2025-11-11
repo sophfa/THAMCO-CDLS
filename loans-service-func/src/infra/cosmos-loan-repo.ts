@@ -29,7 +29,7 @@ interface LoanDocument {
   readonly createdAt: string; // ISO string in storage
   readonly from: string; // ISO string in storage
   readonly till: string; // ISO string in storage
-  readonly status: 'Requested' | 'Approved' | 'Rejected' | 'Collected' | 'Returned';
+  readonly status: 'Requested' | 'Approved' | 'Rejected' | 'Collected' | 'Returned' | 'Cancelled' | 'Overdue';
 }
 
 /**

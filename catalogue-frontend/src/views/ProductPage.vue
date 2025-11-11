@@ -17,12 +17,12 @@
 
       <!-- Error state -->
       <div v-if="error" class="flex items-center justify-center min-h-screen">
-        <div class="text-center bg-red-50 p-8 rounded-xl border border-red-200">
-          <div class="text-red-500 text-4xl mb-4">⚠️</div>
-          <p class="text-xl text-red-600 font-medium">{{ error }}</p>
+        <div class="text-center">
+          <div class="text-[#a6383e] text-4xl mb-4">⚠️</div>
+          <p class="text-xl text-[#a6383e] font-medium">{{ error }}</p>
           <button
             @click="$router.go(-1)"
-            class="mt-4 px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            class="mt-4 px-6 py-2 bg-[#a6383e] text-white rounded-lg hover:bg-[#8a2f34] transition-colors"
           >
             Go Back
           </button>
@@ -35,94 +35,119 @@
         class="container mx-auto px-4 py-8 max-w-7xl h-auto min-h-screen"
       >
         <!-- Breadcrumb -->
-        <nav class="flex items-center space-x-2 text-sm text-gray-500 mb-8">
+        <nav class="nav-row">
           <router-link
             to="/catalogue"
             class="hover:text-blue-600 transition-colors"
             >Catalogue</router-link
           >
-          <span>›</span>
+          <span> › </span>
           <span class="text-gray-900 font-medium">{{ product.name }}</span>
         </nav>
 
         <div class="content flex gap-8 items-start h-auto min-h-screen">
-          <!-- Product Images Section -->
-          <div class="product-images space-y-4 flex-shrink-0 h-auto">
-            <div
-              class="main-image sticky group relative overflow-hidden bg-gray-100 rounded-2xl shadow-lg"
-            >
-              <!-- Simplified Favourite Heart Button -->
-              <button
-                @click="toggleFavorite"
-                class="absolute top-4 right-4 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-all duration-200"
-              >
-                <svg
-                  v-if="!isFavorited"
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  class="w-6 h-6 text-gray-500 hover:text-red-500 transition-colors duration-200"
+          <!-- Sticky Product Images & Buttons Column -->
+          <div class="product-column sticky-column">
+            <div class="product-images-wrapper">
+              <!-- Product Images Section -->
+              <div class="product-images space-y-4 flex-shrink-0">
+                <div
+                  class="main-image group relative overflow-hidden bg-gray-100 rounded-2xl shadow-lg"
                 >
-                  <path
-                    d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 
-           7.78l8.84 8.84 8.84-8.84a5.5 5.5 0 000-7.78z"
+                  <!-- Loan Status Corner Banner -->
+                  <div
+                    class="absolute top-0 right-0 z-20"
+                    :class="
+                      product.inStock
+                        ? 'status-banner-available'
+                        : 'status-banner-loaned'
+                    "
+                  >
+                    <div class="status-banner-text">
+                      {{ product.inStock ? "AVAILABLE" : "LOANED" }}
+                    </div>
+                  </div>
+
+                  <!-- Favourite Button (Catalogue Style) -->
+                  <div
+                    class="favorite absolute top-4 left-4 z-10"
+                    v-if="!isAdmin && user"
+                  >
+                    <button
+                      @click="toggleFavorite"
+                      :class="{ 'is-favorite': isFavorited }"
+                      class="favorite-btn"
+                    >
+                      <span v-if="isFavorited">★</span>
+                      <span v-else>☆</span>
+                    </button>
+                  </div>
+
+                  <img
+                    :src="product.mainImage"
+                    :alt="product.name"
+                    class="product-image w-[400px] h-[500px] object-contain p-8 group-hover:scale-105 transition-transform duration-500"
                   />
-                </svg>
+                </div>
 
-                <svg
-                  v-else
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  class="w-6 h-6 text-red-500 transition-all duration-200"
+                <!-- Thumbnail Gallery -->
+                <div
+                  class="thumbnail-gallery grid grid-cols-4 gap-3"
+                  v-if="product.images && product.images.length > 1"
                 >
-                  <path
-                    d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 
-           2 6 4 4 6.5 4c1.74 0 3.41 1 4.13 2.44h.75C13.09 5 
-           14.76 4 16.5 4 19 4 21 6 21 8.5c0 3.78-3.4 6.86-8.55 
-           11.54L12 21.35z"
-                  />
-                </svg>
-              </button>
-
-              <img
-                :src="product.mainImage"
-                :alt="product.name"
-                class="product-image w-[400px] h-[500px] object-contain p-8 group-hover:scale-105 transition-transform duration-500"
-              />
-
-              <div v-if="!product.inStock" class="absolute top-4 left-4">
-                <span
-                  class="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-medium"
-                >
-                  Currently Loaned
-                </span>
+                  <div
+                    v-for="(image, index) in product.images"
+                    :key="index"
+                    class="relative group cursor-pointer"
+                    @click="selectImage(image)"
+                  >
+                    <img
+                      :src="image"
+                      :alt="`${product.name} view ${index + 1}`"
+                      class="w-full h-20 object-contain bg-gray-50 rounded-lg border-2 border-transparent group-hover:border-blue-500 transition-all duration-200 p-2"
+                      :class="{
+                        'border-blue-500 bg-blue-50':
+                          product.mainImage === image,
+                      }"
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
 
-            <!-- Thumbnail Gallery -->
-            <div
-              class="thumbnail-gallery grid grid-cols-4 gap-3"
-              v-if="product.images && product.images.length > 1"
-            >
-              <div
-                v-for="(image, index) in product.images"
-                :key="index"
-                class="relative group cursor-pointer"
-                @click="selectImage(image)"
-              >
-                <img
-                  :src="image"
-                  :alt="`${product.name} view ${index + 1}`"
-                  class="w-full h-20 object-contain bg-gray-50 rounded-lg border-2 border-transparent group-hover:border-blue-500 transition-all duration-200 p-2"
-                  :class="{
-                    'border-blue-500 bg-blue-50': product.mainImage === image,
-                  }"
-                />
+              <!-- Action Buttons Below Images -->
+              <div class="button-container" v-if="user">
+                <button
+                  @click="isAdmin ? viewWaitlist() : addToCart"
+                  :disabled="!product.inStock"
+                  :class="[
+                    'action-button flex-1 py-4 px-8 rounded-full font-semibold text-base transition-all duration-200',
+                    product.inStock ? 'reserve-btn' : 'waitlist-btn',
+                  ]"
+                >
+                  <span v-if="product.inStock && !isAdmin">Reserve Device</span>
+                  <span v-else-if="!isAdmin">Join Waitlist</span>
+                  <span v-else-if="isAdmin">View Waitlist</span>
+                </button>
+
+                <button
+                  class="share-btn py-4 px-4 rounded-full transition-all duration-200"
+                  title="Share"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke-width="1.5"
+                    stroke="currentColor"
+                    class="h-5 w-5"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z"
+                    />
+                  </svg>
+                </button>
               </div>
             </div>
           </div>
@@ -130,95 +155,26 @@
           <!-- Product Details Section -->
           <div class="product-details flex-grow h-auto min-h-screen">
             <!-- Header -->
-            <div class="space-y-4 pb-6 border-b border-gray-200">
-              <div class="flex items-center space-x-2 text-sm column">
+            <div class="space-y-4 pb-6">
+              <div class="flex items-center gap-3 text-sm">
                 <span
-                  class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full font-medium"
+                  class="px-4 py-1.5 bg-gradient-to-r from-[#6c7c69] to-[#5a6857] text-white rounded-lg font-semibold shadow-sm hover:shadow-md transition-shadow"
                 >
                   {{ product.category }}
                 </span>
+                <span class="text-gray-300"> • </span>
                 <span
-                  class="px-3 py-1 bg-gray-100 text-gray-700 rounded-full font-medium"
+                  class="px-4 py-1.5 bg-gradient-to-r from-gray-700 to-gray-800 text-white rounded-lg font-semibold shadow-sm hover:shadow-md transition-shadow"
                 >
                   {{ product.brand }}
                 </span>
               </div>
 
-              <h1
+              <h2
                 class="text-3xl lg:text-4xl font-bold text-gray-900 leading-tight"
               >
                 {{ product.name }}
-              </h1>
-
-              <p class="text-lg text-gray-600">{{ product.model }}</p>
-
-              <div class="flex items-center justify-between">
-                <span class="text-4xl font-bold text-blue-600"
-                  >£{{ product.price }}</span
-                >
-                <div class="flex items-center space-x-2">
-                  <div
-                    class="w-3 h-3 rounded-full animate-pulse"
-                    :class="product.inStock ? 'bg-green-500' : 'bg-red-500'"
-                  ></div>
-                  <span
-                    class="text-sm font-semibold px-3 py-1 rounded-full"
-                    :class="
-                      product.inStock
-                        ? 'text-green-700 bg-green-100'
-                        : 'text-red-700 bg-red-100'
-                    "
-                  >
-                    {{ product.inStock ? "Available Now" : "Currently Loaned" }}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Action Buttons -->
-            <div class="actions py-6 space-y-3">
-              <button
-                @click="addToCart"
-                :disabled="!product.inStock"
-                class="reserve-btn w-full py-4 px-8 rounded-2xl font-bold text-lg transition-all duration-300 transform hover:scale-[1.02] hover:shadow-xl disabled:cursor-not-allowed disabled:hover:scale-100"
-                :class="
-                  product.inStock
-                    ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg'
-                    : 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-lg'
-                "
-              >
-                <span
-                  v-if="product.inStock"
-                  class="flex items-center justify-center space-x-2"
-                >
-                  <span>🔒</span>
-                  <span>Reserve Device</span>
-                </span>
-                <span v-else class="flex items-center justify-center space-x-2">
-                  <span>📋</span>
-                  <span>Join Waitlist</span>
-                </span>
-              </button>
-
-              <div class="flex space-x-3">
-                <button
-                  @click="$router.go(-1)"
-                  class="secondary-btn flex-1 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 py-3 px-6 rounded-xl font-semibold hover:from-gray-200 hover:to-gray-300 transition-all duration-200 transform hover:scale-[1.02]"
-                >
-                  <span class="flex items-center justify-center space-x-2">
-                    <span>←</span>
-                    <span>Back</span>
-                  </span>
-                </button>
-                <button
-                  class="secondary-btn flex-1 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 py-3 px-6 rounded-xl font-semibold hover:from-gray-200 hover:to-gray-300 transition-all duration-200 transform hover:scale-[1.02]"
-                >
-                  <span class="flex items-center justify-center space-x-2">
-                    <span>🔗</span>
-                    <span>Share</span>
-                  </span>
-                </button>
-              </div>
+              </h2>
             </div>
 
             <!-- Description -->
@@ -229,8 +185,7 @@
               <h3
                 class="text-xl font-bold text-gray-900 mb-4 flex items-center"
               >
-                <span class="mr-2">📖</span>
-                About this Device
+                Description
               </h3>
               <div
                 class="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-2xl border border-blue-100"
@@ -245,31 +200,30 @@
               <h3
                 class="text-xl font-bold text-gray-900 mb-4 flex items-center"
               >
-                <span class="mr-2">⚙️</span>
-                Technical Specifications
+                Specifications
               </h3>
               <div class="spec">
-                <div class="spec-card">
+                <div v-if="product.processor" class="spec-card">
                   <div class="spec-label">Processor</div>
                   <div class="spec-value">{{ product.processor }}</div>
                 </div>
-                <div class="spec-card">
+                <div v-if="product.ram" class="spec-card">
                   <div class="spec-label">Memory</div>
                   <div class="spec-value">{{ product.ram }}</div>
                 </div>
-                <div class="spec-card">
+                <div v-if="product.storage" class="spec-card">
                   <div class="spec-label">Storage</div>
                   <div class="spec-value">{{ product.storage }}</div>
                 </div>
-                <div class="spec-card">
+                <div v-if="product.gpu" class="spec-card">
                   <div class="spec-label">Graphics</div>
                   <div class="spec-value">{{ product.gpu }}</div>
                 </div>
-                <div class="spec-card">
+                <div v-if="product.display" class="spec-card">
                   <div class="spec-label">Display</div>
                   <div class="spec-value">{{ product.display }}</div>
                 </div>
-                <div class="spec-card">
+                <div v-if="product.os" class="spec-card">
                   <div class="spec-label">Operating System</div>
                   <div class="spec-value">{{ product.os }}</div>
                 </div>
@@ -385,16 +339,9 @@
                     <div class="spec-value">{{ product.waterproof }}</div>
                   </div>
                 </template>
-              </div>
 
-              <!-- Additional specs -->
-              <div
-                v-if="
-                  (product.ports && product.ports.length) ||
-                  (product.connectivity && product.connectivity.length)
-                "
-                class="mt-4 space-y-3"
-              >
+                <!-- Additional specs -->
+
                 <div
                   v-if="product.ports && product.ports.length"
                   class="spec-card-wide"
@@ -422,18 +369,25 @@
 
 <script>
 import { ref, onMounted, computed, watch } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { fetchProductById } from "../services/CatalogueService";
 import { useFavorites } from "../services/favouritesService";
 import { getCloudinaryUrl } from "../assets/cloudinary";
+import { useAuth } from "../composables/useAuth";
 
 export default {
   name: "ProductPage",
   setup() {
     const route = useRoute();
+    const router = useRouter();
     const product = ref(null);
     const loading = ref(true);
     const error = ref("");
+
+    const { user } = useAuth();
+    const isAdmin = computed(
+      () => (user.value?.role || "").toLowerCase() === "admin"
+    );
 
     // Use the favorites service
     const {
@@ -463,6 +417,14 @@ export default {
           product.value.name
         );
       }
+    };
+
+    const viewWaitlist = () => {
+      if (!product.value) return;
+      router.push({
+        path: "/admin/dashboard",
+        query: { deviceId: product.value.id },
+      });
     };
 
     onMounted(async () => {
@@ -498,6 +460,9 @@ export default {
       selectImage,
       addToCart,
       toggleFavorite,
+      isAdmin,
+      viewWaitlist,
+      user,
     };
   },
 };
@@ -510,23 +475,44 @@ export default {
 .product-images,
 .product-details {
   height: auto;
-  min-height: 100vh;
+  /* min-height: 100vh; */
+}
+
+.product-details {
+  padding: 1rem;
 }
 
 .product-images {
   display: flex;
-  justify-self: flex-start;
-  height: -webkit-fill-available;
-  min-height: 100%;
+  flex-direction: column;
+}
+
+.product-column {
+  flex-shrink: 0;
+}
+
+.sticky-column {
+  position: sticky;
+  top: 6rem;
+  align-self: flex-start;
+  height: fit-content;
+}
+
+.product-images-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.product-image {
+  width: 40vw;
 }
 
 .main-image {
-  position: sticky;
-  top: 6rem;
   padding: 2rem;
   background: white;
-  margin: 2rem;
   z-index: 0;
+  border-radius: 6px;
 }
 
 .container {
@@ -536,33 +522,31 @@ export default {
 }
 
 .product-page {
-  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
   height: 100%;
 }
-.product-details {
-}
-
-.main-image {
-  position: sticky;
-  top: 6rem;
-  padding: 2rem;
-  background: white;
-  margin: 2rem;
-  z-index: 0;
-  height: 400px;
+.nav-row {
+  padding-top: 6px;
+  padding-left: 17px;
 }
 
 .content {
   display: flex;
-  gap: 2rem;
+  gap: 1rem;
+  padding: 1rem;
   align-items: flex-start;
   height: auto; /* allow to expand with content */
   min-height: 100vh; /* still fills screen on short pages */
-
-  .product-image {
-    width: 500px;
-  }
 }
+
+.button-container {
+  width: 100%;
+  padding: 0;
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
 .spec {
   display: flex;
   flex-direction: column;
@@ -593,23 +577,54 @@ button[aria-pressed="true"] svg {
 
 /* Primary Action – Reserve / Waitlist */
 .reserve-btn {
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  background: #867537;
   color: #fff;
   border: none;
 }
 .reserve-btn:hover {
-  background: linear-gradient(135deg, #1e40af, #1d4ed8);
+  background: #756630;
   transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 10px 25px rgba(37, 99, 235, 0.25);
+  box-shadow: 0 10px 25px rgba(134, 117, 55, 0.25);
 }
 .reserve-btn:disabled {
-  background: linear-gradient(135deg, #f97316, #ea580c);
+  background: #867537;
   cursor: not-allowed;
   opacity: 0.9;
 }
 .reserve-btn:disabled:hover {
   transform: none;
   box-shadow: none;
+}
+
+/* Waitlist Button - Green */
+.waitlist-btn {
+  background: #6c7c69;
+  color: #fff;
+  padding: 6px;
+  border-radius: 6px;
+  border: none;
+}
+.waitlist-btn:hover {
+  background: #5a6857;
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 10px 25px rgba(108, 124, 105, 0.25);
+}
+
+/* Share Button - Gold */
+.share-btn {
+  color: white;
+  width: 30px;
+  background-color: #867537;
+  border: none;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.share-btn:hover {
+  background: linear-gradient(135deg, #756630 0%, #a89970 100%);
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 8px 20px rgba(134, 117, 55, 0.3);
 }
 
 /* Wishlist Button */
@@ -619,7 +634,7 @@ button[aria-pressed="true"] svg {
   color: #374151;
 }
 .wishlist-btn:hover {
-  border-color: #ef4444;
+  border-color: #a6383e;
   background: linear-gradient(135deg, #fef2f2, #fee2e2);
   color: #b91c1c;
   box-shadow: 0 8px 20px rgba(239, 68, 68, 0.15);
@@ -748,12 +763,12 @@ button:focus-visible {
 
 /* Section Styling */
 .description-section {
-  border-left: 4px solid #3b82f6;
+  border-left: 4px solid #867537;
   padding-left: 1rem;
 }
 
 .specifications-section {
-  border-left: 4px solid #10b981;
+  border-left: 4px solid #867537;
   padding-left: 1rem;
 }
 
@@ -773,7 +788,7 @@ button:focus-visible {
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, #3b82f6, #10b981, #f59e0b);
+  background: #867537;
   transform: scaleX(0);
   transition: transform 0.3s ease;
 }
@@ -803,7 +818,7 @@ button:focus-visible {
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, #8b5cf6, #ec4899);
+  background: #867537;
   transform: scaleX(0);
   transition: transform 0.3s ease;
 }
@@ -858,10 +873,6 @@ button:focus-visible {
     padding-top: 0;
   }
 
-  .main-image {
-    height: 350px;
-  }
-
   .thumbnail-gallery {
     grid-template-columns: repeat(3, 1fr);
   }
@@ -914,5 +925,77 @@ button:focus-visible {
 /* Status indicator animation */
 .w-3.h-3.rounded-full {
   animation: pulse-slow 3s ease-in-out infinite;
+}
+
+/* Corner Banner Styles */
+.status-banner-available,
+.status-banner-loaned {
+  position: absolute;
+  width: 137px;
+  height: 120px;
+  top: 0;
+  right: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.status-banner-available::before,
+.status-banner-loaned::before {
+  content: "";
+  position: absolute;
+  top: -60px;
+  right: -60px;
+  width: 125px;
+  height: 120px;
+  transform: rotate(45deg);
+  transform-origin: center;
+}
+
+.status-banner-available::before {
+  background: linear-gradient(135deg, #6c7c69 0%, #5a6857 100%);
+}
+
+.status-banner-loaned::before {
+  background: linear-gradient(135deg, #a6383e 0%, #8a2f34 100%);
+}
+
+.status-banner-text {
+  position: absolute;
+  top: 23px;
+  right: -22px;
+  transform: rotate(45deg);
+  color: white;
+  font-weight: bold;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  z-index: 1;
+  width: 100px;
+  text-align: center;
+}
+
+.favorite {
+  display: flex;
+  position: absolute;
+  top: 0px;
+  left: 11px;
+  /* Favourite Button Styles */
+}
+.favorite-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 32px;
+  padding: 0.5rem;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+.favorite-btn.is-favorite {
+  color: #b49d4b;
+}
+
+.favorite-btn:hover {
+  transform: scale(1.1);
 }
 </style>

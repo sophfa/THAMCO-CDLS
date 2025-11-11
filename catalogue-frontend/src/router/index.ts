@@ -10,8 +10,6 @@ import ReservationsView from "../views/ReservationsView.vue";
 import FavouritesView from "../views/FavouritesView.vue";
 import ProfileView from "../views/ProfileView.vue";
 
-import LoginView from "../views/LoginView.vue";
-import SignupView from "../views/SignupView.vue";
 import { useAuth } from "../composables/useAuth";
 import ProductPage from "../views/ProductPage.vue";
 import FAQsView from "../views/FAQsView.vue";
@@ -45,8 +43,6 @@ const routes = [
     component: ProfileView,
     meta: { requiresAuth: true },
   },
-  { path: "/login", name: "login", component: LoginView },
-  { path: "/signup", name: "signup", component: SignupView },
   {
     path: "/admin/dashboard",
     name: "admin-dashboard",
@@ -62,15 +58,18 @@ const router = createRouter({
 
 // Navigation guard: block protected pages if not logged in
 router.beforeEach(
-  (
+  async (
     to: RouteLocationNormalized,
     from: RouteLocationNormalized,
     next: NavigationGuardNext
   ) => {
-    const { loggedIn, user } = useAuth();
+    const { loggedIn, user, ensureInitialized } = useAuth();
+
+    // Wait for auth to initialize (reads from localStorage)
+    await ensureInitialized();
 
     if (to.meta.requiresAuth && !loggedIn.value) {
-      next("/login");
+      next("/");
     } else if (to.meta.requiresAdmin && user.value?.role !== "Admin") {
       next("/");
     } else {

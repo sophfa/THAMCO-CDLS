@@ -10,6 +10,7 @@ import { Favourite } from "../../domain/favourite";
 import { FavouriteRepo } from "../../domain/favourites-repo";
 import { CosmosFavouriteRepo } from "../../infra/cosmos-favourite-repo";
 import { buildFavouriteIdentity } from "./favouriteIdentity";
+import { validateToken } from "../../utils/auth";
 
 // Configuration from environment variables
 const cosmosOptions = {
@@ -56,6 +57,27 @@ export async function addFavouriteHttp(
   context.log("HTTP trigger function processed a request to add favourite");
 
   try {
+    // Validate authentication token
+    const authResult = validateToken(request, context);
+    if (!authResult.isValid) {
+      context.log("Authentication failed:", authResult.error);
+      return {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          {
+            success: false,
+            error: {
+              code: "UNAUTHORIZED",
+              message: authResult.error || "Unauthorized",
+            },
+          },
+          null,
+          2
+        ),
+      };
+    }
+
     // Parse request body
     const requestBody = (await request.json()) as AddFavouriteRequest;
     const { userId, deviceId } = requestBody;
@@ -76,6 +98,26 @@ export async function addFavouriteHttp(
           "Content-Type": "application/json",
         },
         body: JSON.stringify(errorResponse, null, 2),
+      };
+    }
+
+    // Verify the authenticated user matches the userId in the request
+    if (authResult.userId !== userId) {
+      context.log("Access denied: User mismatch");
+      return {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          {
+            success: false,
+            error: {
+              code: "FORBIDDEN",
+              message: "Access denied: Cannot add favourites for other users",
+            },
+          },
+          null,
+          2
+        ),
       };
     }
 

@@ -747,8 +747,8 @@ onMounted(() => {
 }
 
 .helpful-btn.active {
-  background: #3b82f6;
-  border-color: #3b82f6;
+  background: #6c7c69;
+  border-color: #6c7c69;
   color: white;
 }
 
@@ -792,12 +792,12 @@ onMounted(() => {
 }
 
 .contact-btn.primary {
-  background: #3b82f6;
+  background: #6c7c69;
   color: white;
 }
 
 .contact-btn.primary:hover {
-  background: #2563eb;
+  background: #5a6857;
   transform: translateY(-1px);
 }
 

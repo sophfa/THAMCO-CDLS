@@ -13,7 +13,10 @@
   },
   "dependencies": {
     "@azure/functions": "^4.0.0",
-    "dotenv": "^17.2.3"
+    "@types/jsonwebtoken": "^9.0.10",
+    "dotenv": "^17.2.3",
+    "jsonwebtoken": "^9.0.2",
+    "jwks-rsa": "^3.2.0"
   },
   "devDependencies": {
     "@azure/cosmos": "^4.7.0",

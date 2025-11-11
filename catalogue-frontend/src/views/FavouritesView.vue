@@ -153,7 +153,7 @@ const handleReserveOrWaitlist = (product: Product) => {
 }
 
 .clear-btn {
-  background-color: #ef4444;
+  background-color: #a6383e;
   color: white;
   border: none;
   padding: 0.5rem 1rem;
@@ -163,7 +163,7 @@ const handleReserveOrWaitlist = (product: Product) => {
 }
 
 .clear-btn:hover {
-  background-color: #dc2626;
+  background-color: #8a2f34;
 }
 
 .empty-state {
@@ -198,7 +198,7 @@ const handleReserveOrWaitlist = (product: Product) => {
 }
 
 .error {
-  color: #ef4444;
+  color: #a6383e;
   padding: 1rem;
   background-color: #fef2f2;
   border-radius: 4px;
@@ -248,16 +248,16 @@ const handleReserveOrWaitlist = (product: Product) => {
 
 .details-btn {
   padding: 0.5rem 1rem;
-  border: 1px solid #007bff;
+  border: 1px solid #867537;
   border-radius: 4px;
   background: white;
-  color: #007bff;
+  color: #867537;
   cursor: pointer;
   font-weight: bold;
 }
 
 .details-btn:hover {
-  background-color: #007bff;
+  background-color: #867537;
   color: white;
 }
 
@@ -271,21 +271,21 @@ const handleReserveOrWaitlist = (product: Product) => {
 }
 
 .reserve-btn {
-  background-color: #4caf50;
+  background-color: #6c7c69;
   color: white;
 }
 
 .reserve-btn:hover {
-  background-color: #45a049;
+  background-color: #5a6857;
 }
 
 .waitlist-btn {
-  background-color: #ff9800;
+  background-color: #6b7280;
   color: white;
 }
 
 .waitlist-btn:hover {
-  background-color: #e68900;
+  background-color: #4b5563;
 }
 
 .favorite-btn {
@@ -295,7 +295,7 @@ const handleReserveOrWaitlist = (product: Product) => {
   font-size: 24px;
   padding: 0.5rem;
   border-radius: 4px;
-  color: gold;
+  color: #b49d4b;
 }
 
 .favorite-btn:hover {

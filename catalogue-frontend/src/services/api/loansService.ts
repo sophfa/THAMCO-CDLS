@@ -86,35 +86,31 @@ export async function createLoan(
 export async function returnLoan(loanId: string): Promise<Loan> {
   console.log(`[LoansService] Returning loan: ${loanId}`);
 
-  const response = await fetch(`${BASE_URL}/loans/${loanId}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ status: "Returned" }),
-  });
-
-  if (!response.ok) {
-    console.error(`[LoansService] Failed to return loan: ${loanId}`, {
-      status: response.status,
-      statusText: response.statusText,
+  try {
+    const data = await authenticatedFetch(`${BASE_URL}/loans/${loanId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: "Returned" }),
     });
-    throw new Error(`Failed to return loan`);
-  }
 
-  const data = (await response.json()) as Loan;
-  console.log(`[LoansService] Loan returned successfully: ${loanId}`);
-  return data;
+    console.log(`[LoansService] Loan returned successfully: ${loanId}`);
+    return data as Loan;
+  } catch (error) {
+    console.error(`[LoansService] Failed to return loan: ${loanId}`, error);
+    throw error;
+  }
 }
 
 // Admin: list all loans
 export async function listAllLoans(): Promise<Loan[]> {
-  const res = await fetch(`${BASE_URL}/loans`, {
-    headers: { "Content-Type": "application/json" },
-  });
-  if (!res.ok) throw new Error(`Failed to fetch loans: ${res.status}`);
-  const body = await res.json();
-  // Support either { success, data } or raw array
-  const data = Array.isArray(body) ? body : body?.data || [];
-  return data as Loan[];
+  try {
+    const body = await authenticatedFetch(`${BASE_URL}/loans`);
+    // Support either { success, data } or raw array
+    const data = Array.isArray(body) ? body : body?.data || [];
+    return data as Loan[];
+  } catch (error) {
+    console.error(`[LoansService] Failed to fetch all loans`, error);
+    throw error;
+  }
 }
 
 // Admin: approve (authorize) a requested loan
@@ -125,23 +121,16 @@ export async function authorizeLoan(loanId: string): Promise<any> {
   const url = `${BASE_URL}/loans/${encodeURIComponent(
     loanId
   )}/authorize${codeParam}`;
-  const res = await fetch(url, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-  });
 
-  if (!res.ok) {
-    const errorData = await res
-      .json()
-      .catch(() => ({ error: "Unknown error" }));
-    throw new Error(
-      `Failed to authorize loan ${loanId}: ${res.status} - ${
-        errorData.error || errorData.message
-      }`
-    );
+  try {
+    const data = await authenticatedFetch(url, {
+      method: "PUT",
+    });
+    return data;
+  } catch (error: any) {
+    console.error(`[LoansService] Failed to authorize loan: ${loanId}`, error);
+    throw error;
   }
-
-  return res.json();
 }
 export async function addToWaitlist(
   deviceId: string,
@@ -152,28 +141,26 @@ export async function addToWaitlist(
     `[LoansService] Adding user ${userId} to waitlist for device: ${deviceId}`
   );
 
-  const response = await fetch(`${BASE_URL}/loans/${deviceId}/waitlist`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, userEmail }),
-  });
+  try {
+    const data = await authenticatedFetch(
+      `${BASE_URL}/loans/${deviceId}/waitlist`,
+      {
+        method: "POST",
+        body: JSON.stringify({ userId, userEmail }),
+      }
+    );
 
-  if (!response.ok) {
-    console.error(`[LoansService] Failed to add to waitlist`, {
-      deviceId,
-      userId,
-      userEmail,
-      status: response.status,
-      statusText: response.statusText,
-    });
-    throw new Error(`Failed to add to waitlist`);
+    console.log(
+      `[LoansService] Successfully added user ${userId} to waitlist for device: ${deviceId}`
+    );
+    return data;
+  } catch (error) {
+    console.error(
+      `[LoansService] Failed to add to waitlist for device: ${deviceId}`,
+      error
+    );
+    throw error;
   }
-
-  const data = await response.json();
-  console.log(
-    `[LoansService] Successfully added user ${userId} to waitlist for device: ${deviceId}`
-  );
-  return data;
 }
 
 export async function joinWaitlistForDevice(deviceId: string) {
@@ -199,25 +186,23 @@ export async function joinWaitlistForDevice(deviceId: string) {
 export async function getUserLoans(userId: string): Promise<Loan[]> {
   console.log(`[LoansService] Fetching loans for user: ${userId}`);
 
-  const response = await fetch(
-    `${BASE_URL}/loans/user/${encodeURIComponent(userId)}`
-  );
+  try {
+    const data = await authenticatedFetch(
+      `${BASE_URL}/loans/user/${encodeURIComponent(userId)}`
+    );
 
-  if (!response.ok) {
-    console.error(`[LoansService] Failed to fetch loans for user: ${userId}`, {
-      status: response.status,
-      statusText: response.statusText,
-    });
-    throw new Error(`Failed to fetch loans for ${userId}`);
+    const loans = (Array.isArray(data) ? data : []) as Loan[];
+    console.log(
+      `[LoansService] Successfully fetched ${loans.length} loans for user: ${userId}`
+    );
+    return loans;
+  } catch (error) {
+    console.error(
+      `[LoansService] Failed to fetch loans for user: ${userId}`,
+      error
+    );
+    throw error;
   }
-
-  const data = (await response.json()) as Loan[];
-  console.log(
-    `[LoansService] Successfully fetched ${
-      Array.isArray(data) ? data.length : "unknown"
-    } loans for user: ${userId}`
-  );
-  return data;
 }
 
 // === FAVORITES API METHODS ===
@@ -348,80 +333,68 @@ export async function getUserWaitlistEntries(
 ): Promise<WaitlistEntry[]> {
   console.log(`[LoansService] Fetching waitlist entries for user: ${userId}`);
 
-  // Placeholder implementation - in real app this would call Azure Function
-  const mockWaitlistEntries: WaitlistEntry[] = [
-    {
-      id: "wl-001",
-      deviceId: "PROD-001",
-      userId: userId,
-      position: 2,
-      joinedDate: "2025-11-01T10:00:00Z",
-      estimatedAvailability: "2025-11-10T00:00:00Z",
-    },
-    {
-      id: "wl-002",
-      deviceId: "PROD-003",
-      userId: userId,
-      position: 1,
-      joinedDate: "2025-10-28T14:30:00Z",
-      estimatedAvailability: "2025-11-05T00:00:00Z",
-    },
-  ];
+  try {
+    const response = await authenticatedFetch(
+      `${BASE_URL}/loans/waitlist/${encodeURIComponent(userId)}`
+    );
 
-  console.log(
-    `[LoansService] Successfully fetched ${mockWaitlistEntries.length} waitlist entries for user: ${userId}`
-  );
-  return mockWaitlistEntries;
+    // Response is an array of { deviceId, position }
+    const results = Array.isArray(response) ? response : [];
+    console.log("results: ", results);
+    // Transform to WaitlistEntry format
+    const waitlistEntries: WaitlistEntry[] = results
+      .filter((item: any) => item.position !== null)
+      .map((item: any) => ({
+        deviceId: item.deviceId,
+        id: item.loanId,
+        userId: userId,
+        position: item.position,
+        estimatedAvailability: undefined,
+      }));
 
-  // Real implementation would be:
-  // const response = await authenticatedFetch(
-  //   `${BASE_URL}/waitlist/user/${encodeURIComponent(userId)}`
-  // );
-  // return response.waitlistEntries || response || [];
-}
-
-export async function getWaitlistPosition(
-  userId: string,
-  deviceId: string
-): Promise<number> {
-  console.log(
-    `[LoansService] Getting waitlist position for user: ${userId}, device: ${deviceId}`
-  );
-
-  // Placeholder implementation
-  const mockPosition = Math.floor(Math.random() * 5) + 1;
-
-  console.log(
-    `[LoansService] User ${userId} is at position ${mockPosition} for device ${deviceId}`
-  );
-  return mockPosition;
-
-  // Real implementation would be:
-  // const response = await authenticatedFetch(
-  //   `${BASE_URL}/waitlist/position?userId=${encodeURIComponent(userId)}&deviceId=${encodeURIComponent(deviceId)}`
-  // );
-  // return response.position || 0;
+    console.log(
+      `[LoansService] Successfully fetched ${
+        waitlistEntries.length
+      } waitlist entries for user: ${userId}, value: ${JSON.stringify(
+        waitlistEntries
+      )}`
+    );
+    return waitlistEntries;
+  } catch (error) {
+    console.error(
+      `[LoansService] Failed to fetch waitlist entries for user: ${userId}`,
+      error
+    );
+    // Return empty array on error to prevent breaking the UI
+    return [];
+  }
 }
 
 export async function removeFromWaitlist(
   userId: string,
-  deviceId: string
+  loanId: string
 ): Promise<void> {
   console.log(
-    `[LoansService] Removing user ${userId} from waitlist for device: ${deviceId}`
+    `[LoansService] Removing user ${userId} from waitlist for loan: ${loanId}`
   );
 
-  // Placeholder implementation - would call Azure Function
-  console.log(
-    `[LoansService] Successfully removed user ${userId} from waitlist for device: ${deviceId}`
-  );
+  try {
+    await authenticatedFetch(
+      `${BASE_URL}/loans/${encodeURIComponent(loanId)}/waitlist`,
+      {
+        method: "DELETE",
+        body: JSON.stringify({ userId }),
+      }
+    );
 
-  // Real implementation would be:
-  // await authenticatedFetch(`${BASE_URL}/waitlist/remove`, {
-  //   method: "POST",
-  //   body: JSON.stringify({
-  //     userId: userId,
-  //     deviceId: deviceId,
-  //   }),
-  // });
+    console.log(
+      `[LoansService] Successfully removed user ${userId} from waitlist for loan: ${loanId}`
+    );
+  } catch (error) {
+    console.error(
+      `[LoansService] Failed to remove user ${userId} from waitlist for loan: ${loanId}`,
+      error
+    );
+    throw error;
+  }
 }

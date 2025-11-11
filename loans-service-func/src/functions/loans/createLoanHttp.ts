@@ -4,22 +4,25 @@ import {
   HttpResponseInit,
   InvocationContext,
 } from "@azure/functions";
-import { CosmosClient } from "@azure/cosmos";
+import { loansContainer } from "../../config/cosmosClient";
+import { validateToken } from "../../utils/auth";
 import "dotenv/config";
-
-const client = new CosmosClient({
-  endpoint: process.env.COSMOS_ENDPOINT || "https://localhost:8081",
-  key: process.env.COSMOS_KEY,
-});
-const databaseId = process.env.COSMOS_DATABASE || "loans-db";
-const containerId = process.env.COSMOS_CONTAINER || "Loans";
-const container = client.database(databaseId).container(containerId);
 
 export async function createLoanHttp(
   req: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
   try {
+    // Validate authentication token
+    const authResult = validateToken(req, context);
+    if (!authResult.isValid) {
+      context.log("Authentication failed:", authResult.error);
+      return {
+        status: 401,
+        jsonBody: { message: authResult.error || "Unauthorized" },
+      };
+    }
+
     const body = (await req.json()) as {
       deviceId?: string;
       userId?: string;
@@ -35,6 +38,17 @@ export async function createLoanHttp(
       };
     }
 
+    // Verify the authenticated user matches the userId in the request
+    if (authResult.userId !== userId) {
+      context.log("Access denied: User mismatch");
+      return {
+        status: 403,
+        jsonBody: {
+          message: "Access denied: Cannot create loan for other users",
+        },
+      };
+    }
+
     const now = new Date();
     const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
     const from = now;
@@ -47,10 +61,10 @@ export async function createLoanHttp(
       createdAt: now.toISOString(),
       from: from.toISOString(),
       till: till.toISOString(),
-      status: 'Requested' as const,
+      status: "Requested" as const,
     };
 
-    await container.items.upsert(newLoan);
+    await loansContainer.items.upsert(newLoan);
     return { status: 201, jsonBody: newLoan };
   } catch (error: any) {
     context.log("Failed to create loan:", error);

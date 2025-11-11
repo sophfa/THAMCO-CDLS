@@ -1,19 +1,27 @@
-import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
-import { CosmosClient } from "@azure/cosmos";
-
-const client = new CosmosClient({
-  endpoint: process.env.COSMOS_ENDPOINT || "https://localhost:8081",
-  key: process.env.COSMOS_KEY,
-});
-const databaseId = process.env.COSMOS_DATABASE || "loans-db";
-const containerId = process.env.COSMOS_CONTAINER || "Loans";
-const container = client.database(databaseId).container(containerId);
+import {
+  app,
+  HttpRequest,
+  HttpResponseInit,
+  InvocationContext,
+} from "@azure/functions";
+import { validateToken } from "../../utils/auth";
+import { loansContainer } from "../../config/cosmosClient";
 
 export async function addToWaitlistByDeviceHttp(
   req: HttpRequest,
   ctx: InvocationContext
 ): Promise<HttpResponseInit> {
   try {
+    // Validate authentication token
+    const authResult = validateToken(req, ctx);
+    if (!authResult.isValid) {
+      ctx.log("Authentication failed:", authResult.error);
+      return {
+        status: 401,
+        jsonBody: { message: authResult.error || "Unauthorized" },
+      };
+    }
+
     const rawDeviceId = req.params.deviceId ?? "";
     const deviceId = decodeURIComponent(rawDeviceId).trim();
     const body = (await req.json()) as { userId?: string };
@@ -22,15 +30,27 @@ export async function addToWaitlistByDeviceHttp(
     if (!deviceId || !userId) {
       return {
         status: 400,
-        jsonBody: { message: "deviceId route param and userId body are required" },
+        jsonBody: {
+          message: "deviceId route param and userId body are required",
+        },
+      };
+    }
+
+    // Verify the authenticated user matches the userId in the request
+    if (authResult.userId !== userId) {
+      ctx.log("Access denied: User mismatch");
+      return {
+        status: 403,
+        jsonBody: {
+          message: "Access denied: Cannot add other users to waitlist",
+        },
       };
     }
 
     // Find active loan for this device
-    const { resources } = await container.items
+    const { resources } = await loansContainer.items
       .query({
-        query:
-          "SELECT TOP 1 * FROM c WHERE c.deviceId = @deviceId",
+        query: "SELECT TOP 1 * FROM c WHERE c.deviceId = @deviceId",
         parameters: [{ name: "@deviceId", value: deviceId }],
       })
       .fetchAll();
@@ -52,7 +72,7 @@ export async function addToWaitlistByDeviceHttp(
       loan.waitlist.push(userId);
     }
 
-    await container.items.upsert(loan);
+    await loansContainer.items.upsert(loan);
     return { status: 200, jsonBody: loan };
   } catch (error: any) {
     ctx.log("Failed to add to waitlist by device:", error);

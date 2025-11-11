@@ -1,7 +1,11 @@
 <template>
   <nav
     class="navbar"
-    :style="loggedIn ? 'padding-top: 1.5rem; padding-bottom: 0.5rem;' : ''"
+    :style="
+      loggedIn
+        ? 'padding-top: 1.5rem; max-width: 100vw; padding-bottom: 0.5rem;'
+        : ''
+    "
   >
     <div class="brand">
       <img
@@ -83,13 +87,13 @@
     <div class="profile">
       <template v-if="loggedIn">
         <router-link to="/profile">
-          <i class="fas fa-user-circle"></i> {{ user?.name || "Profile" }}
+          <i class="fas fa-user-circle"></i> {{ user?.nickname || "Profile" }}
         </router-link>
         <button @click="logout" class="logout">Logout</button>
       </template>
 
       <template v-else>
-        <button @click="handleAuth" class="auth-btn">Login / Sign \up</button>
+        <button @click="handleAuth" class="auth-btn">Login / Sign up</button>
       </template>
     </div>
   </nav>
@@ -97,12 +101,12 @@
   <!-- Sub Navigation Bar -->
   <div v-if="loggedIn" id="headerlinks">
     <template v-if="user?.role === 'Admin'">
-      Welcome, {{ user?.name || "Admin" }} |
+      Welcome, {{ user?.nickname || "Admin" }} |
       <router-link to="/profile">My Account</router-link> |
       <router-link to="/admin/dashboard">Admin Dashboard</router-link>
     </template>
     <template v-else>
-      Welcome, {{ user?.name || "User" }} |
+      Welcome, {{ user?.nickname || "User" }} |
       <router-link to="/profile">My Account</router-link> |
       <router-link to="/reservations">My Loans</router-link> |
       <router-link to="/favourites">My Favourites</router-link>
@@ -113,8 +117,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useAuth } from "../composables/useAuth";
-import { getUserId, login } from "../services/authService";
-import { getNotificationsForUser, markNotificationRead } from "../services/api/notificationsService";
+import { getUserId, getUserRole, login } from "../services/authService";
+import {
+  getNotificationsForUser,
+  markNotificationRead,
+} from "../services/api/notificationsService";
 import { cloudinaryAssets } from "../assets/cloudinary";
 
 const { user, loggedIn, logout } = useAuth();
@@ -127,8 +134,10 @@ async function handleAuth() {
 watch(loggedIn, async (isLoggedIn) => {
   if (isLoggedIn) {
     const userId = await getUserId();
-    const userRole = user.value?.role;
+    const userRole = await getUserRole();
+    console.log("user: ", user.value);
     console.log("User role:", userRole);
+    user.value.role = userRole;
     try {
       console.log("Loading notifications for user:", userId);
       notifications.value = await getNotificationsForUser(userId as string);
@@ -171,7 +180,7 @@ const markAllAsRead = async () => {
   try {
     await Promise.all(toMark.map((n) => markNotificationRead(n.id, true)));
   } catch (e) {
-    console.error('Failed to persist read status for some notifications', e);
+    console.error("Failed to persist read status for some notifications", e);
   }
 };
 const getNotificationIcon = (type: string) => {
@@ -299,7 +308,7 @@ onUnmounted(() => document.removeEventListener("click", handleClickOutside));
   position: absolute;
   top: -2px;
   right: -2px;
-  background: #ef4444;
+  background: #a6383e;
   color: white;
   border-radius: 50%;
   width: 18px;
@@ -403,7 +412,7 @@ onUnmounted(() => document.removeEventListener("click", handleClickOutside));
 
 .notification-item[data-type="availability"] .notification-icon {
   background: #d1fae5;
-  color: #10b981;
+  color: #6c7c69;
 }
 
 .notification-item[data-type="reminder"] .notification-icon {

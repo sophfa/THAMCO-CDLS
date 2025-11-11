@@ -4,16 +4,7 @@ import {
   HttpResponseInit,
   InvocationContext,
 } from "@azure/functions";
-import { CosmosClient } from "@azure/cosmos";
-import "dotenv/config";
-
-const client = new CosmosClient({
-  endpoint: process.env.COSMOS_ENDPOINT!,
-  key: process.env.COSMOS_KEY!,
-});
-const container = client
-  .database(process.env.COSMOS_DATABASE!)
-  .container(process.env.COSMOS_CONTAINER!);
+import { loansContainer } from "../../config/cosmosClient";
 
 export async function addToWaitlistHttp(
   req: HttpRequest,
@@ -47,7 +38,7 @@ export async function addToWaitlistHttp(
     }
 
     // Get the loan record
-    const { resource: loan } = await container.item(loanId, loanId).read();
+    const { resource: loan } = await loansContainer.item(loanId, loanId).read();
 
     if (!loan) {
       return {
@@ -78,7 +69,7 @@ export async function addToWaitlistHttp(
 
     // Add user to waitlist
     loan.waitlist.push(trimmedUserId);
-    await container.items.upsert(loan);
+    await loansContainer.items.upsert(loan);
 
     context.log(`User '${trimmedUserId}' added to waitlist for loan '${loanId}'`);
 

@@ -7,6 +7,10 @@ import './functions/loans/createLoanHttp';
 import './functions/loans/getLoanHttp';
 import './functions/loans/getUserLoansHttp';
 import './functions/loans/returnLoanHttp';
+import './functions/loans/cancelLoanHttp';
+import './functions/loans/collectLoanHttp';
+import './functions/loans/rejectLoanHttp';
+import './functions/loans/getDeviceLoanHistoryHttp';
 
 import './functions/favourites/addFavouriteHttp';
 import './functions/favourites/clearFavouritesHttp';
@@ -16,3 +20,6 @@ import './functions/favourites/syncFavouritesHttp';
 
 import './functions/waitlist/addToWaitlistHttp';
 import './functions/waitlist/addToWaitlistByDeviceHttp';
+import './functions/waitlist/getUserWaitlistHttp';
+import './functions/waitlist/getWaitlistForProductHttp';
+import './functions/waitlist/removeUserFromWaitlistHttp';

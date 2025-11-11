@@ -2,8 +2,10 @@
   <div class="admin-dashboard">
     <h1>Admin Dashboard</h1>
 
-    <div class="toolbar">
-      <button @click="loadLoans" :disabled="loading">Refresh</button>
+    <div class="toolbar actions">
+      <button class="refresh" @click="loadLoans" :disabled="loading">
+        Refresh
+      </button>
       <span v-if="loading">Loading…</span>
       <span v-if="error" class="error">{{ error }}</span>
     </div>
@@ -22,6 +24,8 @@
             <th>Device</th>
             <th>Status</th>
             <th>Requested At</th>
+            <th>From</th>
+            <th>Due (Till)</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -38,11 +42,21 @@
               }}</span>
             </td>
             <td>{{ formatDate(loan.createdAt) }}</td>
+            <td>{{ formatDate(loan.from) }}</td>
+            <td>{{ formatDate(loan.till) }}</td>
             <td class="actions">
-              <button @click="approve(loan)" :disabled="busyId === loan.id">
+              <button
+                class="approve"
+                @click="approve(loan)"
+                :disabled="busyId === loan.id"
+              >
                 Approve
               </button>
-              <button disabled title="Backend endpoint not implemented yet">
+              <button
+                class="deny"
+                disabled
+                title="Backend endpoint not implemented yet"
+              >
                 Deny
               </button>
             </td>
@@ -58,10 +72,10 @@
         <thead>
           <tr>
             <th>ID</th>
-            <th>User</th>
             <th>Device</th>
             <th>Status</th>
             <th>From</th>
+            <th>Due (Till)</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -71,7 +85,6 @@
           </tr>
           <tr v-for="loan in approvedLoans" :key="loan.id">
             <td>{{ loan.id }}</td>
-            <td>{{ displayUser(loan.userId) }}</td>
             <td>{{ loan.deviceId }}</td>
             <td>
               <span :class="['badge', statusClass(loan.status)]">{{
@@ -79,9 +92,21 @@
               }}</span>
             </td>
             <td>{{ formatDate(loan.from) }}</td>
+            <td>{{ formatDate(loan.till) }}</td>
             <td class="actions">
-              <button disabled title="Cancel endpoint not implemented yet">
+              <button
+                disabled
+                title="Cancel endpoint not implemented yet"
+                @click="cancel(loan)"
+              >
                 Cancel
+              </button>
+              <button
+                disabled
+                title="Collected endpoint not implemented yet"
+                @click="markCollected(loan)"
+              >
+                Mark Collected
               </button>
             </td>
           </tr>
@@ -96,7 +121,6 @@
         <thead>
           <tr>
             <th>ID</th>
-            <th>User</th>
             <th>Device</th>
             <th>Status</th>
             <th>Due (Till)</th>
@@ -109,7 +133,6 @@
           </tr>
           <tr v-for="loan in collectedLoans" :key="loan.id">
             <td>{{ loan.id }}</td>
-            <td>{{ displayUser(loan.userId) }}</td>
             <td>{{ loan.deviceId }}</td>
             <td>
               <span :class="['badge', statusClass(loan.status)]">{{
@@ -137,7 +160,6 @@
         <thead>
           <tr>
             <th>ID</th>
-            <th>User</th>
             <th>Device</th>
             <th>Status</th>
             <th>Updated</th>
@@ -149,7 +171,6 @@
           </tr>
           <tr v-for="loan in rejectedLoans" :key="loan.id">
             <td>{{ loan.id }}</td>
-            <td>{{ displayUser(loan.userId) }}</td>
             <td>{{ loan.deviceId }}</td>
             <td>
               <span :class="['badge', statusClass(loan.status)]">{{
@@ -168,10 +189,9 @@
         <thead>
           <tr>
             <th>ID</th>
-            <th>User</th>
             <th>Device</th>
             <th>Status</th>
-            <th>Returned At</th>
+            <th>Returned Date</th>
           </tr>
         </thead>
         <tbody>
@@ -180,7 +200,6 @@
           </tr>
           <tr v-for="loan in returnedLoans" :key="loan.id">
             <td>{{ loan.id }}</td>
-            <td>{{ displayUser(loan.userId) }}</td>
             <td>{{ loan.deviceId }}</td>
             <td>
               <span :class="['badge', statusClass(loan.status)]">{{
@@ -194,7 +213,6 @@
     </section>
   </div>
 </template>
-
 <script setup lang="ts">
 import { onMounted, ref, computed } from "vue";
 import type { Loan } from "../types/models";
@@ -220,11 +238,6 @@ function formatDate(d: string | Date) {
 
 function statusClass(status?: string) {
   return (status || "unknown").toLowerCase();
-}
-
-function displayUser(_userId: string) {
-  // Do not expose user identifiers in the dashboard UI
-  return "Hidden";
 }
 
 const requestedLoans = computed(() =>
@@ -293,6 +306,20 @@ async function approve(loan: Loan) {
   }
 }
 
+async function markCollected(loan: Loan) {
+  busyId.value = loan.id;
+  try {
+    const res = await authorizeLoan(loan.id);
+    const newStatus = (res?.status || "Collected").toString();
+    loan.status = (newStatus.charAt(0).toUpperCase() +
+      newStatus.slice(1).toLowerCase()) as Loan["status"];
+  } catch (e: any) {
+    alert(e?.message || "Failed to mark loan as collected");
+  } finally {
+    busyId.value = null;
+  }
+}
+
 async function markReturned(loan: Loan) {
   busyId.value = loan.id;
   try {
@@ -339,7 +366,24 @@ onMounted(loadLoans);
 }
 .actions button {
   margin-right: 0.5rem;
+  color: white;
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  border: none;
 }
+
+.refresh {
+  background-color: #867537;
+}
+
+.approve {
+  background-color: #0f5132;
+}
+
+.deny {
+  background-color: #842029;
+}
+
 .badge {
   padding: 0.15rem 0.4rem;
   border-radius: 6px;
