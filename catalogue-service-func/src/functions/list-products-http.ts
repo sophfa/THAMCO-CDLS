@@ -5,16 +5,16 @@ import {
   HttpRequest,
   HttpResponseInit,
   InvocationContext,
-} from '@azure/functions';
-import { Product } from '../domain/product';
-import { ProductRepo } from '../domain/product-repo';
-import { CosmosProductRepo } from '../infra/cosmos-product-repo';
+} from "@azure/functions";
+import { Product } from "../domain/product";
+import { ProductRepo } from "../domain/product-repo";
+import { CosmosProductRepo } from "../infra/cosmos-product-repo";
 
 // Configuration from environment variables
 const cosmosOptions = {
-  endpoint: process.env.COSMOS_ENDPOINT || 'https://localhost:8081',
-  databaseId: process.env.COSMOS_DATABASE || 'catalogue-db',
-  containerId: process.env.COSMOS_CONTAINER || 'Devices',
+  endpoint: process.env.COSMOS_ENDPOINT,
+  databaseId: process.env.COSMOS_DATABASE,
+  containerId: process.env.COSMOS_CONTAINER,
 
   key: process.env.COSMOS_KEY,
 };
@@ -49,19 +49,19 @@ export async function listProductsHttp(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
-  context.log('HTTP trigger function processed a request to list products');
+  context.log("HTTP trigger function processed a request to list products");
 
   try {
     const result = await productRepo.list();
 
     if (!result.success) {
       throw new Error(
-        (result as any).error?.message || 'Failed to fetch products'
+        (result as any).error?.message || "Failed to fetch products"
       );
     }
 
     if (!result.data) {
-      throw new Error('No data returned from repository');
+      throw new Error("No data returned from repository");
     }
 
     const response: ListProductsResponse = {
@@ -76,32 +76,32 @@ export async function listProductsHttp(
     return {
       status: 200,
       headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache',
+        "Content-Type": "application/json",
+        "Cache-Control": "no-cache",
       },
       body: JSON.stringify(response, null, 2),
     };
   } catch (error: any) {
-    context.log('Error listing products:', error);
+    context.log("Error listing products:", error);
     const errorResponse: ListProductsResponse = {
       success: false,
       error: {
-        code: 'INTERNAL_ERROR',
-        message: 'An unexpected error occurred while listing products',
+        code: "INTERNAL_ERROR",
+        message: "An unexpected error occurred while listing products",
       },
     };
     return {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(errorResponse, null, 2),
     };
   }
 }
 
 // Register the function with Azure Functions runtime
-app.http('listProducts', {
-  methods: ['GET'],
-  authLevel: 'anonymous',
-  route: 'products',
+app.http("listProducts", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "products",
   handler: listProductsHttp,
 });

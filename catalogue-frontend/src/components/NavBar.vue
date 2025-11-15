@@ -103,7 +103,8 @@
     <template v-if="user?.role === 'Admin'">
       Welcome, {{ user?.nickname || "Admin" }} |
       <router-link to="/profile">My Account</router-link> |
-      <router-link to="/admin/dashboard">Admin Dashboard</router-link>
+      <router-link to="/admin/dashboard">Admin Dashboard</router-link> |
+      <router-link to="/admin/loans-history">Loan History</router-link>
     </template>
     <template v-else>
       Welcome, {{ user?.nickname || "User" }} |

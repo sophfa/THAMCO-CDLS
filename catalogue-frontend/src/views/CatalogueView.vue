@@ -1382,6 +1382,10 @@ const viewDetails = (product: Product) => {
 .waitlist-btn {
   background-color: #6b7280;
   color: white;
+  border-radius: 6px;
+  border: none;
+  outline: none;
+  padding: 3px;
 }
 .waitlist-btn:hover:not(:disabled) {
   background-color: #4b5563;

@@ -14,9 +14,9 @@ import { validateToken } from "../../utils/auth";
 
 // Configuration from environment variables
 const cosmosOptions = {
-  endpoint: process.env.COSMOS_ENDPOINT || "https://localhost:8081",
-  databaseId: process.env.COSMOS_DATABASE || "loans-db",
-  containerId: process.env.COSMOS_CONTAINER_FAVOURITES || "Favourites",
+  endpoint: process.env.COSMOS_ENDPOINT,
+  databaseId: process.env.COSMOS_DATABASE,
+  containerId: process.env.COSMOS_CONTAINER_FAVOURITES,
   key: process.env.COSMOS_KEY,
 };
 

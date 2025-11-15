@@ -1,15 +1,19 @@
-import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+import {
+  app,
+  HttpRequest,
+  HttpResponseInit,
+  InvocationContext,
+} from "@azure/functions";
 import { randomUUID } from "crypto";
 import { loansContainer } from "../../config/cosmosClient";
 import { publishLoanStatusChangedEvent } from "../../events/eventGridPublisher";
 import { validateToken } from "../../utils/auth";
 
-export async function collectLoanHttp(
+export async function revertCollectedLoanHttp(
   req: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
   try {
-    // Validate authentication token
     const authResult = validateToken(req, context);
     if (!authResult.isValid) {
       context.log("Authentication failed:", authResult.error);
@@ -33,7 +37,6 @@ export async function collectLoanHttp(
       };
     }
 
-    // Get the loan record
     const { resource: loan } = await loansContainer.item(loanId, loanId).read();
 
     if (!loan) {
@@ -46,23 +49,24 @@ export async function collectLoanHttp(
       };
     }
 
-    // Check if loan is in 'Approved' status
-    if (loan.status !== "Approved") {
+    if (loan.status !== "Collected") {
       return {
         status: 400,
         jsonBody: {
           error: "INVALID_STATUS",
-          message: `Loan cannot be collected. Current status: '${loan.status}'`,
-          detail: 'Only loans with status "Approved" can be collected',
+          message: `Loan cannot be reverted. Current status: '${loan.status}'`,
+          detail: 'Only loans with status "Collected" can be reverted',
         },
       };
     }
 
     const previousStatus = loan.status;
+    const revertedAt = new Date().toISOString();
 
-    // Update loan status to 'Collected'
-    loan.status = "Collected";
-    loan.collectedAt = new Date().toISOString();
+    loan.status = "Approved";
+    delete loan.collectedAt;
+    loan.collectionRevertedAt = revertedAt;
+    loan.collectionRevertedBy = authResult.userId;
 
     await loansContainer.items.upsert(loan);
 
@@ -76,48 +80,45 @@ export async function collectLoanHttp(
         correlationId,
         previousStatus,
         newStatus: loan.status,
-        statusChangedAt: loan.collectedAt,
-        collectedAt: loan.collectedAt,
+        statusChangedAt: revertedAt,
         returnedAt: loan.returnedAt,
       },
       context
     );
 
     context.log(
-      `Loan ${loanId} status updated to 'Collected' by user ${authResult.userId}`
+      `Loan ${loanId} reverted to 'Approved' by user ${authResult.userId}`
     );
 
     return {
       status: 200,
       jsonBody: {
         success: true,
-        message: "Loan collected successfully",
+        message: "Loan reverted to Approved",
         loan: {
           id: loan.id,
           deviceId: loan.deviceId,
           userId: loan.userId,
           status: loan.status,
-          collectedAt: loan.collectedAt,
-          from: loan.from,
-          till: loan.till,
+          collectionRevertedAt: loan.collectionRevertedAt,
         },
       },
     };
   } catch (error: any) {
-    context.error("Error collecting loan:", error);
+    context.error("Error reverting collected loan:", error);
     return {
       status: 500,
       jsonBody: {
         error: "INTERNAL_SERVER_ERROR",
-        message: "Failed to collect loan",
+        message: "Failed to revert loan status",
       },
     };
   }
 }
 
-app.http("collectLoanHttp", {
+app.http("revertCollectedLoanHttp", {
   methods: ["PUT"],
-  route: "loans/{id}/collect",
+  route: "loans/{id}/revert-collection",
   authLevel: "anonymous",
-  handler: collectLoanHttp,
+  handler: revertCollectedLoanHttp,
 });

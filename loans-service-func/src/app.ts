@@ -23,3 +23,5 @@ import './functions/waitlist/addToWaitlistByDeviceHttp';
 import './functions/waitlist/getUserWaitlistHttp';
 import './functions/waitlist/getWaitlistForProductHttp';
 import './functions/waitlist/removeUserFromWaitlistHttp';
+
+import './functions/loans/revertCollectedLoanHttp';

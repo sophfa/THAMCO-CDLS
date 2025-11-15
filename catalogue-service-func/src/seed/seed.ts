@@ -28,7 +28,7 @@ const products = [
     connectivity: ['Wi-Fi 5', 'Bluetooth 4.2'],
     description:
       'Lightweight Chromebook with full HD display, ideal for study and browsing.',
-    imageUrl: 'asus.jpg',
+    imageUrl: 'https://res.cloudinary.com/do7m4rqdz/image/upload/v1761991877/asus_tvpljk.jpg',
     price: 229.99,
     inStock: true,
     createdAt: '2025-10-27T12:00:00Z',
@@ -51,7 +51,7 @@ const products = [
     connectivity: ['Wi-Fi 6', 'Bluetooth 5.0'],
     description:
       'Reliable business laptop, renewed edition with fast SSD storage and Windows 11 Pro.',
-    imageUrl: 'dell.jpg',
+    imageUrl: 'https://res.cloudinary.com/do7m4rqdz/image/upload/v1761991878/dell_qydxla.jpg',
     price: 479.0,
     inStock: false,
     createdAt: '2025-10-27T12:05:00Z',
@@ -74,7 +74,7 @@ const products = [
     connectivity: ['Wi-Fi 5', 'Bluetooth 4.2'],
     description:
       'Affordable laptop for students with free 12-month Microsoft 365 subscription.',
-    imageUrl: 'hp.jpg',
+    imageUrl: 'https://res.cloudinary.com/do7m4rqdz/image/upload/v1761991878/hp_xyxmhb.jpg',
     price: 199.0,
     inStock: true,
     createdAt: '2025-10-27T12:10:00Z',
@@ -97,7 +97,7 @@ const products = [
     connectivity: ['Wi-Fi 5', 'Bluetooth 5.0'],
     description:
       'Full HD laptop offering solid performance for everyday work and study tasks.',
-    imageUrl: 'lenovo.jpg',
+    imageUrl: 'https://res.cloudinary.com/do7m4rqdz/image/upload/v1761991879/lenovo_ydcyfz.jpg',
     price: 299.0,
     inStock: true,
     createdAt: '2025-10-27T12:15:00Z',
@@ -135,7 +135,7 @@ const products = [
     accessories: ['Apple Pencil (1st Gen, via USB-C)', 'Magic Keyboard Folio'],
     description:
       'All-screen design iPad with A14 Bionic chip, landscape front camera, and Apple Pencil support.',
-    imageUrl: 'ipad.jpg',
+    imageUrl: 'https://res.cloudinary.com/do7m4rqdz/image/upload/v1761991878/ipad_hkp0n4.jpg',
     price: 499.99,
     inStock: true,
     createdAt: '2025-10-27T12:20:00Z',
@@ -165,7 +165,7 @@ const products = [
     materials: ['Metal unibody', 'Glass front'],
     description:
       'Reliable Android tablet with 90Hz display, Dolby Atmos sound, and expandable storage up to 1TB.',
-    imageUrl: 'galaxy-tab.jpg',
+    imageUrl: 'https://res.cloudinary.com/do7m4rqdz/image/upload/v1761991878/galaxy-tab_nsuor2.jpg',
     price: 279.99,
     inStock: true,
     createdAt: '2025-10-27T12:25:00Z',
@@ -195,7 +195,7 @@ const products = [
     accessories: ['Surface Pen', 'Type Cover keyboard', 'Surface Dock 2'],
     description:
       'Versatile 2-in-1 tablet with Windows performance, Surface Pen support, and detachable keyboard.',
-    imageUrl: 'surface-go.jpg',
+    imageUrl: 'https://res.cloudinary.com/do7m4rqdz/image/upload/v1761991880/surface-go_pfwyge.jpg',
     price: 389.99,
     inStock: true,
     createdAt: '2025-10-27T12:30:00Z',
@@ -224,7 +224,7 @@ const products = [
     materials: ['Recycled plastic shell', 'Aluminium internal frame'],
     description:
       'Affordable entertainment tablet with Alexa integration, Full HD screen, and expandable storage.',
-    imageUrl: 'firehd10.jpg',
+    imageUrl: 'https://res.cloudinary.com/do7m4rqdz/image/upload/v1761991878/firehd10_dsevct.jpg',
     price: 179.99,
     inStock: true,
     createdAt: '2025-10-27T12:35:00Z',
@@ -250,7 +250,7 @@ const products = [
     ports: ['HDMI Mini', 'USB 2.0', 'Mic input'],
     description:
       'Compact DSLR with 4K recording, vari-angle touchscreen, and advanced Dual Pixel Autofocus.',
-    imageUrl: 'canon250d.jpg',
+    imageUrl: 'https://res.cloudinary.com/do7m4rqdz/image/upload/v1761991878/canon250d_cvtpka.jpg',
     price: 599.99,
     inStock: true,
     createdAt: '2025-10-27T12:40:00Z',
@@ -274,7 +274,7 @@ const products = [
     ports: ['Micro HDMI', '3.5mm Mic input'],
     description:
       'Compact vlogging camera with flip screen, directional mic, 4K video, and fast hybrid autofocus.',
-    imageUrl: 'sony-zv1f.jpg',
+    imageUrl: 'https://res.cloudinary.com/do7m4rqdz/image/upload/v1761991880/sony-zv1f_fngejf.jpg',
     price: 499.99,
     inStock: true,
     createdAt: '2025-10-27T12:45:00Z',
@@ -298,7 +298,7 @@ const products = [
     ports: ['Micro HDMI', 'USB Type-C', '3.5mm Mic'],
     description:
       'Lightweight mirrorless camera offering excellent low-light performance and 4K recording.',
-    imageUrl: 'nikon-z50.jpg',
+    imageUrl: 'https://res.cloudinary.com/do7m4rqdz/image/upload/v1761991879/nikon-z50_lir8yh.jpg',
     price: 649.99,
     inStock: true,
     createdAt: '2025-10-27T12:50:00Z',
@@ -320,7 +320,7 @@ const products = [
     connectivity: ['Wi-Fi', 'Bluetooth', 'USB-C'],
     description:
       'Action camera built for adventure, with 5.3K recording, HDR photos, and next-gen HyperSmooth stabilisation.',
-    imageUrl: 'gopro11.jpg',
+    imageUrl: 'https://res.cloudinary.com/do7m4rqdz/image/upload/v1761991878/gopro11_vzkqb4.jpg',
     price: 429.99,
     inStock: true,
     createdAt: '2025-10-27T12:55:00Z',

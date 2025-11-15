@@ -5,16 +5,16 @@ import {
   HttpRequest,
   HttpResponseInit,
   InvocationContext,
-} from '@azure/functions';
-import { Inventory } from '../domain/inventory';
-import { InventoryRepo } from '../domain/inventory-repo';
-import { CosmosInventoryRepo } from '../infra/cosmos-inventory-repo';
+} from "@azure/functions";
+import { Inventory } from "../domain/inventory";
+import { InventoryRepo } from "../domain/inventory-repo";
+import { CosmosInventoryRepo } from "../infra/cosmos-inventory-repo";
 
 // Configuration from environment variables
 const cosmosOptions = {
-  endpoint: process.env.COSMOS_ENDPOINT || 'https://localhost:8081',
-  databaseId: process.env.COSMOS_DATABASE || 'InventorysDB',
-  containerId: process.env.COSMOS_CONTAINER || 'Inventorys',
+  endpoint: process.env.COSMOS_ENDPOINT,
+  databaseId: process.env.COSMOS_DATABASE,
+  containerId: process.env.COSMOS_CONTAINER,
   key: process.env.COSMOS_KEY,
 };
 
@@ -55,15 +55,15 @@ export async function getInventoryByIdHttp(
     const errorResponse: GetInventoryResponse = {
       success: false,
       error: {
-        code: 'INVALID_INPUT',
-        message: 'Inventory ID is required',
+        code: "INVALID_INPUT",
+        message: "Inventory ID is required",
       },
     };
 
     return {
       status: 400,
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(errorResponse, null, 2),
     };
@@ -82,8 +82,8 @@ export async function getInventoryByIdHttp(
       return {
         status: 200,
         headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'public, max-age=300', // Cache for 5 minutes
+          "Content-Type": "application/json",
+          "Cache-Control": "public, max-age=300", // Cache for 5 minutes
         },
         body: JSON.stringify(response, null, 2),
       };
@@ -91,7 +91,7 @@ export async function getInventoryByIdHttp(
 
     // Handle repository errors - result.success is false, so error exists
     const error = (result as { success: false; error: any }).error;
-    const statusCode = error.code === 'NOT_FOUND' ? 404 : 500;
+    const statusCode = error.code === "NOT_FOUND" ? 404 : 500;
 
     const errorResponse: GetInventoryResponse = {
       success: false,
@@ -104,25 +104,25 @@ export async function getInventoryByIdHttp(
     return {
       status: statusCode,
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(errorResponse, null, 2),
     };
   } catch (error: any) {
-    context.log('Error getting inventory:', error);
+    context.log("Error getting inventory:", error);
 
     const errorResponse: GetInventoryResponse = {
       success: false,
       error: {
-        code: 'INTERNAL_ERROR',
-        message: 'An unexpected error occurred while retrieving the inventory',
+        code: "INTERNAL_ERROR",
+        message: "An unexpected error occurred while retrieving the inventory",
       },
     };
 
     return {
       status: 500,
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(errorResponse, null, 2),
     };
@@ -130,9 +130,9 @@ export async function getInventoryByIdHttp(
 }
 
 // Register the function with Azure Functions runtime
-app.http('getInventoryById', {
-  methods: ['GET'],
-  authLevel: 'anonymous',
-  route: 'inventorys/{id}',
+app.http("getInventoryById", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "inventorys/{id}",
   handler: getInventoryByIdHttp,
 });

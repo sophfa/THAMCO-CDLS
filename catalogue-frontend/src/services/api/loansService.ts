@@ -104,7 +104,6 @@ export async function returnLoan(loanId: string): Promise<Loan> {
 export async function listAllLoans(): Promise<Loan[]> {
   try {
     const body = await authenticatedFetch(`${BASE_URL}/loans`);
-    // Support either { success, data } or raw array
     const data = Array.isArray(body) ? body : body?.data || [];
     return data as Loan[];
   } catch (error) {
@@ -181,6 +180,114 @@ export async function joinWaitlistForDevice(deviceId: string) {
     `[LoansService] Successfully joined waitlist for device: ${deviceId}`
   );
   return data;
+}
+
+export interface DeviceWaitlistResponse {
+  deviceId: string;
+  loanId?: string;
+  waitlist?: Array<{ userId?: string; position?: number } | string>;
+  waitlistCount?: number;
+}
+
+export async function getWaitlistForDevice(
+  deviceId: string
+): Promise<DeviceWaitlistResponse> {
+  console.log(`[LoansService] Fetching waitlist for device: ${deviceId}`);
+
+  try {
+    const data = await authenticatedFetch(
+      `${BASE_URL}/loans/device/${encodeURIComponent(deviceId)}/waitlist`,
+      {
+        method: "GET",
+      }
+    );
+    return data as DeviceWaitlistResponse;
+  } catch (error) {
+    console.error(
+      `[LoansService] Failed to fetch waitlist for device: ${deviceId}`,
+      error
+    );
+    throw error;
+  }
+}
+
+export async function cancelLoan(loanId: string): Promise<Loan> {
+  console.log(`[LoansService] Cancelling loan: ${loanId}`);
+
+  try {
+    const data = await authenticatedFetch(
+      `${BASE_URL}/loans/${encodeURIComponent(loanId)}/cancel`,
+      {
+        method: "PUT",
+      }
+    );
+    console.log(`[LoansService] Loan cancelled: ${loanId}`);
+    return data as Loan;
+  } catch (error) {
+    console.error(`[LoansService] Failed to cancel loan: ${loanId}`, error);
+    throw error;
+  }
+}
+
+export async function markLoanCollected(loanId: string): Promise<Loan> {
+  console.log(`[LoansService] Marking loan as collected: ${loanId}`);
+
+  try {
+    const data = await authenticatedFetch(
+      `${BASE_URL}/loans/${encodeURIComponent(loanId)}/collect`,
+      {
+        method: "PUT",
+      }
+    );
+    return data as Loan;
+  } catch (error) {
+    console.error(
+      `[LoansService] Failed to mark loan collected: ${loanId}`,
+      error
+    );
+    throw error;
+  }
+}
+
+export async function revertLoanCollection(loanId: string): Promise<Loan> {
+  console.log(`[LoansService] Reverting collection for loan: ${loanId}`);
+
+  try {
+    const data = await authenticatedFetch(
+      `${BASE_URL}/loans/${encodeURIComponent(loanId)}/revert-collection`,
+      {
+        method: "PUT",
+      }
+    );
+    return data as Loan;
+  } catch (error) {
+    console.error(
+      `[LoansService] Failed to revert collection for loan: ${loanId}`,
+      error
+    );
+    throw error;
+  }
+}
+
+export async function rejectLoan(
+  loanId: string,
+  reason = "Rejected by admin"
+): Promise<Loan> {
+  console.log(`[LoansService] Rejecting loan: ${loanId}`);
+
+  try {
+    const data = await authenticatedFetch(
+      `${BASE_URL}/loans/${encodeURIComponent(loanId)}/reject`,
+      {
+        method: "PUT",
+        body: JSON.stringify({ reason }),
+      }
+    );
+    return data as Loan;
+  } catch (error) {
+    console.error(`[LoansService] Failed to reject loan: ${loanId}`, error);
+    throw error;
+  }
 }
 
 export async function getUserLoans(userId: string): Promise<Loan[]> {

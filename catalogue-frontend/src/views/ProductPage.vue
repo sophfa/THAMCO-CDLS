@@ -372,7 +372,6 @@ import { ref, onMounted, computed, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { fetchProductById } from "../services/CatalogueService";
 import { useFavorites } from "../services/favouritesService";
-import { getCloudinaryUrl } from "../assets/cloudinary";
 import { useAuth } from "../composables/useAuth";
 
 export default {
@@ -435,11 +434,11 @@ export default {
         const productId = route.params.id;
         if (productId) {
           const fetched = await fetchProductById(productId);
-          const cloudinaryUrl = getCloudinaryUrl(fetched.imageUrl);
+          const imageUrl = fetched.imageUrl;
           product.value = {
             ...fetched,
-            mainImage: cloudinaryUrl,
-            images: [cloudinaryUrl],
+            mainImage: imageUrl,
+            images: imageUrl ? [imageUrl] : [],
           };
         }
       } catch (e) {

@@ -58,9 +58,11 @@ describe("Loan Domain - Unit Tests", () => {
 
       // Assert
       expect(result.success).toBe(false);
-      if (!result.success) {
+      if (result.success === false) {
         expect(result.error.code).toBe("VALIDATION_ERROR");
         expect(result.error.field).toBe("deviceId");
+      } else {
+        throw new Error("Expected validation failure for missing deviceId");
       }
     });
 
@@ -81,9 +83,11 @@ describe("Loan Domain - Unit Tests", () => {
 
       // Assert
       expect(result.success).toBe(false);
-      if (!result.success) {
+      if (result.success === false) {
         expect(result.error.code).toBe("VALIDATION_ERROR");
         expect(result.error.field).toBe("userId");
+      } else {
+        throw new Error("Expected validation failure for missing userId");
       }
     });
 
@@ -107,8 +111,10 @@ describe("Loan Domain - Unit Tests", () => {
 
       // Assert
       expect(result.success).toBe(false);
-      if (!result.success) {
+      if (result.success === false) {
         expect(result.error.code).toBe("ALREADY_EXISTS");
+      } else {
+        throw new Error("Expected duplicate loan ID to fail");
       }
     });
   });
@@ -144,8 +150,10 @@ describe("Loan Domain - Unit Tests", () => {
 
       // Assert
       expect(result.success).toBe(false);
-      if (!result.success) {
+      if (result.success === false) {
         expect(result.error.code).toBe("NOT_FOUND");
+      } else {
+        throw new Error("Expected missing loan lookup to fail");
       }
     });
   });

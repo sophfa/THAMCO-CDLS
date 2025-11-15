@@ -76,8 +76,10 @@ describe("Concurrency and Idempotency Tests", () => {
       // Assert - Second request should fail (already exists)
       expect(loan1.success).toBe(true);
       expect(loan2.success).toBe(false);
-      if (!loan2.success) {
+      if (loan2.success === false) {
         expect(loan2.error.code).toBe("ALREADY_EXISTS");
+      } else {
+        throw new Error("Expected duplicate waitlist to fail");
       }
       expect(repo.count()).toBe(1); // Only one entry
     });
@@ -298,8 +300,10 @@ describe("Concurrency and Idempotency Tests", () => {
       }
 
       expect(getResult.success).toBe(false);
-      if (!getResult.success) {
+      if (getResult.success === false) {
         expect(getResult.error.code).toBe("NOT_FOUND");
+      } else {
+        throw new Error("Expected missing loan lookup to fail");
       }
     });
   });

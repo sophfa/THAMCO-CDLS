@@ -5,16 +5,16 @@ import {
   HttpRequest,
   HttpResponseInit,
   InvocationContext,
-} from '@azure/functions';
-import { Inventory } from '../domain/inventory';
-import { InventoryRepo } from '../domain/inventory-repo';
-import { CosmosInventoryRepo } from '../infra/cosmos-inventory-repo';
+} from "@azure/functions";
+import { Inventory } from "../domain/inventory";
+import { InventoryRepo } from "../domain/inventory-repo";
+import { CosmosInventoryRepo } from "../infra/cosmos-inventory-repo";
 
 // Configuration from environment variables
 const cosmosOptions = {
-  endpoint: process.env.COSMOS_ENDPOINT || 'https://localhost:8081',
-  databaseId: process.env.COSMOS_DATABASE || 'InventorysDB',
-  containerId: process.env.COSMOS_CONTAINER || 'Inventorys',
+  endpoint: process.env.COSMOS_ENDPOINT,
+  databaseId: process.env.COSMOS_DATABASE,
+  containerId: process.env.COSMOS_CONTAINER,
   key: process.env.COSMOS_KEY,
 };
 
@@ -48,19 +48,19 @@ export async function listInventorysHttp(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
-  context.log('HTTP trigger function processed a request to list inventorys');
+  context.log("HTTP trigger function processed a request to list inventorys");
 
   try {
     const result = await inventoryRepo.list();
 
     if (!result.success) {
       throw new Error(
-        (result as any).error?.message || 'Failed to fetch inventorys'
+        (result as any).error?.message || "Failed to fetch inventorys"
       );
     }
 
     if (!result.data) {
-      throw new Error('No data returned from repository');
+      throw new Error("No data returned from repository");
     }
 
     const response: ListInventorysResponse = {
@@ -75,32 +75,32 @@ export async function listInventorysHttp(
     return {
       status: 200,
       headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache',
+        "Content-Type": "application/json",
+        "Cache-Control": "no-cache",
       },
       body: JSON.stringify(response, null, 2),
     };
   } catch (error: any) {
-    context.log('Error listing inventorys:', error);
+    context.log("Error listing inventorys:", error);
     const errorResponse: ListInventorysResponse = {
       success: false,
       error: {
-        code: 'INTERNAL_ERROR',
-        message: 'An unexpected error occurred while listing inventorys',
+        code: "INTERNAL_ERROR",
+        message: "An unexpected error occurred while listing inventorys",
       },
     };
     return {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(errorResponse, null, 2),
     };
   }
 }
 
 // Register the function with Azure Functions runtime
-app.http('listInventorys', {
-  methods: ['GET'],
-  authLevel: 'anonymous',
-  route: 'inventorys',
+app.http("listInventorys", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "inventorys",
   handler: listInventorysHttp,
 });

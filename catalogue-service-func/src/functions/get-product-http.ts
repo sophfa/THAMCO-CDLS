@@ -5,16 +5,16 @@ import {
   HttpRequest,
   HttpResponseInit,
   InvocationContext,
-} from '@azure/functions';
-import { Product } from '../domain/product';
-import { ProductRepo } from '../domain/product-repo';
-import { CosmosProductRepo } from '../infra/cosmos-product-repo';
+} from "@azure/functions";
+import { Product } from "../domain/product";
+import { ProductRepo } from "../domain/product-repo";
+import { CosmosProductRepo } from "../infra/cosmos-product-repo";
 
 // Configuration from environment variables
 const cosmosOptions = {
-  endpoint: process.env.COSMOS_ENDPOINT || 'https://localhost:8081',
-  databaseId: process.env.COSMOS_DATABASE || 'catalogue-db',
-  containerId: process.env.COSMOS_CONTAINER || 'Devices',
+  endpoint: process.env.COSMOS_ENDPOINT,
+  databaseId: process.env.COSMOS_DATABASE,
+  containerId: process.env.COSMOS_CONTAINER,
   key: process.env.COSMOS_KEY,
 };
 
@@ -55,74 +55,91 @@ export async function getProductByIdHttp(
     const errorResponse: GetProductResponse = {
       success: false,
       error: {
-        code: 'INVALID_INPUT',
-        message: 'Product ID is required',
+        code: "INVALID_INPUT",
+        message: "Product ID is required",
       },
     };
 
     return {
       status: 400,
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(errorResponse, null, 2),
     };
   }
 
+  const lookupIds = buildLookupCandidates(productId.trim());
+
   try {
-    // Get product from repository
-    const result = await productRepo.get(productId.trim());
+    let lastError: { code: string; message: string } | null = null;
 
-    if (result.success) {
-      const response: GetProductResponse = {
-        success: true,
-        data: result.data,
-      };
+    for (const candidateId of lookupIds) {
+      context.log(
+        `Attempting to find product using identifier '${candidateId}'`
+      );
 
-      return {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'public, max-age=300', // Cache for 5 minutes
-        },
-        body: JSON.stringify(response, null, 2),
-      };
+      const result = await productRepo.get(candidateId);
+
+      if (result.success) {
+        const response: GetProductResponse = {
+          success: true,
+          data: result.data,
+        };
+
+        return {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "public, max-age=300", // Cache for 5 minutes
+            "X-Resolved-Product-Id": candidateId,
+          },
+          body: JSON.stringify(response, null, 2),
+        };
+      }
+
+      lastError = (result as { success: false; error: any }).error;
+
+      // Only try alternative identifiers when the error was NOT_FOUND
+      if (lastError.code !== "NOT_FOUND") {
+        break;
+      }
     }
-
-    // Handle repository errors - result.success is false, so error exists
-    const error = (result as { success: false; error: any }).error;
-    const statusCode = error.code === 'NOT_FOUND' ? 404 : 500;
 
     const errorResponse: GetProductResponse = {
       success: false,
       error: {
-        code: error.code,
-        message: error.message,
+        code: lastError?.code ?? "INTERNAL_ERROR",
+        message:
+          lastError?.message ??
+          "Product could not be retrieved with the provided identifier",
       },
     };
+
+    const statusCode = lastError?.code === "NOT_FOUND" ? 404 : 500;
 
     return {
       status: statusCode,
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(errorResponse, null, 2),
     };
   } catch (error: any) {
-    context.log('Error getting product:', error);
+    context.log("Error getting product:", error);
 
     const errorResponse: GetProductResponse = {
       success: false,
       error: {
-        code: 'INTERNAL_ERROR',
-        message: 'An unexpected error occurred while retrieving the product',
+        code: "INTERNAL_ERROR",
+        message: "An unexpected error occurred while retrieving the product",
       },
     };
 
     return {
       status: 500,
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(errorResponse, null, 2),
     };
@@ -130,9 +147,40 @@ export async function getProductByIdHttp(
 }
 
 // Register the function with Azure Functions runtime
-app.http('getProductById', {
-  methods: ['GET'],
-  authLevel: 'anonymous',
-  route: 'products/{id}',
+app.http("getProductById", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "products/{id}",
   handler: getProductByIdHttp,
 });
+
+/**
+ * Builds a list of candidate identifiers to try when fetching products.
+ * Handles DEV- vs PROD- mismatches between services by falling back to the
+ * corresponding identifier if the primary lookup fails.
+ */
+function buildLookupCandidates(id: string): string[] {
+  const candidates = new Set<string>();
+  if (id) {
+    candidates.add(id);
+    const alternateId = deriveAlternateProductId(id);
+    if (alternateId) {
+      candidates.add(alternateId);
+    }
+  }
+  return Array.from(candidates);
+}
+
+function deriveAlternateProductId(id: string): string | undefined {
+  const devMatch = /^DEV-(\d+)$/i.exec(id);
+  if (devMatch) {
+    return `PROD-${devMatch[1]}`;
+  }
+
+  const prodMatch = /^PROD-(\d+)$/i.exec(id);
+  if (prodMatch) {
+    return `DEV-${prodMatch[1]}`;
+  }
+
+  return undefined;
+}

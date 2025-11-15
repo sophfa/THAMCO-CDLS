@@ -50,109 +50,226 @@
         </section>
 
         <section class="reservations-section">
-          <h2>Reservations</h2>
+          <div class="section-header">
+            <div>
+              <h2>Upcoming Reservations</h2>
+              <p class="section-subtitle">
+                Review scheduled pick-ups and cancel directly before collection.
+              </p>
+            </div>
+          </div>
           <div class="reservation-list" v-if="reservations.length">
-            <ul>
-              <li v-for="r in reservations" :key="r.id">
-                <strong>{{ r.deviceName }}</strong>
-                <span>
-                  • {{ new Date(r.from as any).toLocaleDateString() }} →
-                  {{ new Date(r.till as any).toLocaleDateString() }}
-                </span>
-                <span class="status"> ({{ r.status }})</span>
-              </li>
-            </ul>
+            <article
+              v-for="r in reservations"
+              :key="r.id"
+              class="reservation-card"
+            >
+              <div class="reservation-card-contents">
+                <img
+                  v-if="r.deviceImage"
+                  :src="r.deviceImage"
+                  alt=""
+                  class="reservation-image"
+                />
+                <div class="reservation-card-info">
+                  <div class="reservation-card-header">
+                    <div class="reservation-title">
+                      <div>
+                        <strong>{{ r.deviceName || r.deviceId }}</strong>
+                        <div class="reservation-subtitle">#{{ r.id }}</div>
+                      </div>
+                    </div>
+                    <span class="chip" :class="r.status.toLowerCase()">
+                      {{ r.status }}
+                    </span>
+                  </div>
+                  <div class="reservation-footer">
+                    <div class="reservation-dates">
+                      <div>
+                        <label>Collect</label>
+                        <span>{{
+                          new Date(r.from as any).toLocaleString()
+                        }}</span>
+                      </div>
+                      <div>
+                        <label>Return</label>
+                        <span>{{
+                          new Date(r.till as any).toLocaleString()
+                        }}</span>
+                      </div>
+                    </div>
+                    <div class="reservation-actions">
+                      <button
+                        v-if="
+                          r.status === 'Requested' || r.status === 'Approved'
+                        "
+                        class="cancel-btn"
+                        :disabled="cancelingId === r.id"
+                        @click="handleCancelReservation(r.id)"
+                      >
+                        {{
+                          cancelingId === r.id
+                            ? "Cancelling…"
+                            : "Cancel Reservation"
+                        }}
+                      </button>
+                      <p v-else class="reservation-note">
+                        This reservation can no longer be cancelled.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </article>
           </div>
           <div v-else class="info">You have no upcoming reservations.</div>
         </section>
 
         <!-- Active Loans -->
         <section class="loans-section">
-          <h2>Active Loans</h2>
+          <div class="section-header">
+            <div>
+              <h2>Active Loans</h2>
+              <p class="section-subtitle">
+                Devices currently checked out under your account.
+              </p>
+            </div>
+          </div>
           <div v-if="activeLoans.length === 0" class="info">
             You have no active loans.
           </div>
-          <ul v-else class="loans">
-            <li v-for="loan in activeLoans" :key="loan.id" class="loan">
-              <div class="loan-main">
-                <div class="loan-title">
-                  <strong>Device:</strong> {{ loan.deviceName }}
+          <div v-else class="card-list">
+            <article
+              v-for="loan in activeLoans"
+              :key="loan.id"
+              class="reservation-card"
+            >
+              <div class="reservation-card-contents">
+                <img
+                  v-if="loan.deviceImage"
+                  :src="loan.deviceImage"
+                  alt=""
+                  class="reservation-image"
+                />
+                <div class="reservation-card-info">
+                  <div class="reservation-card-header">
+                    <div class="reservation-title">
+                      <div>
+                        <strong>{{ loan.deviceName || loan.deviceId }}</strong>
+                        <div class="reservation-subtitle">#{{ loan.id }}</div>
+                      </div>
+                    </div>
+                    <span class="chip collected">On Loan</span>
+                  </div>
+                  <div class="reservation-footer">
+                    <div class="reservation-dates">
+                      <div>
+                        <label>From</label>
+                        <span>{{
+                          new Date(loan.from as any).toLocaleString()
+                        }}</span>
+                      </div>
+                      <div>
+                        <label>Until</label>
+                        <span>{{
+                          new Date(loan.till as any).toLocaleString()
+                        }}</span>
+                      </div>
+                    </div>
+                    <div class="reservation-actions">
+                      <button
+                        class="primary-btn"
+                        :disabled="
+                          loan.status !== 'Collected' || returningId === loan.id
+                        "
+                        @click="handleReturn(loan.id)"
+                      >
+                        {{
+                          returningId === loan.id ? "Returning…" : "Return Device"
+                        }}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div class="loan-meta">
-                <div>
-                  <strong>From:</strong>
-                  {{ new Date(loan.from as any).toLocaleString() }}
-                </div>
-                <div>
-                  <strong>Until:</strong>
-                  {{ new Date(loan.till as any).toLocaleString() }}
-                </div>
-              </div>
-              <div class="loan-actions">
-                <button
-                  :disabled="
-                    loan.status !== 'Collected' || returningId === loan.id
-                  "
-                  @click="handleReturn(loan.id)"
-                >
-                  {{ returningId === loan.id ? "Returning…" : "Return Device" }}
-                </button>
-              </div>
-            </li>
-          </ul>
+            </article>
+          </div>
         </section>
 
         <!-- Waitlist -->
         <section class="waitlist-section">
-          <h2>Waitlist Status</h2>
+          <div class="section-header">
+            <div>
+              <h2>Waitlist Status</h2>
+              <p class="section-subtitle">
+                Track your position and leave the queue when needed.
+              </p>
+            </div>
+          </div>
           <div v-if="waitlistLoading" class="info">
             Loading waitlist status...
           </div>
           <div v-else-if="waitlistEntries.length === 0" class="info">
             You are not on any waitlists.
           </div>
-          <ul v-else class="waitlist">
-            <li
+          <div v-else class="card-list">
+            <article
               v-for="entry in waitlistEntries"
               :key="entry.id"
-              class="waitlist-entry"
+              class="reservation-card"
             >
-              <div class="waitlist-main">
-                <div class="waitlist-title">
-                  <strong>Device:</strong>
-                  {{ entry.deviceName || entry.deviceId }}
-                </div>
-                <div
-                  class="waitlist-position"
-                  :class="getPositionClass(entry.position)"
-                >
-                  Position #{{ entry.position }}
+              <div class="reservation-card-contents">
+                <img
+                  v-if="entry.deviceImage"
+                  :src="entry.deviceImage"
+                  alt=""
+                  class="reservation-image"
+                />
+                <div class="reservation-card-info">
+                  <div class="reservation-card-header">
+                    <div class="reservation-title">
+                      <div>
+                        <strong>{{ entry.deviceName || entry.deviceId }}</strong>
+                        <div class="reservation-subtitle">#{{ entry.id }}</div>
+                      </div>
+                    </div>
+                    <span class="chip position-chip">
+                      Position #{{ entry.position }}
+                    </span>
+                  </div>
+                  <div class="reservation-footer">
+                    <div class="reservation-dates">
+                      <div>
+                        <label>Joined</label>
+                        <span>{{ new Date(entry.id).toLocaleString() }}</span>
+                      </div>
+                      <div v-if="entry.estimatedAvailability">
+                        <label>Est. Available</label>
+                        <span>
+                          {{
+                            new Date(entry.estimatedAvailability).toLocaleDateString()
+                          }}
+                        </span>
+                      </div>
+                    </div>
+                    <div class="reservation-actions">
+                      <button
+                        class="cancel-btn"
+                        @click="handleLeaveWaitlist(entry.id)"
+                        :disabled="leavingWaitlistId === entry.id"
+                      >
+                        {{
+                          leavingWaitlistId === entry.id
+                            ? "Leaving..."
+                            : "Leave Waitlist"
+                        }}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div class="waitlist-meta">
-                <div v-if="entry.estimatedAvailability">
-                  <strong>Est. Available:</strong>
-                  {{
-                    new Date(entry.estimatedAvailability).toLocaleDateString()
-                  }}
-                </div>
-              </div>
-              <div class="waitlist-actions">
-                <button
-                  @click="handleLeaveWaitlist(entry.id)"
-                  :disabled="leavingWaitlistId === entry.id"
-                  class="leave-btn"
-                >
-                  {{
-                    leavingWaitlistId === entry.id
-                      ? "Leaving..."
-                      : "Leave Waitlist"
-                  }}
-                </button>
-              </div>
-            </li>
-          </ul>
+            </article>
+          </div>
         </section>
       </div>
     </div>
@@ -168,6 +285,7 @@ import {
   returnLoan,
   getUserWaitlistEntries,
   removeFromWaitlist,
+  cancelLoan,
 } from "../services/api/loansService";
 import { createNotification } from "../services/api/notificationsService";
 import { getProductById } from "../services/api/catalogueService";
@@ -183,6 +301,7 @@ const waitlistLoading = ref(false);
 const error = ref("");
 const returningId = ref<string | null>(null);
 const leavingWaitlistId = ref<string | null>(null);
+const cancelingId = ref<string | null>(null);
 
 const loadData = async () => {
   try {
@@ -298,6 +417,18 @@ const handleReturn = async (loanId: string) => {
     error.value = "Failed to return loan";
   } finally {
     returningId.value = null;
+  }
+};
+
+const handleCancelReservation = async (loanId: string) => {
+  try {
+    cancelingId.value = loanId;
+    await cancelLoan(loanId);
+    await loadData();
+  } catch (e: any) {
+    error.value = e?.message || "Failed to cancel reservation";
+  } finally {
+    cancelingId.value = null;
   }
 };
 
@@ -517,8 +648,174 @@ function nextMonth() {
 .reservation-list {
   margin-top: 0.75rem;
 }
-.loans-section h2 {
-  margin-top: 1rem;
+.card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+.reservation-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 1rem;
+  background: #fff;
+  box-shadow: 0 10px 15px -12px rgba(15, 23, 42, 0.25);
+  margin-bottom: 0.75rem;
+}
+
+.reservation-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.reservation-title {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  font-size: 1rem;
+}
+.reservation-image {
+  width: 100px;
+  height: auto;
+  padding: 1rem;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 1px solid #e5e7eb;
+}
+.reservation-subtitle {
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+.chip {
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  text-transform: capitalize;
+  border: 1px solid transparent;
+}
+.chip.requested {
+  background: #fef3c7;
+  border-color: #f59e0b;
+  color: #92400e;
+}
+.chip.approved {
+  background: #ede9fe;
+  border-color: #8b5cf6;
+  color: #5b21b6;
+}
+.chip.collected {
+  background: #e1f5ea;
+  border-color: #6c7c69;
+  color: #2f3b2f;
+}
+.chip.returned {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+  color: #374151;
+}
+.chip.rejected {
+  background: #fee2e2;
+  border-color: #f87171;
+  color: #b91c1c;
+}
+.position-chip {
+  background: #e0f2fe;
+  border-color: #38bdf8;
+  color: #0369a1;
+}
+
+.reservation-card-contents {
+  display: flex;
+  flex-direction: row;
+  gap: 1rem;
+}
+
+.reservation-card-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.reservation-footer {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.reservation-dates {
+  display: flex;
+  gap: 1.5rem;
+  margin-top: 0.5rem;
+  color: #4b5563;
+  flex-wrap: wrap;
+}
+.reservation-dates label {
+  display: block;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: #9ca3af;
+}
+.reservation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: flex-end;
+  justify-content: flex-end;
+  margin-left: auto;
+}
+.reservation-actions button {
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+.reservation-actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.cancel-btn {
+  background: #a6383e;
+  color: #fff;
+}
+.cancel-btn:hover:not([disabled]) {
+  opacity: 0.9;
+}
+.primary-btn {
+  background: #6c7c69;
+  color: #fff;
+}
+.primary-btn:hover:not([disabled]) {
+  opacity: 0.9;
+}
+.reservation-note {
+  color: #6b7280;
+  font-size: 0.85rem;
+  margin: 0;
+}
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.section-subtitle {
+  color: #6b7280;
+  font-size: 0.9rem;
+  margin-top: 0.25rem;
+}
+.loans-section,
+.waitlist-section {
+  margin-top: 2rem;
 }
 .info {
   background: #f3f4f6;
@@ -533,134 +830,5 @@ function nextMonth() {
   padding: 0.75rem 1rem;
   border-radius: 6px;
   margin: 0.5rem 0;
-}
-.loans {
-  list-style: none;
-  padding: 0;
-  margin: 1rem 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-.loan {
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 1rem;
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 0.5rem 1rem;
-}
-.loan-main {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-}
-.loan-status {
-  font-weight: 600;
-  color: #374151;
-}
-.loan-status.active {
-  color: #6c7c69;
-}
-.loan-meta {
-  grid-column: 1 / -1;
-  color: #6b7280;
-  font-size: 0.9rem;
-}
-.loan-actions button {
-  background: #6c7c69;
-  color: white;
-  border: none;
-  padding: 0.5rem 0.75rem;
-  border-radius: 6px;
-  cursor: pointer;
-}
-.loan-actions button[disabled] {
-  background: #9ca3af;
-  cursor: not-allowed;
-}
-
-/* Waitlist Section */
-.waitlist-section {
-  margin-top: 2rem;
-}
-.waitlist-section h2 {
-  margin-bottom: 1rem;
-  color: #374151;
-}
-.waitlist {
-  list-style: none;
-  padding: 0;
-  margin: 1rem 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-.waitlist-entry {
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 1rem;
-  background: #fafafa;
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 0.5rem 1rem;
-}
-.waitlist-main {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-  justify-content: space-between;
-}
-.waitlist-title {
-  font-weight: 500;
-}
-.waitlist-position {
-  font-weight: 700;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.9rem;
-}
-.waitlist-position.first {
-  background: #dcfce7;
-  color: #166534;
-  border: 1px solid #bbf7d0;
-}
-.waitlist-position.top {
-  background: #fef3c7;
-  color: #92400e;
-  border: 1px solid #fde68a;
-}
-.waitlist-position.waiting {
-  background: #f3f4f6;
-  color: #374151;
-  border: 1px solid #d1d5db;
-}
-.waitlist-meta {
-  grid-column: 1 / -1;
-  color: #6b7280;
-  font-size: 0.9rem;
-  display: flex;
-  gap: 1rem;
-}
-.waitlist-actions {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
-.waitlist-actions .leave-btn {
-  background: #a6383e;
-  color: white;
-  border: none;
-  padding: 0.5rem 0.75rem;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.9rem;
-}
-.waitlist-actions .leave-btn:hover {
-  background: #b91c1c;
-}
-.waitlist-actions .leave-btn[disabled] {
-  background: #9ca3af;
-  cursor: not-allowed;
 }
 </style>

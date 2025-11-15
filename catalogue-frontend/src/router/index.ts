@@ -14,6 +14,7 @@ import { useAuth } from "../composables/useAuth";
 import ProductPage from "../views/ProductPage.vue";
 import FAQsView from "../views/FAQsView.vue";
 import AdminDashboard from "../views/AdminDashboard.vue";
+import LoanHistoryView from "../views/LoanHistoryView.vue";
 
 const routes = [
   { path: "/", name: "home", component: HomeView },
@@ -47,6 +48,12 @@ const routes = [
     path: "/admin/dashboard",
     name: "admin-dashboard",
     component: AdminDashboard,
+    meta: { requiresAuth: true, requiresAdmin: true },
+  },
+  {
+    path: "/admin/loans-history",
+    name: "admin-loans-history",
+    component: LoanHistoryView,
     meta: { requiresAuth: true, requiresAdmin: true },
   },
 ];

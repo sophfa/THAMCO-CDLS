@@ -37,66 +37,22 @@ export const pointerAssets = {
     "https://res.cloudinary.com/do7m4rqdz/image/upload/v1761991878/Cameras-writing_z23zrv.png",
 };
 
-// Product Images - Device specific photos
-export const productAssets = {
-  asus: "https://res.cloudinary.com/do7m4rqdz/image/upload/v1761991877/asus_tvpljk.jpg",
-  canon250d:
-    "https://res.cloudinary.com/do7m4rqdz/image/upload/v1761991878/canon250d_cvtpka.jpg",
-  dell: "https://res.cloudinary.com/do7m4rqdz/image/upload/v1761991878/dell_qydxla.jpg",
-  firehd10:
-    "https://res.cloudinary.com/do7m4rqdz/image/upload/v1761991878/firehd10_dsevct.jpg",
-  galaxyTab:
-    "https://res.cloudinary.com/do7m4rqdz/image/upload/v1761991878/galaxy-tab_nsuor2.jpg",
-  gopro11:
-    "https://res.cloudinary.com/do7m4rqdz/image/upload/v1761991878/gopro11_vzkqb4.jpg",
-  hp: "https://res.cloudinary.com/do7m4rqdz/image/upload/v1761991878/hp_xyxmhb.jpg",
-  ipad: "https://res.cloudinary.com/do7m4rqdz/image/upload/v1761991878/ipad_hkp0n4.jpg",
-  lenovo:
-    "https://res.cloudinary.com/do7m4rqdz/image/upload/v1761991879/lenovo_ydcyfz.jpg",
-  nikonZ50:
-    "https://res.cloudinary.com/do7m4rqdz/image/upload/v1761991879/nikon-z50_lir8yh.jpg",
-  sonyZv1f:
-    "https://res.cloudinary.com/do7m4rqdz/image/upload/v1761991880/sony-zv1f_fngejf.jpg",
-  surfaceGo:
-    "https://res.cloudinary.com/do7m4rqdz/image/upload/v1761991880/surface-go_pfwyge.jpg",
-};
-
-// Filename to asset mapping for dynamic loading
-export const filenameToAsset: { [key: string]: string } = {
-  "asus.jpg": productAssets.asus,
-  "canon250d.jpg": productAssets.canon250d,
-  "dell.jpg": productAssets.dell,
-  "firehd10.jpg": productAssets.firehd10,
-  "galaxy-tab.jpg": productAssets.galaxyTab,
-  "gopro11.jpg": productAssets.gopro11,
-  "hp.jpg": productAssets.hp,
-  "ipad.jpg": productAssets.ipad,
-  "lenovo.jpg": productAssets.lenovo,
-  "nikon-z50.jpg": productAssets.nikonZ50,
-  "sony-zv1f.jpg": productAssets.sonyZv1f,
-  "surface-go.jpg": productAssets.surfaceGo,
-};
-
-/**
- * Get Cloudinary URL for a given filename
- * @param filename - Original filename (e.g., 'asus.jpg')
- * @returns Cloudinary URL
- */
-export const getCloudinaryUrl = (filename: string): string => {
-  return (
-    filenameToAsset[filename] ||
-    `https://res.cloudinary.com/do7m4rqdz/image/upload/${filename.replace(
-      /\.(jpg|jpeg|png|gif)$/i,
-      ""
-    )}`
-  );
-};
-
 // Combined export for convenience
 export const cloudinaryAssets = {
   ui: uiAssets,
   devices: deviceAssets,
   pointers: pointerAssets,
-  products: productAssets,
-  getUrl: getCloudinaryUrl,
 };
+
+export function getCloudinaryUrl(asset?: string): string {
+  if (!asset) {
+    return "";
+  }
+
+  if (/^https?:\/\//i.test(asset)) {
+    return asset;
+  }
+
+  // Already structured assets include full URLs; fallback just returns original value
+  return asset;
+}

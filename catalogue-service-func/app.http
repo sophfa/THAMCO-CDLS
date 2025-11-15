@@ -1,7 +1,7 @@
 ### Azure Functions Product API Testing
 
 # Base URL for local development
-@baseUrl = http://localhost:7071
+@baseUrl = https://campusdeviceloansstore.z28.web.core.windows.net/
 
 ### Health Check (if available)
 GET {{baseUrl}}/api/health

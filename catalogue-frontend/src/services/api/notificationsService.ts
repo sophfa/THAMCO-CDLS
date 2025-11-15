@@ -128,7 +128,9 @@ export async function createNotification(
     if (userEmail) payload.userEmail = userEmail;
   }
 
-  console.log("payload: ", payload);
-  // POST to /api/notifications (function app route)
-  return apiPost(`${BASE_URL}/notifications`, payload);
+  console.log(
+    "[notificationsService] Skipping createNotification call; handled by backend events.",
+    payload
+  );
+  return Promise.resolve({ skipped: true });
 }

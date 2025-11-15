@@ -26,11 +26,13 @@ describe("Favourite Domain", () => {
     });
 
     expect(result.success).toBe(false);
-    if (!result.success) {
+    if (result.success === false) {
       const fields = result.errors.map((e) => e.field);
       expect(fields).toContain("id");
       expect(fields).toContain("deviceId");
       expect(fields).toContain("addedAt");
+      return;
     }
+    throw new Error("Expected validation to fail");
   });
 });

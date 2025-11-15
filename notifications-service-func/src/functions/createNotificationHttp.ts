@@ -1,20 +1,12 @@
 // Azure Function - Create Notification HTTP Trigger
-//
-// Required Environment Variables:
-// - COSMOS_ENDPOINT: Azure Cosmos DB endpoint URL
-// - COSMOS_DATABASE: Cosmos DB database name
-// - COSMOS_CONTAINER: Cosmos DB container name  
-// - COSMOS_KEY: Cosmos DB access key
-// - RESEND_API_KEY: Resend API key for sending emails (optional, defaults to provided key)
-// - FROM_EMAIL: Email address to send from (optional, defaults to onboarding@resend.dev)
 
 import {
   app,
   HttpRequest,
   HttpResponseInit,
   InvocationContext,
-} from '@azure/functions';
-import { Resend } from 'resend';
+} from "@azure/functions";
+import { Resend } from "resend";
 import {
   Notification,
   createWaitlistNotification,
@@ -26,11 +18,12 @@ import {
   createReturnedNotification,
   createNotification,
   CreateNotificationParams,
-} from '../domain/notification';
+} from "../domain/notification";
 import {
   getNotificationRepo,
   MissingCosmosConfigurationError,
-} from '../infra/notificationRepoFactory';
+} from "../infra/notificationRepoFactory";
+import { getUserEmailById } from "../auth0/userDirectory";
 
 // Initialize Resend with API key from environment variables
 const resendApiKey = process.env.RESEND_API_KEY;
@@ -41,7 +34,15 @@ const resend = resendApiKey ? new Resend(resendApiKey) : null;
  */
 interface CreateNotificationRequest {
   readonly userId: string;
-  readonly type: 'Waitlist' | 'Reservation' | 'Accepted' | 'Rejected' | 'Cancelled' | 'Collected' | 'Returned' | 'Custom';
+  readonly type:
+    | "Waitlist"
+    | "Reservation"
+    | "Accepted"
+    | "Rejected"
+    | "Cancelled"
+    | "Collected"
+    | "Returned"
+    | "Custom";
   readonly deviceName?: string;
   readonly collectionDate?: string;
   readonly returnDate?: string;
@@ -51,35 +52,29 @@ interface CreateNotificationRequest {
   readonly userEmail?: string; // Optional email address for notifications
 }
 
-const DEFAULT_FROM_EMAIL = process.env.FROM_EMAIL || 'onboarding@resend.dev';
-
 const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
+  typeof value === "object" && value !== null && !Array.isArray(value);
 
-const getStringField = (
-  source: unknown,
-  key: string
-): string | undefined => {
+const getStringField = (source: unknown, key: string): string | undefined => {
   if (!isRecord(source)) {
     return undefined;
   }
 
   const value = source[key];
-  return typeof value === 'string' && value.trim().length > 0
+  return typeof value === "string" && value.trim().length > 0
     ? value.trim()
     : undefined;
 };
 
-const getNumberField = (
-  source: unknown,
-  key: string
-): number | undefined => {
+const getNumberField = (source: unknown, key: string): number | undefined => {
   if (!isRecord(source)) {
     return undefined;
   }
 
   const value = source[key];
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : undefined;
 };
 
 const getMetadataField = (
@@ -125,7 +120,7 @@ async function sendEmailNotification(
 ): Promise<boolean> {
   if (!resend) {
     context.log(
-      'RESEND_API_KEY is not configured. Skipping email send for notification:',
+      "RESEND_API_KEY is not configured. Skipping email send for notification:",
       notification.id
     );
     return false;
@@ -134,27 +129,27 @@ async function sendEmailNotification(
   try {
     // Generate email content based on notification type and content
     const emailContent = generateEmailContent(notification);
-    
+
     const emailData = {
-      from: DEFAULT_FROM_EMAIL,
+      from: process.env.FROM_EMAIL,
       to: userEmail,
       subject: emailContent.subject,
-      html: emailContent.html
+      html: emailContent.html,
     };
 
     context.log(`Sending email notification to ${userEmail}`, emailData);
 
     const result = await resend.emails.send(emailData);
-    
+
     if (result.error) {
-      context.log('Failed to send email:', result.error);
+      context.log("Failed to send email:", result.error);
       return false;
     }
 
-    context.log('Email sent successfully:', result.data);
+    context.log("Email sent successfully:", result.data);
     return true;
   } catch (error) {
-    context.log('Error sending email:', error);
+    context.log("Error sending email:", error);
     return false;
   }
 }
@@ -162,153 +157,221 @@ async function sendEmailNotification(
 /**
  * Generate email content based on notification type and content
  */
-function generateEmailContent(notification: Notification): { subject: string; html: string } {
+function generateEmailContent(notification: Notification): {
+  subject: string;
+  html: string;
+} {
   const notificationType = notification.type;
-  let subject = `ThAmCo Device Loan - ${notificationType} Notification`;
-  let html = '';
-
   const detailHtml = formatPayloadForEmail(notification);
 
+  const baseSubject = `ThAmCo Device Loan - ${notificationType} Notification`;
+  let template: EmailTemplate = {
+    subject: baseSubject,
+    title: "ThAmCo Device Loan Update",
+    intro: notification.message,
+    detailHeading: "Notification details",
+    accent: "#2563eb",
+  };
+
   switch (notificationType) {
-    case 'Waitlist':
-      subject = 'ThAmCo Device Loan - Added to Waitlist';
-      html = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #6366f1;">You're on the Waitlist! 📋</h2>
-          <p>You have been added to the waitlist for the requested device.</p>
-          <div style="background-color: #f0f9ff; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #6366f1;">
-            <p><strong>Details:</strong></p>
-            ${detailHtml}
-          </div>
-          <p>We'll notify you as soon as the device becomes available.</p>
-          <p>Best regards,<br>ThAmCo Device Loan Team</p>
-        </div>
-      `;
+    case "Waitlist": {
+      const waitlistNotification = notification as Notification<"Waitlist">;
+      const position = waitlistNotification.payload.position;
+      template = {
+        subject: "ThAmCo Device Loan - Waitlist Update",
+        title: "You're on the waitlist",
+        intro:
+          "We're keeping an eye on the device you requested and will keep you up to date.",
+        detailHeading: "Request overview",
+        accent: "#7c3aed",
+        highlight: Number.isFinite(position)
+          ? `You're currently <strong>#${position}</strong> in the queue. We'll notify you as soon as the device is available.`
+          : "We'll notify you the moment the device becomes available.",
+      };
       break;
-
-    case 'Reservation':
-      subject = 'ThAmCo Device Loan - Reservation Created';
-      html = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #2563eb;">Device Reservation Confirmation</h2>
-          <p>Your device reservation has been successfully created!</p>
-          <div style="background-color: #f3f4f6; padding: 15px; border-radius: 5px; margin: 15px 0;">
-            <p><strong>Details:</strong></p>
-            ${detailHtml}
-          </div>
-          <p>You will receive another notification when your reservation is reviewed by our team.</p>
-          <p>Best regards,<br>ThAmCo Device Loan Team</p>
-        </div>
-      `;
+    }
+    case "Reservation": {
+      const reservation = notification as Notification<"Reservation">;
+      const range = formatDateRange(
+        reservation.payload.from,
+        reservation.payload.till
+      );
+      template = {
+        subject: "ThAmCo Device Loan - Reservation Created",
+        title: "Reservation confirmed",
+        intro:
+          "Your reservation is in the system and we'll let you know once our team reviews it.",
+        detailHeading: "Reservation summary",
+        accent: "#2563eb",
+        highlight: range
+          ? `You're booked for <strong>${range}</strong>.`
+          : undefined,
+      };
       break;
-
-    case 'Accepted':
-      subject = 'ThAmCo Device Loan - Reservation Accepted';
-      html = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #059669;">Reservation Accepted! 🎉</h2>
-          <p>Great news! Your device reservation has been accepted.</p>
-          <div style="background-color: #ecfdf5; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #059669;">
-            <p><strong>Details:</strong></p>
-            ${detailHtml}
-          </div>
-          <p>Please remember to collect your device on the specified date.</p>
-          <p>Best regards,<br>ThAmCo Device Loan Team</p>
-        </div>
-      `;
+    }
+    case "Accepted": {
+      const accepted = notification as Notification<"Accepted">;
+      const start = formatFriendlyDateTime(accepted.payload.from);
+      template = {
+        subject: "ThAmCo Device Loan - Reservation Accepted",
+        title: "Reservation accepted",
+        intro:
+          "Great news! Your reservation has been approved and your device will be ready for pickup.",
+        detailHeading: "Approved reservation",
+        accent: "#059669",
+        highlight: start
+          ? `Please be ready to collect your device on <strong>${start}</strong>.`
+          : undefined,
+      };
       break;
-
-    case 'Rejected':
-      subject = 'ThAmCo Device Loan - Reservation Rejected';
-      html = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #dc2626;">Reservation Status Update</h2>
-          <p>We regret to inform you that your device reservation could not be approved.</p>
-          <div style="background-color: #fef2f2; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #dc2626;">
-            <p><strong>Details:</strong></p>
-            ${detailHtml}
-          </div>
-          <p>You're welcome to submit a new reservation request with different dates or devices.</p>
-          <p>Best regards,<br>ThAmCo Device Loan Team</p>
-        </div>
-      `;
+    }
+    case "Rejected":
+      template = {
+        subject: "ThAmCo Device Loan - Reservation Rejected",
+        title: "Reservation not approved",
+        intro:
+          "We're sorry, but this reservation could not be approved. Review the details below and feel free to submit another request.",
+        detailHeading: "Request outcome",
+        accent: "#dc2626",
+        highlight:
+          "Need something different? Explore the catalogue to request another device or adjust your dates.",
+      };
       break;
-
-    case 'Cancelled':
-      subject = 'ThAmCo Device Loan - Reservation Cancelled';
-      html = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #d97706;">Reservation Cancelled</h2>
-          <p>Your device reservation has been cancelled.</p>
-          <div style="background-color: #fffbeb; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #d97706;">
-            <p><strong>Details:</strong></p>
-            ${detailHtml}
-          </div>
-          <p>If you need to make a new reservation, please feel free to submit a new request.</p>
-          <p>Best regards,<br>ThAmCo Device Loan Team</p>
-        </div>
-      `;
+    case "Cancelled":
+      template = {
+        subject: "ThAmCo Device Loan - Reservation Cancelled",
+        title: "Reservation cancelled",
+        intro:
+          "Your reservation has been cancelled. If this was unexpected, please reach out so we can help.",
+        detailHeading: "Cancellation details",
+        accent: "#d97706",
+      };
       break;
-
-    case 'Collected':
-      subject = 'ThAmCo Device Loan - Device Collected';
-      html = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #2563eb;">Device Collection Confirmed</h2>
-          <p>Thank you for collecting your device!</p>
-          <div style="background-color: #eff6ff; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #2563eb;">
-            <p><strong>Details:</strong></p>
-            ${detailHtml}
-          </div>
-          <p><strong>Important:</strong> Please remember to return the device by the specified date to avoid any late fees.</p>
-          <p>Best regards,<br>ThAmCo Device Loan Team</p>
-        </div>
-      `;
+    case "Collected": {
+      const collected = notification as Notification<"Collected">;
+      const returnBy = formatFriendlyDateTime(collected.payload.till);
+      template = {
+        subject: "ThAmCo Device Loan - Device Collected",
+        title: "Device collection confirmed",
+        intro: "Thanks for collecting your device. Enjoy your loan period!",
+        detailHeading: "Collection details",
+        accent: "#1d4ed8",
+        highlight: returnBy
+          ? `Remember to return the device by <strong>${returnBy}</strong>.`
+          : undefined,
+      };
       break;
-
-    case 'Returned':
-      subject = 'ThAmCo Device Loan - Device Returned';
-      html = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #059669;">Device Return Confirmed ✅</h2>
-          <p>Thank you for returning your device on time!</p>
-          <div style="background-color: #ecfdf5; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #059669;">
-            <p><strong>Details:</strong></p>
-            ${detailHtml}
-          </div>
-          <p>Your loan has been completed successfully. We hope the device served you well!</p>
-          <p>Best regards,<br>ThAmCo Device Loan Team</p>
-        </div>
-      `;
+    }
+    case "Returned":
+      template = {
+        subject: "ThAmCo Device Loan - Device Returned",
+        title: "Device returned",
+        intro: "Thanks for returning your device. We hope it served you well.",
+        detailHeading: "Return receipt",
+        accent: "#0f9d58",
+        highlight:
+          "Your loan is now closed. You can make another reservation whenever you need a device.",
+      };
       break;
-
+    case "Custom": {
+      const custom = notification as Notification<"Custom">;
+      const customSubject =
+        custom.payload.subject ?? "ThAmCo Device Loan - Notification";
+      template = {
+        subject: customSubject,
+        title: custom.payload.subject ?? "Custom notification",
+        intro: custom.payload.message,
+        detailHeading: "Message details",
+        accent: "#0ea5e9",
+      };
+      break;
+    }
     default:
-      html = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #374151;">ThAmCo Device Loan Notification</h2>
-          <p>You have received a new notification:</p>
-          <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 15px 0;">
-            ${detailHtml}
-          </div>
-          <p>Best regards,<br>ThAmCo Device Loan Team</p>
-        </div>
-      `;
+      template = {
+        subject: baseSubject,
+        title: "ThAmCo Device Loan update",
+        intro: notification.message,
+        detailHeading: "Notification details",
+        accent: "#2563eb",
+      };
   }
 
-  return { subject, html };
+  return {
+    subject: template.subject,
+    html: renderEmailLayout({
+      ...template,
+      detailHtml,
+    }),
+  };
 }
+
+interface EmailTemplate {
+  readonly subject: string;
+  readonly title: string;
+  readonly intro: string;
+  readonly detailHeading: string;
+  readonly accent: string;
+  readonly highlight?: string;
+  readonly footer?: string;
+}
+
+interface EmailLayoutConfig extends EmailTemplate {
+  readonly detailHtml: string;
+}
+
+const renderEmailLayout = ({
+  title,
+  intro,
+  detailHeading,
+  detailHtml,
+  accent,
+  highlight,
+  footer,
+}: EmailLayoutConfig): string => {
+  const brandFont = "'Inter', 'Segoe UI', Arial, sans-serif";
+  const highlightBlock = highlight
+    ? `<div style="background-color: rgba(15, 23, 42, 0.04); border-left: 4px solid ${accent}; padding: 14px 18px; border-radius: 10px; margin-bottom: 18px; font-size: 15px; line-height: 1.6;">${highlight}</div>`
+    : "";
+
+  const footerCopy =
+    footer ??
+    `Need help? Reply to this email or contact <a style="color: ${accent}; text-decoration: none;" href="mailto:support@campusdeviceloans.co.uk">support@campusdeviceloans.co.uk</a>.`;
+
+  return `
+    <div style="background-color:#eef2ff;padding:32px 18px;">
+      <div style="max-width:640px;margin:0 auto;background-color:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 22px 45px rgba(15,23,42,0.08);font-family:${brandFont};color:#0f172a;">
+        <div style="background:${accent};color:#ffffff;padding:28px 32px;">
+          <div style="font-size:12px;letter-spacing:0.18em;text-transform:uppercase;opacity:0.85;">ThAmCo Device Loans</div>
+          <h2 style="margin:14px 0 8px;font-size:24px;line-height:1.3;">${title}</h2>
+          <p style="margin:0;font-size:15px;line-height:1.6;">${intro}</p>
+        </div>
+        <div style="padding:32px;">
+          ${highlightBlock}
+          <p style="margin:0 0 6px;font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:0.1em;color:#64748b;">${detailHeading}</p>
+          ${detailHtml}
+        </div>
+        <div style="border-top:1px solid #e2e8f0;padding:20px 32px;background-color:#f8fafc;color:#475569;font-size:13px;line-height:1.6;">
+          ${footerCopy}
+          <p style="margin:12px 0 0;font-size:12px;color:#94a3b8;">This message was generated by the ThAmCo Device Loans service.</p>
+        </div>
+      </div>
+    </div>
+  `;
+};
 
 const formatPayloadForEmail = (notification: Notification): string => {
   const items: string[] = [];
 
   if (isRecord(notification.payload)) {
     Object.entries(notification.payload).forEach(([key, value]) => {
-      if (value === undefined || value === null || value === '') {
+      if (value === undefined || value === null || value === "") {
         return;
       }
 
       const label = toTitleCase(key);
-      items.push(`<li><strong>${label}:</strong> ${formatPayloadValue(key, value)}</li>`);
+      items.push(
+        `<li><strong>${label}:</strong> ${formatPayloadValue(key, value)}</li>`
+      );
     });
   }
 
@@ -316,29 +379,29 @@ const formatPayloadForEmail = (notification: Notification): string => {
     return `<p>${notification.message}</p>`;
   }
 
-  return `<p>${notification.message}</p><ul style="padding-left:18px;margin:8px 0;">${items.join(
-    ''
-  )}</ul>`;
+  return `<p>${
+    notification.message
+  }</p><ul style="padding-left:18px;margin:8px 0;">${items.join("")}</ul>`;
 };
 
 const formatPayloadValue = (key: string, value: unknown): string => {
-  if (typeof value === 'string') {
-    if (isIsoString(value) && key.toLowerCase().includes('date')) {
+  if (typeof value === "string") {
+    if (isIsoString(value) && key.toLowerCase().includes("date")) {
       return new Date(value).toLocaleString();
     }
     return value;
   }
 
-  if (typeof value === 'number') {
+  if (typeof value === "number") {
     return value.toString();
   }
 
-  if (typeof value === 'boolean') {
-    return value ? 'Yes' : 'No';
+  if (typeof value === "boolean") {
+    return value ? "Yes" : "No";
   }
 
   if (Array.isArray(value)) {
-    return value.map((item) => formatPayloadValue(key, item)).join(', ');
+    return value.map((item) => formatPayloadValue(key, item)).join(", ");
   }
 
   if (isRecord(value)) {
@@ -355,11 +418,43 @@ const isIsoString = (value: string): boolean => {
 
 const toTitleCase = (input: string): string =>
   input
-    .replace(/([A-Z])/g, ' $1')
-    .replace(/[_-]/g, ' ')
-    .replace(/\s+/g, ' ')
+    .replace(/([A-Z])/g, " $1")
+    .replace(/[_-]/g, " ")
+    .replace(/\s+/g, " ")
     .trim()
     .replace(/^./, (char) => char.toUpperCase());
+
+const formatFriendlyDateTime = (value?: string | null): string | null => {
+  if (!value) {
+    return null;
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed.toLocaleString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const formatDateRange = (
+  from?: string | null,
+  till?: string | null
+): string | null => {
+  const start = formatFriendlyDateTime(from);
+  const end = formatFriendlyDateTime(till);
+
+  if (start && end) {
+    return `${start} &ndash; ${end}`;
+  }
+
+  return start ?? end;
+};
 
 /**
  * Azure Function to create a new notification
@@ -372,7 +467,9 @@ export async function createNotificationHttp(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
-  context.log('HTTP trigger function processed a request to create a notification');
+  context.log(
+    "HTTP trigger function processed a request to create a notification"
+  );
 
   try {
     // Parse request body
@@ -381,14 +478,14 @@ export async function createNotificationHttp(
       const errorResponse: CreateNotificationResponse = {
         success: false,
         error: {
-          code: 'INVALID_INPUT',
-          message: 'Request body is required',
+          code: "INVALID_INPUT",
+          message: "Request body is required",
         },
       };
 
       return {
         status: 400,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(errorResponse, null, 2),
       };
     }
@@ -400,15 +497,15 @@ export async function createNotificationHttp(
       const errorResponse: CreateNotificationResponse = {
         success: false,
         error: {
-          code: 'INVALID_JSON',
-          message: 'Invalid JSON in request body',
+          code: "INVALID_JSON",
+          message: "Invalid JSON in request body",
           details: parseError,
         },
       };
 
       return {
         status: 400,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(errorResponse, null, 2),
       };
     }
@@ -418,44 +515,44 @@ export async function createNotificationHttp(
       const errorResponse: CreateNotificationResponse = {
         success: false,
         error: {
-          code: 'MISSING_REQUIRED_FIELDS',
-          message: 'userId and type are required fields',
+          code: "MISSING_REQUIRED_FIELDS",
+          message: "userId and type are required fields",
         },
       };
 
       return {
         status: 400,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(errorResponse, null, 2),
       };
     }
 
     // Create notification using appropriate factory function
     let notificationResult;
-    
+
     switch (notificationRequest.type) {
-      case 'Waitlist':
+      case "Waitlist":
         if (!notificationRequest.deviceName) {
           const errorResponse: CreateNotificationResponse = {
             success: false,
             error: {
-              code: 'MISSING_FIELDS',
-              message: 'deviceName is required for Waitlist notifications',
+              code: "MISSING_FIELDS",
+              message: "deviceName is required for Waitlist notifications",
             },
           };
           return {
             status: 400,
-            headers: { 'Content-Type': 'application/json' },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(errorResponse, null, 2),
           };
         }
         const waitlistPayload = {
           deviceName: notificationRequest.deviceName,
-          requestedFrom: notificationRequest.collectionDate || '',
-          requestedTill: notificationRequest.returnDate || '',
+          requestedFrom: notificationRequest.collectionDate || "",
+          requestedTill: notificationRequest.returnDate || "",
           position:
             notificationRequest.numInQueue ??
-            getNumberField(notificationRequest.content, 'position') ??
+            getNumberField(notificationRequest.content, "position") ??
             1,
         };
         notificationResult = createWaitlistNotification({
@@ -464,7 +561,7 @@ export async function createNotificationHttp(
         });
         break;
 
-      case 'Reservation':
+      case "Reservation":
         if (
           !notificationRequest.deviceName ||
           !notificationRequest.collectionDate ||
@@ -473,14 +570,14 @@ export async function createNotificationHttp(
           const errorResponse: CreateNotificationResponse = {
             success: false,
             error: {
-              code: 'MISSING_FIELDS',
+              code: "MISSING_FIELDS",
               message:
-                'deviceName, collectionDate, and returnDate are required for Reservation notifications',
+                "deviceName, collectionDate, and returnDate are required for Reservation notifications",
             },
           };
           return {
             status: 400,
-            headers: { 'Content-Type': 'application/json' },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(errorResponse, null, 2),
           };
         }
@@ -490,13 +587,13 @@ export async function createNotificationHttp(
             deviceName: notificationRequest.deviceName,
             from: notificationRequest.collectionDate,
             till: notificationRequest.returnDate,
-            location: getStringField(notificationRequest.content, 'location'),
-            notes: getStringField(notificationRequest.content, 'notes'),
-          }
+            location: getStringField(notificationRequest.content, "location"),
+            notes: getStringField(notificationRequest.content, "notes"),
+          },
         });
         break;
 
-      case 'Accepted':
+      case "Accepted":
         if (
           !notificationRequest.deviceName ||
           !notificationRequest.collectionDate ||
@@ -505,14 +602,14 @@ export async function createNotificationHttp(
           const errorResponse: CreateNotificationResponse = {
             success: false,
             error: {
-              code: 'MISSING_FIELDS',
+              code: "MISSING_FIELDS",
               message:
-                'deviceName, collectionDate, and returnDate are required for Accepted notifications',
+                "deviceName, collectionDate, and returnDate are required for Accepted notifications",
             },
           };
           return {
             status: 400,
-            headers: { 'Content-Type': 'application/json' },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(errorResponse, null, 2),
           };
         }
@@ -522,15 +619,21 @@ export async function createNotificationHttp(
             deviceName: notificationRequest.deviceName,
             from: notificationRequest.collectionDate,
             till: notificationRequest.returnDate,
-            approvedBy: getStringField(notificationRequest.content, 'approvedBy'),
-            approvedAt: getStringField(notificationRequest.content, 'approvedAt'),
-            location: getStringField(notificationRequest.content, 'location'),
-            notes: getStringField(notificationRequest.content, 'notes'),
-          }
+            approvedBy: getStringField(
+              notificationRequest.content,
+              "approvedBy"
+            ),
+            approvedAt: getStringField(
+              notificationRequest.content,
+              "approvedAt"
+            ),
+            location: getStringField(notificationRequest.content, "location"),
+            notes: getStringField(notificationRequest.content, "notes"),
+          },
         });
         break;
 
-      case 'Rejected':
+      case "Rejected":
         if (
           !notificationRequest.deviceName ||
           !notificationRequest.reason ||
@@ -540,14 +643,14 @@ export async function createNotificationHttp(
           const errorResponse: CreateNotificationResponse = {
             success: false,
             error: {
-              code: 'MISSING_FIELDS',
+              code: "MISSING_FIELDS",
               message:
-                'deviceName, collectionDate, returnDate, and reason are required for Rejected notifications',
+                "deviceName, collectionDate, returnDate, and reason are required for Rejected notifications",
             },
           };
           return {
             status: 400,
-            headers: { 'Content-Type': 'application/json' },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(errorResponse, null, 2),
           };
         }
@@ -558,25 +661,28 @@ export async function createNotificationHttp(
             from: notificationRequest.collectionDate,
             till: notificationRequest.returnDate,
             reason: notificationRequest.reason,
-            location: getStringField(notificationRequest.content, 'location'),
-            notes: getStringField(notificationRequest.content, 'notes'),
-          }
+            location: getStringField(notificationRequest.content, "location"),
+            notes: getStringField(notificationRequest.content, "notes"),
+          },
         });
         break;
 
-      case 'Cancelled':
-        if (!notificationRequest.deviceName || !notificationRequest.collectionDate) {
+      case "Cancelled":
+        if (
+          !notificationRequest.deviceName ||
+          !notificationRequest.collectionDate
+        ) {
           const errorResponse: CreateNotificationResponse = {
             success: false,
             error: {
-              code: 'MISSING_FIELDS',
+              code: "MISSING_FIELDS",
               message:
-                'deviceName and collectionDate are required for Cancelled notifications',
+                "deviceName and collectionDate are required for Cancelled notifications",
             },
           };
           return {
             status: 400,
-            headers: { 'Content-Type': 'application/json' },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(errorResponse, null, 2),
           };
         }
@@ -590,15 +696,18 @@ export async function createNotificationHttp(
               notificationRequest.collectionDate,
             reason:
               notificationRequest.reason ??
-              getStringField(notificationRequest.content, 'reason'),
-            cancelledBy: getStringField(notificationRequest.content, 'cancelledBy'),
-            location: getStringField(notificationRequest.content, 'location'),
-            notes: getStringField(notificationRequest.content, 'notes'),
-          }
+              getStringField(notificationRequest.content, "reason"),
+            cancelledBy: getStringField(
+              notificationRequest.content,
+              "cancelledBy"
+            ),
+            location: getStringField(notificationRequest.content, "location"),
+            notes: getStringField(notificationRequest.content, "notes"),
+          },
         });
         break;
 
-      case 'Collected':
+      case "Collected":
         if (
           !notificationRequest.deviceName ||
           !notificationRequest.collectionDate ||
@@ -607,14 +716,14 @@ export async function createNotificationHttp(
           const errorResponse: CreateNotificationResponse = {
             success: false,
             error: {
-              code: 'MISSING_FIELDS',
+              code: "MISSING_FIELDS",
               message:
-                'deviceName, collectionDate, and returnDate are required for Collected notifications',
+                "deviceName, collectionDate, and returnDate are required for Collected notifications",
             },
           };
           return {
             status: 400,
-            headers: { 'Content-Type': 'application/json' },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(errorResponse, null, 2),
           };
         }
@@ -624,14 +733,17 @@ export async function createNotificationHttp(
             deviceName: notificationRequest.deviceName,
             from: notificationRequest.collectionDate,
             till: notificationRequest.returnDate,
-            collectedAt: getStringField(notificationRequest.content, 'collectedAt'),
-            location: getStringField(notificationRequest.content, 'location'),
-            notes: getStringField(notificationRequest.content, 'notes'),
-          }
+            collectedAt: getStringField(
+              notificationRequest.content,
+              "collectedAt"
+            ),
+            location: getStringField(notificationRequest.content, "location"),
+            notes: getStringField(notificationRequest.content, "notes"),
+          },
         });
         break;
 
-      case 'Returned':
+      case "Returned":
         if (
           !notificationRequest.deviceName ||
           !notificationRequest.collectionDate ||
@@ -640,14 +752,14 @@ export async function createNotificationHttp(
           const errorResponse: CreateNotificationResponse = {
             success: false,
             error: {
-              code: 'MISSING_FIELDS',
+              code: "MISSING_FIELDS",
               message:
-                'deviceName, collectionDate, and returnDate are required for Returned notifications',
+                "deviceName, collectionDate, and returnDate are required for Returned notifications",
             },
           };
           return {
             status: 400,
-            headers: { 'Content-Type': 'application/json' },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(errorResponse, null, 2),
           };
         }
@@ -658,45 +770,45 @@ export async function createNotificationHttp(
             from: notificationRequest.collectionDate,
             till: notificationRequest.returnDate,
             returnedAt:
-              getStringField(notificationRequest.content, 'returnedAt') ||
+              getStringField(notificationRequest.content, "returnedAt") ||
               notificationRequest.returnDate,
-            condition: getStringField(notificationRequest.content, 'condition'),
-            location: getStringField(notificationRequest.content, 'location'),
-            notes: getStringField(notificationRequest.content, 'notes'),
-          }
+            condition: getStringField(notificationRequest.content, "condition"),
+            location: getStringField(notificationRequest.content, "location"),
+            notes: getStringField(notificationRequest.content, "notes"),
+          },
         });
         break;
 
-      case 'Custom':
+      case "Custom":
         if (!notificationRequest.content) {
           const errorResponse: CreateNotificationResponse = {
             success: false,
             error: {
-              code: 'MISSING_FIELDS',
-              message: 'content is required for Custom notifications',
+              code: "MISSING_FIELDS",
+              message: "content is required for Custom notifications",
             },
           };
           return {
             status: 400,
-            headers: { 'Content-Type': 'application/json' },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(errorResponse, null, 2),
           };
         }
-        
+
         // For custom notifications, create directly with provided content
         const customMessage =
-          typeof notificationRequest.content === 'string'
+          typeof notificationRequest.content === "string"
             ? notificationRequest.content
-            : getStringField(notificationRequest.content, 'message') ??
+            : getStringField(notificationRequest.content, "message") ??
               JSON.stringify(notificationRequest.content);
 
-        const customParams: CreateNotificationParams<'Custom'> = {
+        const customParams: CreateNotificationParams<"Custom"> = {
           userId: notificationRequest.userId,
-          type: 'Custom',
+          type: "Custom",
           payload: {
-            subject: getStringField(notificationRequest.content, 'subject'),
+            subject: getStringField(notificationRequest.content, "subject"),
             message: customMessage,
-            metadata: getMetadataField(notificationRequest.content, 'metadata'),
+            metadata: getMetadataField(notificationRequest.content, "metadata"),
           },
         };
         notificationResult = createNotification(customParams);
@@ -706,13 +818,13 @@ export async function createNotificationHttp(
         const errorResponse: CreateNotificationResponse = {
           success: false,
           error: {
-            code: 'INVALID_TYPE',
+            code: "INVALID_TYPE",
             message: `Invalid notification type: ${notificationRequest.type}. Valid types are: Reservation, Accepted, Rejected, Cancelled, Collected, Returned, Custom`,
           },
         };
         return {
           status: 400,
-          headers: { 'Content-Type': 'application/json' },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(errorResponse, null, 2),
         };
     }
@@ -722,28 +834,31 @@ export async function createNotificationHttp(
       const errorResponse: CreateNotificationResponse = {
         success: false,
         error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Failed to create notification',
+          code: "VALIDATION_ERROR",
+          message: "Failed to create notification",
           details: notificationResult.errors,
         },
       };
 
       return {
         status: 400,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(errorResponse, null, 2),
       };
     }
 
     // Save notification to repository
     const repository = getNotificationRepo();
-    const saveResult = await repository.create(
-      notificationResult.notification
-    );
+    const saveResult = await repository.create(notificationResult.notification);
 
     if (!saveResult.success) {
       // TypeScript knows this is the error case, so we can access saveResult.error
       const errorResult = saveResult as { success: false; error: any };
+      context.error("Notification creation failed", {
+        userId: notificationRequest.userId,
+        type: notificationRequest.type,
+        error: errorResult.error,
+      });
       const errorResponse: CreateNotificationResponse = {
         success: false,
         error: {
@@ -752,14 +867,21 @@ export async function createNotificationHttp(
         },
       };
 
-      const statusCode = errorResult.error.code === 'ALREADY_EXISTS' ? 409 : 500;
+      const statusCode =
+        errorResult.error.code === "ALREADY_EXISTS" ? 409 : 500;
 
       return {
         status: statusCode,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(errorResponse, null, 2),
       };
     }
+
+    context.log("Notification created successfully", {
+      notificationId: saveResult.data.id,
+      userId: notificationRequest.userId,
+      type: notificationRequest.type,
+    });
 
     // Return success response
     const successResponse: CreateNotificationResponse = {
@@ -767,79 +889,107 @@ export async function createNotificationHttp(
       data: saveResult.data,
     };
 
-    // Send email notification if email address is provided
-    if (notificationRequest.userEmail) {
-      context.log(`Attempting to send email notification to ${notificationRequest.userEmail}`);
+    let resolvedUserEmail = notificationRequest.userEmail;
+
+    if (!resolvedUserEmail) {
+      try {
+        resolvedUserEmail = await getUserEmailById(
+          notificationRequest.userId,
+          context
+        );
+        if (resolvedUserEmail) {
+          context.log(
+            `Resolved user email via Auth0 for ${notificationRequest.userId}`
+          );
+        } else {
+          context.log(
+            `Auth0 did not return an email for user ${notificationRequest.userId}`
+          );
+        }
+      } catch (lookupError) {
+        context.error(
+          `Failed to resolve email for user ${notificationRequest.userId}`,
+          lookupError
+        );
+      }
+    }
+
+    // Send email notification if email address is provided or resolved
+    if (resolvedUserEmail) {
+      context.log(
+        `Attempting to send email notification to ${resolvedUserEmail}`
+      );
       const emailSent = await sendEmailNotification(
         saveResult.data,
-        notificationRequest.userEmail,
+        resolvedUserEmail,
         context
       );
-      
+
       if (!emailSent) {
-        context.log('Warning: Failed to send email notification, but notification was created successfully');
+        context.log(
+          "Warning: Failed to send email notification, but notification was created successfully"
+        );
       } else {
-        context.log('Email notification sent successfully');
+        context.log("Email notification sent successfully");
       }
     } else {
-      context.log('No email address provided, skipping email notification');
+      context.log("No email address provided, skipping email notification");
     }
 
     return {
       status: 201,
       headers: {
-        'Content-Type': 'application/json',
-        'Location': `/api/notifications/${saveResult.data.id}`,
+        "Content-Type": "application/json",
+        Location: `/api/notifications/${saveResult.data.id}`,
       },
       body: JSON.stringify(successResponse, null, 2),
     };
-
   } catch (error: any) {
     if (error instanceof MissingCosmosConfigurationError) {
       context.log(
-        'Missing Cosmos configuration settings:',
-        error.missingSettings.join(', ')
+        "Missing Cosmos configuration settings:",
+        error.missingSettings.join(", ")
       );
 
       const errorResponse: CreateNotificationResponse = {
         success: false,
         error: {
-          code: 'CONFIGURATION_ERROR',
+          code: "CONFIGURATION_ERROR",
           message:
-            'Cosmos DB configuration is incomplete. Please configure COSMOS_ENDPOINT, COSMOS_DATABASE, COSMOS_CONTAINER, and COSMOS_KEY.',
+            "Cosmos DB configuration is incomplete. Please configure COSMOS_ENDPOINT, COSMOS_DATABASE, COSMOS_CONTAINER, and COSMOS_KEY.",
           details: error.missingSettings,
         },
       };
 
       return {
         status: 500,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(errorResponse, null, 2),
       };
     }
 
-    context.log('Error creating notification:', error);
+    context.log("Error creating notification:", error);
 
     const errorResponse: CreateNotificationResponse = {
       success: false,
       error: {
-        code: 'INTERNAL_ERROR',
-        message: 'An unexpected error occurred while creating the notification',
+        code: "INTERNAL_ERROR",
+        message: "An unexpected error occurred while creating the notification",
       },
     };
 
     return {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(errorResponse, null, 2),
     };
   }
 }
 
 // Register the function with Azure Functions runtime
-app.http('createNotification', {
-  methods: ['POST'],
-  authLevel: 'anonymous',
-  route: 'notifications',
+app.http("createNotification", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "notifications",
   handler: createNotificationHttp,
 });
