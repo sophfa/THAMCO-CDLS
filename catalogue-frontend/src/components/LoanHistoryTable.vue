@@ -27,7 +27,7 @@
           <thead>
             <tr>
               <th>Loan ID</th>
-              <th>User ID</th>
+              <th>User</th>
               <th>Device</th>
               <th>Status</th>
               <th>From</th>
@@ -38,7 +38,22 @@
           <tbody>
             <tr v-for="loan in group.items" :key="loan.id">
               <td class="mono">{{ loan.id }}</td>
-              <td class="mono">{{ loan.userId }}</td>
+              <td>
+                <div class="user-cell">
+                  <div class="user-avatar" v-if="loan.userPicture">
+                    <img :src="loan.userPicture" alt="" />
+                  </div>
+                  <div>
+                    <div class="user-name">
+                      {{ loan.userName || loan.userId }}
+                    </div>
+                    <div class="user-id mono">{{ loan.userId }}</div>
+                    <div class="user-email" v-if="loan.userEmail">
+                      {{ loan.userEmail }}
+                    </div>
+                  </div>
+                </div>
+              </td>
               <td>
                 <div class="device-cell">
                   <img
@@ -74,13 +89,15 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import type { Loan } from "../types/models";
-import { getUser } from "../services/authService";
 
 type GroupByOption = "user" | "loan" | "device";
 
 interface LoanHistoryRecord extends Loan {
   deviceName?: string;
   deviceImage?: string;
+  userName?: string;
+  userEmail?: string;
+  userPicture?: string;
 }
 
 const props = defineProps<{
@@ -114,7 +131,8 @@ const groupedLoans = computed<GroupedLoans[]>(() => {
   ): string => {
     if (!sample) return key;
     if (props.groupBy === "user") {
-      return `User ${key}`;
+      const display = sample?.userName || key;
+      return `User ${display}`;
     }
     if (props.groupBy === "device") {
       const name = sample.deviceName || sample.deviceId;
@@ -209,6 +227,35 @@ function statusClass(status: string | undefined) {
 
 .table-wrapper {
   overflow-x: auto;
+}
+
+.user-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.user-avatar img {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid #e2e8f0;
+}
+
+.user-name {
+  font-weight: 600;
+  color: #111827;
+}
+
+.user-id {
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.user-email {
+  font-size: 0.85rem;
+  color: #6b7280;
 }
 
 table {

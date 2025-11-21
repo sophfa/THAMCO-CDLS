@@ -1,0 +1,33 @@
+{
+  "name": "user-service-func",
+  "version": "1.0.0",
+  "description": "Azure Functions facade over Auth0 user directory",
+  "main": "dist/src/app.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "clean": "rimraf dist",
+    "prestart": "npm run clean && npm run build",
+    "start": "func start",
+    "test": "jest --coverage",
+    "test:watch": "jest --watch",
+    "test:ci": "jest --ci --coverage --maxWorkers=2"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.0.0",
+    "dotenv": "^17.2.3",
+    "jsonwebtoken": "^9.0.2",
+    "jwks-rsa": "^3.2.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^18.19.130",
+    "@types/supertest": "^6.0.0",
+    "jest": "^29.5.0",
+    "rimraf": "^5.0.0",
+    "supertest": "^6.3.0",
+    "ts-jest": "^29.1.0",
+    "typescript": "^5.5.4"
+  }
+}

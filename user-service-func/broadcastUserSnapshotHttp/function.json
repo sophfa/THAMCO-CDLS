@@ -1,0 +1,19 @@
+{
+  "scriptFile": "../dist/src/functions/users/broadcastUserSnapshotHttp.js",
+  "entryPoint": "broadcastUserSnapshotHttp",
+  "bindings": [
+    {
+      "authLevel": "anonymous",
+      "type": "httpTrigger",
+      "direction": "in",
+      "name": "req",
+      "methods": ["post", "options"],
+      "route": "users/{userId}/broadcast"
+    },
+    {
+      "type": "http",
+      "direction": "out",
+      "name": "$return"
+    }
+  ]
+}

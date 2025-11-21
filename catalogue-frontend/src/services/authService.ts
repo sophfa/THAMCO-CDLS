@@ -13,6 +13,13 @@ const STORAGE_KEYS = {
 // Session timeout (30 minutes of inactivity)
 const SESSION_TIMEOUT = 30 * 60 * 1000;
 
+function getRedirectUri(): string {
+  if (import.meta.env.DEV) {
+    return import.meta.env.VITE_AUTH0_CALLBACK_URL;
+  }
+  return import.meta.env.VITE_AUTH0_PROD_CALLBACK_URL || window.location.origin;
+}
+
 // Simple encryption/obfuscation for localStorage (basic security)
 function encodeData(data: any): string {
   try {
@@ -93,11 +100,13 @@ function getUserFromStorage(): any | null {
 
 // Initialize Auth0 and handle redirect callback if present
 export async function initAuth() {
+  const redirectUri = getRedirectUri();
+
   auth0 = await createAuth0Client({
     domain: import.meta.env.VITE_AUTH0_DOMAIN,
     clientId: import.meta.env.VITE_AUTH0_CLIENT_ID,
     authorizationParams: {
-      redirect_uri: import.meta.env.VITE_AUTH0_CALLBACK_URL,
+      redirect_uri: redirectUri,
       audience: import.meta.env.VITE_AUTH0_AUDIENCE, // your API identifier
       scope: "openid profile email",
     },
@@ -175,7 +184,7 @@ export async function logout() {
   clearSession();
   await auth0?.logout({
     logoutParams: {
-      returnTo: window.location.origin,
+      returnTo: getRedirectUri(),
     },
   });
 }
@@ -184,6 +193,7 @@ export async function logout() {
 export async function getToken(): Promise<string | null> {
   try {
     const token = await auth0?.getTokenSilently();
+    console.log("token silent: ", token);
     updateSessionTimestamp(); // Extend session on API activity
     return token ?? null;
   } catch (err) {

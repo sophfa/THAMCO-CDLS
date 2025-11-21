@@ -1,0 +1,5 @@
+*.ts
+package-lock.json
+tsconfig.json
+README.md
+.env

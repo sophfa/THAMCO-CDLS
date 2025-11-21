@@ -140,3 +140,26 @@ export type ReservationWithDeviceName = Reservation & {
   deviceName: string;
   deviceImage?: string;
 };
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  name?: string;
+  nickname?: string;
+  picture?: string;
+  roles?: string[];
+  createdAt?: string;
+  updatedAt?: string;
+  lastLogin?: string;
+  blocked?: boolean;
+}
+
+export interface UserListResult {
+  users: UserProfile[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total?: number;
+    hasMore: boolean;
+  };
+}

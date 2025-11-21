@@ -67,12 +67,27 @@ import LoanHistoryTable from "../components/LoanHistoryTable.vue";
 import type { Loan } from "../types/models";
 import { listAllLoans } from "../services/api/loansService";
 import { getProductById } from "../services/api/catalogueService";
+import { getUserProfile } from "../services/api/userService";
 
 type GroupBy = "user" | "loan" | "device";
 
 interface EnrichedLoan extends Loan {
   deviceName?: string;
   deviceImage?: string;
+  userName?: string;
+  userEmail?: string;
+  userPicture?: string;
+}
+
+interface ProductMeta {
+  name: string;
+  image?: string;
+}
+
+interface UserSummary {
+  name?: string;
+  email?: string;
+  picture?: string;
 }
 
 const loans = ref<EnrichedLoan[]>([]);
@@ -97,7 +112,14 @@ const filteredLoans = computed(() => {
   return loans.value.filter((loan) => {
     const matchesTerm =
       !term ||
-      [loan.id, loan.userId, loan.deviceId, loan.deviceName]
+      [
+        loan.id,
+        loan.userId,
+        loan.deviceId,
+        loan.deviceName,
+        loan.userName,
+        loan.userEmail,
+      ]
         .filter(Boolean)
         .some((field) => field!.toString().toLowerCase().includes(term));
 
@@ -108,39 +130,84 @@ const filteredLoans = computed(() => {
   });
 });
 
+const productCache = new Map<string, ProductMeta>();
+const userSummaryCache = new Map<string, UserSummary | null>();
+
+async function getProductMeta(deviceId: string): Promise<ProductMeta> {
+  if (productCache.has(deviceId)) {
+    return productCache.get(deviceId)!;
+  }
+  try {
+    const product = await getProductById(deviceId);
+    const meta: ProductMeta = {
+      name: product.name,
+      image: (product as any).deviceImage ?? product.imageUrl,
+    };
+    productCache.set(deviceId, meta);
+    return meta;
+  } catch (productError) {
+    console.warn(
+      `LoanHistoryView: failed to load product ${deviceId}`,
+      productError
+    );
+    const fallback = { name: deviceId };
+    productCache.set(deviceId, fallback);
+    return fallback;
+  }
+}
+
+async function getUserSummary(userId: string): Promise<UserSummary | null> {
+  if (!userId) {
+    return null;
+  }
+
+  if (userSummaryCache.has(userId)) {
+    return userSummaryCache.get(userId)!;
+  }
+
+  try {
+    const profile = await getUserProfile(userId);
+    if (!profile) {
+      userSummaryCache.set(userId, null);
+      return null;
+    }
+
+    const summary: UserSummary = {
+      name: profile.name || profile.nickname || profile.email,
+      email: profile.email,
+      picture: profile.picture,
+    };
+    userSummaryCache.set(userId, summary);
+    return summary;
+  } catch (err) {
+    console.warn(
+      `LoanHistoryView: failed to load user profile ${userId}`,
+      err
+    );
+    userSummaryCache.set(userId, null);
+    return null;
+  }
+}
+
 async function loadLoans() {
   loading.value = true;
   error.value = "";
   try {
     const fetched = await listAllLoans();
-    const productCache = new Map<string, { name: string; image?: string }>();
-
     const enriched = await Promise.all(
       fetched.map(async (loan) => {
-        if (!productCache.has(loan.deviceId)) {
-          try {
-            const product = await getProductById(loan.deviceId);
-            productCache.set(loan.deviceId, {
-              name: product.name,
-              image: (product as any).deviceImage ?? product.imageUrl,
-            });
-          } catch (productError) {
-            console.warn(
-              `LoanHistoryView: failed to load product ${loan.deviceId}`,
-              productError
-            );
-            productCache.set(loan.deviceId, {
-              name: loan.deviceId,
-              image: undefined,
-            });
-          }
-        }
+        const [productMeta, userMeta] = await Promise.all([
+          getProductMeta(loan.deviceId),
+          getUserSummary(loan.userId),
+        ]);
 
-        const meta = productCache.get(loan.deviceId);
         return {
           ...loan,
-          deviceName: meta?.name ?? loan.deviceId,
-          deviceImage: meta?.image,
+          deviceName: productMeta?.name ?? loan.deviceId,
+          deviceImage: productMeta?.image,
+          userName: userMeta?.name ?? loan.userId,
+          userEmail: userMeta?.email,
+          userPicture: userMeta?.picture,
         } as EnrichedLoan;
       })
     );

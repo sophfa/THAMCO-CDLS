@@ -1,0 +1,19 @@
+{
+  "scriptFile": "../dist/src/functions/users/listUsersHttp.js",
+  "entryPoint": "listUsersHttp",
+  "bindings": [
+    {
+      "authLevel": "anonymous",
+      "type": "httpTrigger",
+      "direction": "in",
+      "name": "req",
+      "methods": ["get", "options"],
+      "route": "users"
+    },
+    {
+      "type": "http",
+      "direction": "out",
+      "name": "$return"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "scriptFile": "../dist/src/functions/events/handleUserSnapshotRequestEvent.js",
+  "entryPoint": "handleUserSnapshotRequestEvent",
+  "bindings": [
+    {
+      "type": "eventGridTrigger",
+      "direction": "in",
+      "name": "event"
+    }
+  ]
+}

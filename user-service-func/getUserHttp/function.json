@@ -1,0 +1,19 @@
+{
+  "scriptFile": "../dist/src/functions/users/getUserHttp.js",
+  "entryPoint": "getUserHttp",
+  "bindings": [
+    {
+      "authLevel": "anonymous",
+      "type": "httpTrigger",
+      "direction": "in",
+      "name": "req",
+      "methods": ["get", "options"],
+      "route": "users/{userId}"
+    },
+    {
+      "type": "http",
+      "direction": "out",
+      "name": "$return"
+    }
+  ]
+}

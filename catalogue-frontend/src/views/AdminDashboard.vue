@@ -66,6 +66,17 @@
                     {{ loan.status || "Unknown" }}
                   </span>
                 </div>
+                <div
+                  class="reservation-requester"
+                  v-if="loan.userName || loan.userEmail"
+                >
+                  <span class="requester-name">
+                    {{ loan.userName || loan.userId }}
+                  </span>
+                  <span class="requester-email">
+                    {{ loan.userEmail || loan.userId }}
+                  </span>
+                </div>
                 <div class="reservation-footer">
                   <div class="reservation-dates">
                     <div>
@@ -132,6 +143,17 @@
                     {{ loan.status || "Unknown" }}
                   </span>
                 </div>
+                <div
+                  class="reservation-requester"
+                  v-if="loan.userName || loan.userEmail"
+                >
+                  <span class="requester-name">
+                    {{ loan.userName || loan.userId }}
+                  </span>
+                  <span class="requester-email">
+                    {{ loan.userEmail || loan.userId }}
+                  </span>
+                </div>
                 <div class="reservation-footer">
                   <div class="reservation-dates">
                     <div>
@@ -196,6 +218,17 @@
                     {{ loan.status || "Unknown" }}
                   </span>
                 </div>
+                <div
+                  class="reservation-requester"
+                  v-if="loan.userName || loan.userEmail"
+                >
+                  <span class="requester-name">
+                    {{ loan.userName || loan.userId }}
+                  </span>
+                  <span class="requester-email">
+                    {{ loan.userEmail || loan.userId }}
+                  </span>
+                </div>
                 <div class="reservation-footer">
                   <div class="reservation-dates">
                     <div>
@@ -257,6 +290,17 @@
                     {{ loan.status || "Unknown" }}
                   </span>
                 </div>
+                <div
+                  class="reservation-requester"
+                  v-if="loan.userName || loan.userEmail"
+                >
+                  <span class="requester-name">
+                    {{ loan.userName || loan.userId }}
+                  </span>
+                  <span class="requester-email">
+                    {{ loan.userEmail || loan.userId }}
+                  </span>
+                </div>
                 <div class="reservation-footer">
                   <div class="reservation-dates">
                     <div>
@@ -306,6 +350,17 @@
                     {{ loan.status || "Unknown" }}
                   </span>
                 </div>
+                <div
+                  class="reservation-requester"
+                  v-if="loan.userName || loan.userEmail"
+                >
+                  <span class="requester-name">
+                    {{ loan.userName || loan.userId }}
+                  </span>
+                  <span class="requester-email">
+                    {{ loan.userEmail || loan.userId }}
+                  </span>
+                </div>
                 <div class="reservation-footer">
                   <div class="reservation-dates">
                     <div>
@@ -321,7 +376,12 @@
       </section>
     </div>
     <div v-if="activeTab === 'waitlist'">
-      <table class="admin-table">
+      <div v-if="waitlistLoading" class="info">Loading waitlists…</div>
+      <p v-else-if="waitlistError" class="error">{{ waitlistError }}</p>
+      <table
+        v-else-if="waitlistSummaries.length"
+        class="admin-table"
+      >
         <thead>
           <tr>
             <th>Device</th>
@@ -335,13 +395,29 @@
             <td>{{ item.deviceName || item.deviceId }}</td>
             <td>{{ item.waitlist.length }}</td>
             <td>
-              <div v-for="entry in item.waitlist" :key="entry.userId">
-                {{ entry.position }}. {{ entry.userId }}
+              <div
+                v-for="entry in item.waitlist"
+                :key="entry.userId"
+                class="waitlist-user"
+              >
+                <span class="waitlist-position">{{ entry.position }}.</span>
+                <div>
+                  <div class="waitlist-name">
+                    {{ entry.userName || entry.userId }}
+                  </div>
+                  <div class="waitlist-email" v-if="entry.userEmail">
+                    {{ entry.userEmail }}
+                  </div>
+                  <div class="waitlist-id mono" v-else>
+                    {{ entry.userId }}
+                  </div>
+                </div>
               </div>
             </td>
           </tr>
         </tbody>
       </table>
+      <div v-else class="info">No waitlist data available.</div>
     </div>
 
     <div v-if="activeTab === 'history'">
@@ -397,6 +473,7 @@ import {
   rejectLoan,
 } from "../services/api/loansService";
 import { getProductById } from "../services/api/catalogueService";
+import { getUserProfile } from "../services/api/userService";
 import LoanHistoryView from "./LoanHistoryView.vue";
 
 type AdminTab =
@@ -406,6 +483,39 @@ type AdminTab =
   | "reports"
   | "calendar"
   | "settings";
+
+type AdminLoan = Loan & {
+  deviceName?: string;
+  deviceImage?: string;
+  userName?: string;
+  userEmail?: string;
+  userPicture?: string;
+};
+
+interface WaitlistEntrySummary {
+  userId: string;
+  position: number;
+  userName?: string;
+  userEmail?: string;
+}
+
+interface WaitlistSummary {
+  deviceId: string;
+  deviceName?: string;
+  waitlist: WaitlistEntrySummary[];
+}
+
+interface ProductMeta {
+  name: string;
+  image?: string;
+}
+
+interface UserSummary {
+  displayName?: string;
+  email?: string;
+  picture?: string;
+}
+
 const tabs: { key: AdminTab; label: string }[] = [
   { key: "overview", label: "Overview" },
   { key: "history", label: "Loan History" },
@@ -416,9 +526,16 @@ const tabs: { key: AdminTab; label: string }[] = [
 ];
 
 const activeTab = ref<AdminTab>("overview");
-const loans = ref<Loan[]>([]);
+const loans = ref<AdminLoan[]>([]);
 const loading = ref(false);
 const error = ref("");
+
+const waitlistSummaries = ref<WaitlistSummary[]>([]);
+const waitlistLoading = ref(false);
+const waitlistError = ref("");
+
+const productCache = new Map<string, ProductMeta>();
+const userSummaryCache = new Map<string, UserSummary | null>();
 
 function formatDate(d: string | Date) {
   try {
@@ -472,107 +589,169 @@ const returnedLoans = computed(() =>
     )
 );
 
+async function getProductMeta(deviceId: string): Promise<ProductMeta> {
+  if (productCache.has(deviceId)) {
+    return productCache.get(deviceId)!;
+  }
+
+  try {
+    const product = await getProductById(deviceId);
+    const meta: ProductMeta = {
+      name: product?.name ?? deviceId,
+      image: (product as any).deviceImage ?? (product as any).imageUrl,
+    };
+    productCache.set(deviceId, meta);
+    return meta;
+  } catch (error) {
+    console.warn(
+      `Failed to fetch product details for ${deviceId}`,
+      error
+    );
+    const fallback = { name: deviceId };
+    productCache.set(deviceId, fallback);
+    return fallback;
+  }
+}
+
+async function getUserSummary(userId: string): Promise<UserSummary | null> {
+  if (!userId) {
+    return null;
+  }
+
+  if (userSummaryCache.has(userId)) {
+    return userSummaryCache.get(userId)!;
+  }
+
+  try {
+    const profile = await getUserProfile(userId);
+    if (!profile) {
+      userSummaryCache.set(userId, null);
+      return null;
+    }
+
+    const summary: UserSummary = {
+      displayName:
+        profile.name || profile.nickname || profile.email || userId,
+      email: profile.email,
+      picture: profile.picture,
+    };
+    userSummaryCache.set(userId, summary);
+    return summary;
+  } catch (err) {
+    console.warn(`[AdminDashboard] Failed to load user ${userId}`, err);
+    userSummaryCache.set(userId, null);
+    return null;
+  }
+}
+
 async function loadLoans() {
   loading.value = true;
   error.value = "";
   try {
-    loans.value = await listAllLoans();
-    await Promise.all(
-      loans.value.map(async (loan) => {
-        try {
-          const product = await getProductById(loan.deviceId);
-          (loan as any).deviceName = product.name;
-          (loan as any).deviceImage =
-            (product as any).deviceImage ?? (product as any).imageUrl;
-        } catch (e) {
-          console.warn(
-            `Failed to fetch product details for ${loan.deviceId}`,
-            e
-          );
-        }
+    const fetched = await listAllLoans();
+    const enriched = await Promise.all(
+      fetched.map(async (loan) => {
+        const [productMeta, userMeta] = await Promise.all([
+          getProductMeta(loan.deviceId),
+          getUserSummary(loan.userId),
+        ]);
+
+        return {
+          ...loan,
+          deviceName: productMeta?.name ?? loan.deviceId,
+          deviceImage: productMeta?.image,
+          userName: userMeta?.displayName ?? loan.userId,
+          userEmail: userMeta?.email,
+          userPicture: userMeta?.picture,
+        };
       })
     );
-    console.log("loans: ", loans.value);
+
+    loans.value = enriched;
   } catch (e: any) {
     error.value = e?.message || "Failed to load loans";
   } finally {
     loading.value = false;
   }
+}
 
-  async function loadWaitlistSummaries(force = false) {
-    if (!force && waitlistSummaries.value.length > 0) {
-      return;
-    }
-
-    waitlistLoading.value = true;
-    waitlistError.value = "";
-
-    try {
-      if (loans.value.length === 0) {
-        await loadLoans();
-      }
-
-      const deviceIds = Array.from(
-        new Set(loans.value.map((loan) => loan.deviceId))
-      );
-      const summaries: WaitlistSummary[] = [];
-
-      for (const deviceId of deviceIds) {
-        try {
-          const waitlistData = await getWaitlistForDevice(deviceId);
-          const waitlistEntries = Array.isArray(waitlistData?.waitlist)
-            ? waitlistData.waitlist
-            : [];
-
-          if (waitlistEntries.length === 0) {
-            continue;
-          }
-
-          let deviceName: string | undefined;
-          try {
-            const product = await getProductById(deviceId);
-            deviceName = product?.name ?? deviceId;
-          } catch (productError) {
-            console.warn(
-              `Failed to fetch product info for ${deviceId}`,
-              productError
-            );
-          }
-
-          const mappedEntries: WaitlistEntrySummary[] = waitlistEntries.map(
-            (entry: any, index: number) => ({
-              userId:
-                typeof entry === "string"
-                  ? entry
-                  : entry?.userId ?? entry?.id ?? `User-${index + 1}`,
-              position: entry?.position ?? index + 1,
-            })
-          );
-
-          summaries.push({
-            deviceId,
-            deviceName,
-            waitlist: mappedEntries,
-          });
-        } catch (waitlistErr) {
-          console.warn(`Failed to load waitlist for ${deviceId}`, waitlistErr);
-        }
-      }
-
-      waitlistSummaries.value = summaries;
-    } catch (err: any) {
-      waitlistError.value = err?.message || "Failed to load waitlists";
-    } finally {
-      waitlistLoading.value = false;
-    }
+async function loadWaitlistSummaries(force = false) {
+  if (!force && waitlistSummaries.value.length > 0) {
+    return;
   }
 
-  async function refreshWaitlists() {
-    await loadWaitlistSummaries(true);
+  waitlistLoading.value = true;
+  waitlistError.value = "";
+
+  try {
+    if (loans.value.length === 0) {
+      await loadLoans();
+    }
+
+    const deviceIds = Array.from(
+      new Set(loans.value.map((loan) => loan.deviceId))
+    );
+    const summaries: WaitlistSummary[] = [];
+
+    for (const deviceId of deviceIds) {
+      try {
+        const waitlistData = await getWaitlistForDevice(deviceId);
+        const waitlistEntries = Array.isArray(waitlistData?.waitlist)
+          ? waitlistData.waitlist
+          : [];
+
+        if (waitlistEntries.length === 0) {
+          continue;
+        }
+
+        let deviceName: string | undefined;
+        try {
+          const product = await getProductById(deviceId);
+          deviceName = product?.name ?? deviceId;
+        } catch (productError) {
+          console.warn(
+            `Failed to fetch product info for ${deviceId}`,
+            productError
+          );
+          deviceName = deviceId;
+        }
+
+        const mappedEntries: WaitlistEntrySummary[] = await Promise.all(
+          waitlistEntries.map(async (entry: any, index: number) => {
+            const userId =
+              typeof entry === "string"
+                ? entry
+                : entry?.userId ?? entry?.id ?? `User-${index + 1}`;
+
+            const userMeta = await getUserSummary(userId);
+            return {
+              userId,
+              position: entry?.position ?? index + 1,
+              userName: userMeta?.displayName ?? userId,
+              userEmail: userMeta?.email,
+            };
+          })
+        );
+
+        summaries.push({
+          deviceId,
+          deviceName,
+          waitlist: mappedEntries,
+        });
+      } catch (waitlistErr) {
+        console.warn(`Failed to load waitlist for ${deviceId}`, waitlistErr);
+      }
+    }
+
+    waitlistSummaries.value = summaries;
+  } catch (err: any) {
+    waitlistError.value = err?.message || "Failed to load waitlists";
+  } finally {
+    waitlistLoading.value = false;
   }
 }
 
-async function approve(loan: Loan) {
+async function approve(loan: AdminLoan) {
   try {
     const res = await authorizeLoan(loan.id);
     const newStatus = (res?.status || "Approved").toString();
@@ -583,7 +762,7 @@ async function approve(loan: Loan) {
   }
 }
 
-async function markCollected(loan: Loan) {
+async function markCollected(loan: AdminLoan) {
   try {
     await markLoanCollected(loan.id);
     await loadLoans();
@@ -592,7 +771,7 @@ async function markCollected(loan: Loan) {
   }
 }
 
-async function revertCollected(loan: Loan) {
+async function revertCollected(loan: AdminLoan) {
   if (
     !confirm(
       `Move loan ${loan.id} back to Approved? This should only be used if 'Confirm Collected' was clicked by mistake.`
@@ -609,7 +788,7 @@ async function revertCollected(loan: Loan) {
   }
 }
 
-async function cancel(loan: Loan) {
+async function cancel(loan: AdminLoan) {
   if (!confirm(`Cancel loan ${loan.id}?`)) return;
   try {
     await cancelLoan(loan.id);
@@ -619,7 +798,7 @@ async function cancel(loan: Loan) {
   }
 }
 
-async function deny(loan: Loan) {
+async function deny(loan: AdminLoan) {
   if (
     !confirm(
       `Reject loan ${loan.id}? This will notify the user and free device.`
@@ -634,7 +813,7 @@ async function deny(loan: Loan) {
   }
 }
 
-async function markReturned(loan: Loan) {
+async function markReturned(loan: AdminLoan) {
   try {
     await returnLoan(loan.id);
     await loadLoans();
@@ -663,6 +842,8 @@ watch(activeTab, async (tab) => {
 
 .tabs {
   display: inline-flex;
+      width: 100%;
+    justify-content: space-between;
   flex-wrap: wrap;
   gap: 0.5rem;
   margin-bottom: 1.5rem;
@@ -771,6 +952,20 @@ watch(activeTab, async (tab) => {
   justify-content: space-between;
   gap: 0.75rem;
 }
+.reservation-requester {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  font-size: 0.85rem;
+  color: #4b5563;
+}
+.requester-name {
+  font-weight: 600;
+  color: #111827;
+}
+.requester-email {
+  color: #6b7280;
+}
 .reservation-card-header {
   display: flex;
   justify-content: space-between;
@@ -818,6 +1013,28 @@ watch(activeTab, async (tab) => {
   gap: 0.5rem;
   justify-content: flex-end;
   margin-left: auto;
+}
+.waitlist-user {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+.waitlist-user:last-child {
+  border-bottom: none;
+}
+.waitlist-position {
+  font-weight: 600;
+  color: #475569;
+}
+.waitlist-name {
+  font-weight: 600;
+  color: #0f172a;
+}
+.waitlist-email,
+.waitlist-id {
+  font-size: 0.85rem;
+  color: #64748b;
 }
 .primary-btn,
 .cancel-btn,
