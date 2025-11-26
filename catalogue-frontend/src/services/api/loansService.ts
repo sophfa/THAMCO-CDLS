@@ -3,6 +3,12 @@ import type { Loan, WaitlistEntry } from "../../types/models";
 
 const BASE_URL = import.meta.env.VITE_LOANS_API_URL;
 const LOANS_FUNCTION_CODE = import.meta.env.VITE_LOANS_API_CODE;
+const ACTIVE_LOAN_STATUSES = new Set<Loan["status"]>([
+  "Requested",
+  "Approved",
+  "Collected",
+  "Overdue",
+]);
 
 // Helper function for authenticated API calls
 async function authenticatedFetch(url: string, options: RequestInit = {}) {
@@ -24,7 +30,7 @@ async function authenticatedFetch(url: string, options: RequestInit = {}) {
   });
 
   if (!response.ok) {
-    const errorMessage = `API call failed: ${response.status} ${response.statusText}`;
+    const errorMessage = `API call failed: ${response.status} ${response.statusText}, try logging out, and logging back in again (your token is expired)`;
     console.error(`[LoansService] ${errorMessage}`, {
       url,
       status: response.status,
@@ -42,6 +48,41 @@ async function authenticatedFetch(url: string, options: RequestInit = {}) {
   });
 
   return data;
+}
+
+export interface DeviceLoanHistory {
+  deviceId: string;
+  loans: Array<
+    Pick<Loan, "id" | "userId" | "status" | "from" | "till" | "createdAt">
+  >;
+  stats?: {
+    totalLoans?: number;
+    byStatus?: Record<string, number>;
+    currentLoan?: unknown;
+  };
+}
+
+export async function getDeviceLoanHistory(
+  deviceId: string
+): Promise<DeviceLoanHistory> {
+  const data = await authenticatedFetch(
+    `${BASE_URL}/loans/device/${encodeURIComponent(deviceId)}`
+  );
+  return data as DeviceLoanHistory;
+}
+
+export async function getActiveLoanCountForDevice(deviceId: string): Promise<{
+  activeLoans: number;
+  byStatus: Record<string, number>;
+}> {
+  const history = await getDeviceLoanHistory(deviceId);
+  const byStatus = history.stats?.byStatus ?? {};
+  const activeLoans = Object.entries(byStatus).reduce((sum, [status, count]) => {
+    return ACTIVE_LOAN_STATUSES.has(status as Loan["status"])
+      ? sum + (count || 0)
+      : sum;
+  }, 0);
+  return { activeLoans, byStatus };
 }
 
 export async function createLoan(

@@ -21,6 +21,21 @@ const cosmosOptions = {
 // Initialize repository
 const inventoryRepo: InventoryRepo = new CosmosInventoryRepo(cosmosOptions);
 
+function withCors(
+  res: HttpResponseInit,
+  allowMethods = "GET,OPTIONS"
+): HttpResponseInit {
+  return {
+    ...res,
+    headers: {
+      ...(res.headers ?? {}),
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": allowMethods,
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    },
+  };
+}
+
 /**
  * Response format for single inventory API
  */
@@ -44,6 +59,10 @@ export async function getInventoryByIdHttp(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
+  if (request.method === "OPTIONS") {
+    return withCors({ status: 204 }, "GET,OPTIONS");
+  }
+
   const inventoryId = request.params.id;
 
   context.log(
@@ -60,13 +79,13 @@ export async function getInventoryByIdHttp(
       },
     };
 
-    return {
+    return withCors({
       status: 400,
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(errorResponse, null, 2),
-    };
+    });
   }
 
   try {
@@ -79,14 +98,14 @@ export async function getInventoryByIdHttp(
         data: result.data,
       };
 
-      return {
+      return withCors({
         status: 200,
         headers: {
           "Content-Type": "application/json",
           "Cache-Control": "public, max-age=300", // Cache for 5 minutes
         },
         body: JSON.stringify(response, null, 2),
-      };
+      });
     }
 
     // Handle repository errors - result.success is false, so error exists
@@ -101,13 +120,13 @@ export async function getInventoryByIdHttp(
       },
     };
 
-    return {
+    return withCors({
       status: statusCode,
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(errorResponse, null, 2),
-    };
+    });
   } catch (error: any) {
     context.log("Error getting inventory:", error);
 
@@ -119,19 +138,19 @@ export async function getInventoryByIdHttp(
       },
     };
 
-    return {
+    return withCors({
       status: 500,
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(errorResponse, null, 2),
-    };
+    });
   }
 }
 
 // Register the function with Azure Functions runtime
 app.http("getInventoryById", {
-  methods: ["GET"],
+  methods: ["GET", "OPTIONS"],
   authLevel: "anonymous",
   route: "inventorys/{id}",
   handler: getInventoryByIdHttp,

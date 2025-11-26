@@ -175,6 +175,17 @@
               >
                 {{ product.name }}
               </h2>
+              <div class="stock-row">
+                <span class="stock-chip">
+                  Stock:
+                  <span
+                    class="stock-value"
+                    :class="{ 'stock-out': product.stock === 0 }"
+                  >
+                    {{ product.stock ?? "N/A" }}
+                  </span>
+                </span>
+              </div>
             </div>
 
             <!-- Description -->
@@ -373,6 +384,7 @@ import { useRoute, useRouter } from "vue-router";
 import { fetchProductById } from "../services/CatalogueService";
 import { useFavorites } from "../services/favouritesService";
 import { useAuth } from "../composables/useAuth";
+import { getStockForDevice } from "../services/api/inventoryService";
 
 export default {
   name: "ProductPage",
@@ -431,12 +443,27 @@ export default {
         // Initialize favorites
         await initializeFavorites();
 
-        const productId = route.params.id;
+        const productId = route.params.id ;
         if (productId) {
           const fetched = await fetchProductById(productId);
+          const fallbackStock =
+            typeof (fetched).stock === "number"
+              ? (fetched).stock
+              : fetched.inStock
+              ? 1
+              : 0;
+          let stock = null;
+          try {
+            stock = await getStockForDevice(productId);
+          } catch (err) {
+            console.warn("[ProductPage] Failed to load stock", err);
+          }
+          const resolvedStock = stock ?? fallbackStock;
           const imageUrl = fetched.imageUrl;
           product.value = {
             ...fetched,
+            stock: resolvedStock,
+            inStock: resolvedStock > 0,
             mainImage: imageUrl,
             images: imageUrl ? [imageUrl] : [],
           };
@@ -484,6 +511,29 @@ export default {
 .product-images {
   display: flex;
   flex-direction: column;
+}
+
+.stock-row {
+  margin-top: 0.5rem;
+}
+
+.stock-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 12px;
+  background: #f3f4f6;
+  color: #374151;
+  font-weight: 600;
+}
+
+.stock-value {
+  font-weight: 700;
+}
+
+.stock-out {
+  color: #a6383e;
 }
 
 .product-column {
