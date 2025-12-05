@@ -41,26 +41,6 @@ jobs:
           cache: npm
           cache-dependency-path: "**/package-lock.json"
 
-      - name: Build frontend
-        working-directory: catalogue-frontend
-        run: |
-          npm ci
-          npm run build
-
-      - name: Azure Login
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: Upload frontend to Azure Storage static site
-        run: |
-          az storage blob upload-batch \
-            --account-name ${{ secrets.STORAGE_ACCOUNT }} \
-            --destination '${{ secrets.STORAGE_CONTAINER || '$web' }}' \
-            --source dist \
-            --overwrite
-        working-directory: catalogue-frontend
-
       - name: Build catalogue-service-func
         working-directory: catalogue-service-func
         run: |
