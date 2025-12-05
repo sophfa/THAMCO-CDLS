@@ -1,0 +1,126 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment (for secrets scoping/approvals)"
+        required: false
+        default: "prod"
+        type: choice
+        options:
+          - dev
+          - prod
+  push:
+    tags:
+      - "v*"
+
+env:
+  NODE_VERSION: "18"
+  CI: "true"
+
+jobs:
+  deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: ${{ github.event.inputs.environment || 'prod' }}
+    env:
+      PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC: ${{ secrets.AZURE_PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC }}
+      PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC: ${{ secrets.AZURE_PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC }}
+      PUBLISH_PROFILE_LOANS_SERVICE_FUNC: ${{ secrets.AZURE_PUBLISH_PROFILE_LOANS_SERVICE_FUNC }}
+      PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC: ${{ secrets.AZURE_PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: "**/package-lock.json"
+
+      - name: Build frontend
+        working-directory: catalogue-frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Upload frontend to Azure Storage static site
+        run: |
+          az storage blob upload-batch \
+            --account-name ${{ secrets.STORAGE_ACCOUNT }} \
+            --destination '${{ secrets.STORAGE_CONTAINER || '$web' }}' \
+            --source dist \
+            --overwrite
+        working-directory: catalogue-frontend
+
+      - name: Build catalogue-service-func
+        working-directory: catalogue-service-func
+        run: |
+          npm ci
+          npm run build
+          npm prune --production
+
+      - name: Deploy catalogue-service-func
+        if: ${{ env.PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC != '' }}
+        uses: Azure/functions-action@v1
+        with:
+          app-name: catalogue-service-func
+          publish-profile: ${{ env.PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC }}
+          package: catalogue-service-func
+
+      - name: Build inventory-service-func
+        working-directory: inventory-service-func
+        run: |
+          npm ci
+          npm run build
+          npm prune --production
+
+      - name: Deploy inventory-service-func
+        if: ${{ env.PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC != '' }}
+        uses: Azure/functions-action@v1
+        with:
+          app-name: inventory-service-func
+          publish-profile: ${{ env.PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC }}
+          package: inventory-service-func
+
+      - name: Build loans-service-func
+        working-directory: loans-service-func
+        run: |
+          npm ci
+          npm run build
+          npm prune --production
+
+      - name: Deploy loans-service-func
+        if: ${{ env.PUBLISH_PROFILE_LOANS_SERVICE_FUNC != '' }}
+        uses: Azure/functions-action@v1
+        with:
+          app-name: loans-service-func
+          publish-profile: ${{ env.PUBLISH_PROFILE_LOANS_SERVICE_FUNC }}
+          package: loans-service-func
+
+      - name: Build notifications-service-func
+        working-directory: notifications-service-func
+        run: |
+          npm ci
+          npm run build
+          npm prune --production
+
+      - name: Deploy notifications-service-func
+        if: ${{ env.PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC != '' }}
+        uses: Azure/functions-action@v1
+        with:
+          app-name: notifications-service-func
+          publish-profile: ${{ env.PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC }}
+          package: notifications-service-func
+
+      - name: Summary
+        run: |
+          echo "Deployment complete (or skipped if secrets missing)."
