@@ -26,7 +26,7 @@ jobs:
     timeout-minutes: 25
     environment: ${{ github.event.inputs.environment || 'prod' }}
     env:
-      PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC: <publishData><publishProfile profileName="catalogue-service-func - Web Deploy" publishMethod="MSDeploy" publishUrl="catalogue-service-func.scm.azurewebsites.net:443" msdeploySite="catalogue-service-func" userName="REDACTED" userPWD="REDACTED" destinationAppUrl="http://catalogue-service-func.azurewebsites.net" SQLServerDBConnectionString="REDACTED" mySQLDBConnectionString="" hostingProviderForumLink="" controlPanelLink="https://portal.azure.com" webSystem="WebSites"><databases /></publishProfile><publishProfile profileName="catalogue-service-func - FTP" publishMethod="FTP" publishUrl="ftps://waws-prod-par-025.ftp.azurewebsites.windows.net/site/wwwroot" ftpPassiveMode="True" userName="REDACTED" userPWD="REDACTED" destinationAppUrl="http://catalogue-service-func.azurewebsites.net" SQLServerDBConnectionString="REDACTED" mySQLDBConnectionString="" hostingProviderForumLink="" controlPanelLink="https://portal.azure.com" webSystem="WebSites"><databases /></publishProfile><publishProfile profileName="catalogue-service-func - Zip Deploy" publishMethod="ZipDeploy" publishUrl="catalogue-service-func.scm.azurewebsites.net:443" userName="REDACTED" userPWD="REDACTED" destinationAppUrl="http://catalogue-service-func.azurewebsites.net" SQLServerDBConnectionString="REDACTED" mySQLDBConnectionString="" hostingProviderForumLink="" controlPanelLink="https://portal.azure.com" webSystem="WebSites"><databases /></publishProfile></publishData>
+      PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC: ${{ secrets.AZURE_PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC }}
       PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC: ${{ secrets.AZURE_PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC }}
       PUBLISH_PROFILE_LOANS_SERVICE_FUNC: ${{ secrets.AZURE_PUBLISH_PROFILE_LOANS_SERVICE_FUNC }}
       PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC: ${{ secrets.AZURE_PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC }}
@@ -40,30 +40,6 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: "**/package-lock.json"
-
-      - name: Debug publish profile parse (non-sensitive)
-        run: |
-          set -euo pipefail
-          PARSED=$(python - <<'PY'
-import sys, xml.etree.ElementTree as ET
-xml = sys.stdin.read()
-root = ET.fromstring(xml)
-zip_profile = None
-for prof in root.findall('.//publishProfile'):
-    if prof.get('publishMethod') == 'ZipDeploy':
-        zip_profile = prof
-        break
-if zip_profile is None:
-    zip_profile = root.find('.//publishProfile')
-if zip_profile is None:
-    sys.exit(1)
-user = bool(zip_profile.get('userName',''))
-pwd = bool(zip_profile.get('userPWD',''))
-host = zip_profile.get('publishUrl','')
-print(f"user_present={user} pwd_present={pwd} host={host}")
-PY
-          )
-          echo "$PARSED"
 
       - name: Build catalogue-service-func
         working-directory: catalogue-service-func
