@@ -4,12 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: "Target deployment environment"
+        description: "Target environment (for secrets scoping/approvals)"
         required: false
         default: "prod"
         type: choice
-        options: [dev, prod]
-
+        options:
+          - dev
+          - prod
   push:
     tags:
       - "v*"
@@ -20,17 +21,15 @@ env:
 
 jobs:
   deploy:
-    name: Build & Deploy All Services
+    name: Build & Deploy
     runs-on: ubuntu-latest
     timeout-minutes: 25
     environment: ${{ github.event.inputs.environment || 'prod' }}
-
     env:
-      PROFILE_CATALOGUE: ${{ secrets.AZURE_PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC }}
-      PROFILE_INVENTORY: ${{ secrets.AZURE_PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC }}
-      PROFILE_LOANS: ${{ secrets.AZURE_PUBLISH_PROFILE_LOANS_SERVICE_FUNC }}
-      PROFILE_NOTIFICATIONS: ${{ secrets.AZURE_PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC }}
-
+      AZURE_PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC: ${{ secrets.AZURE_PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC }}
+      AZURE_PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC: ${{ secrets.AZURE_PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC }}
+      AZURE_PUBLISH_PROFILE_LOANS_SERVICE_FUNC: ${{ secrets.AZURE_PUBLISH_PROFILE_LOANS_SERVICE_FUNC }}
+      AZURE_PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC: ${{ secrets.AZURE_PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -40,73 +39,89 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
+          cache-dependency-path: "**/package-lock.json"
 
-      - name: Install zip
-        run: sudo apt-get update && sudo apt-get install -y zip
-
-      - name: Debug publish profiles
+      - name: Debug publish profiles (non-sensitive)
         run: |
-          check() { test -z "$2" && echo "$1: MISSING" || echo "$1: present"; }
-          check "catalogue"     "$PROFILE_CATALOGUE"
-          check "inventory"     "$PROFILE_INVENTORY"
-          check "loans"         "$PROFILE_LOANS"
-          check "notifications" "$PROFILE_NOTIFICATIONS"
-
-      - name: Deploy all services
-        run: |
-          deploy_service() {
-            SERVICE="$1"
-            DIR="$2"
-            PROFILE="$3"
-
-            echo "---------------------------------------"
-            echo "Deploying $SERVICE"
-            echo "---------------------------------------"
-
-            if [ -z "$PROFILE" ]; then
-              echo "No publish profile → skipping $SERVICE"
-              return
+          summarize() {
+            local name="$1"
+            local value="$2"
+            if [ -z "$value" ]; then
+              echo "$name: MISSING"
+            else
+              echo "$name: present (length=${#value})"
             fi
-
-            # Build
-            cd "$DIR"
-            npm ci || npm install
-            npm run build
-            npm prune --production
-            cd ..
-
-            # Zip
-            ZIPFILE="${SERVICE}.zip"
-            rm -f "$ZIPFILE"
-            zip -r "$ZIPFILE" "$DIR" > /dev/null
-
-            # Extract credentials from XML using sed (NO PYTHON, NO YAML BREAKAGE)
-            USERNAME=$(echo "$PROFILE" | sed -n 's/.*userName="\([^"]*\)".*/\1/p')
-            PASSWORD=$(echo "$PROFILE" | sed -n 's/.*userPWD="\([^"]*\)".*/\1/p')
-            SCM_HOST=$(echo "$PROFILE" | sed -n 's/.*publishUrl="\([^"]*\)".*/\1/p')
-
-            if [ -z "$USERNAME" ] || [ -z "$PASSWORD" ] || [ -z "$SCM_HOST" ]; then
-              echo "ERROR: Failed to parse publish profile for $SERVICE"
-              exit 1
-            fi
-
-            AUTH=$(printf "%s" "$USERNAME:$PASSWORD" | base64)
-
-            echo "Deploying ZIP to Kudu..."
-            curl --fail \
-              -X POST \
-              -H "Authorization: Basic ${AUTH}" \
-              -H "Content-Type: application/zip" \
-              --data-binary @"$ZIPFILE" \
-              "https://${SCM_HOST}/api/zipdeploy"
-
-            echo "$SERVICE deployed successfully."
           }
+          summarize "catalogue profile" "${AZURE_PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC}"
+          summarize "inventory profile" "${AZURE_PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC}"
+          summarize "loans profile" "${AZURE_PUBLISH_PROFILE_LOANS_SERVICE_FUNC}"
+          summarize "notifications profile" "${AZURE_PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC}"
+        env:
+          AZURE_PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC: ${{ secrets.AZURE_PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC }}
+          AZURE_PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC: ${{ secrets.AZURE_PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC }}
+          AZURE_PUBLISH_PROFILE_LOANS_SERVICE_FUNC: ${{ secrets.AZURE_PUBLISH_PROFILE_LOANS_SERVICE_FUNC }}
+          AZURE_PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC: ${{ secrets.AZURE_PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC }}
 
-          deploy_service "catalogue-service-func"     "catalogue-service-func"     "$PROFILE_CATALOGUE"
-          deploy_service "inventory-service-func"     "inventory-service-func"     "$PROFILE_INVENTORY"
-          deploy_service "loans-service-func"         "loans-service-func"         "$PROFILE_LOANS"
-          deploy_service "notifications-service-func" "notifications-service-func" "$PROFILE_NOTIFICATIONS"
+      - name: Build catalogue-service-func
+        working-directory: catalogue-service-func
+        run: |
+          npm ci
+          npm run build
+          npm prune --production
 
-      - name: Done
-        run: echo "Deployment complete."
+      - name: Deploy catalogue-service-func
+        if: ${{ env.AZURE_PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC != '' }}
+        uses: Azure/functions-action@v1
+        with:
+          app-name: catalogue-service-func
+          publish-profile: ${{ env.AZURE_PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC }}
+          package: catalogue-service-func
+
+      - name: Build inventory-service-func
+        working-directory: inventory-service-func
+        run: |
+          npm ci
+          npm run build
+          npm prune --production
+
+      - name: Deploy inventory-service-func
+        if: ${{ env.AZURE_PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC != '' }}
+        uses: Azure/functions-action@v1
+        with:
+          app-name: inventory-service-func
+          publish-profile: ${{ env.AZURE_PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC }}
+          package: inventory-service-func
+
+      - name: Build loans-service-func
+        working-directory: loans-service-func
+        run: |
+          npm ci
+          npm run build
+          npm prune --production
+
+      - name: Deploy loans-service-func
+        if: ${{ env.AZURE_PUBLISH_PROFILE_LOANS_SERVICE_FUNC != '' }}
+        uses: Azure/functions-action@v1
+        with:
+          app-name: loans-service-func
+          publish-profile: ${{ env.AZURE_PUBLISH_PROFILE_LOANS_SERVICE_FUNC }}
+          package: loans-service-func
+
+      - name: Build notifications-service-func
+        working-directory: notifications-service-func
+        run: |
+          npm ci
+          npm run build
+          npm prune --production
+
+      - name: Deploy notifications-service-func
+        if: ${{ env.AZURE_PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC != '' }}
+        uses: Azure/functions-action@v1
+        with:
+          app-name: notifications-service-func
+          publish-profile: ${{ env.AZURE_PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC }}
+          package: notifications-service-func
+
+      - name: Summary
+        run: |
+          echo "Deployment complete (or skipped if secrets missing)."
