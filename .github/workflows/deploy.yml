@@ -99,10 +99,13 @@ jobs:
           fi
 
           DEPLOY_URL="https://${SCM_HOST}/api/zipdeploy"
+          # Build Basic auth header to avoid shell escaping issues with backslashes
+          AUTH_HEADER=$(printf "%s" "$USERNAME:$PASSWORD" | base64)
 
           # Upload zipped package to Kudu Zip Deploy endpoint
-          curl --fail -u "$USERNAME:$PASSWORD" \
+          curl --fail \
             -X POST \
+            -H "Authorization: Basic ${AUTH_HEADER}" \
             -H "Content-Type: application/zip" \
             --data-binary @package.zip \
             "$DEPLOY_URL"
