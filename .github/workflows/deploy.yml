@@ -76,10 +76,33 @@ jobs:
           name: catalogue-service-func-package
           path: package
 
-      - name: Deploy catalogue-service-func
+      - name: Zip package
+        run: |
+          cd package
+          zip -r ../package.zip .
+
+      - name: Deploy via Kudu Zip Deploy
         if: ${{ env.PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC != '' }}
-        uses: Azure/functions-action@v1
-        with:
-          app-name: catalogue-service-func
-          publish-profile: ${{ env.PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC }}
-          package: package
+        env:
+          PUBLISH_PROFILE: ${{ env.PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC }}
+        run: |
+          set -euo pipefail
+
+          # Extract credentials and SCM host from publish profile XML
+          USERNAME=$(echo "$PUBLISH_PROFILE" | sed -n 's/.*userName="\([^"]*\)".*/\1/p' | head -1)
+          PASSWORD=$(echo "$PUBLISH_PROFILE" | sed -n 's/.*userPWD="\([^"]*\)".*/\1/p' | head -1)
+          SCM_HOST=$(echo "$PUBLISH_PROFILE" | sed -n 's/.*publishUrl="\([^"]*\)".*/\1/p' | head -1)
+
+          if [ -z "$USERNAME" ] || [ -z "$PASSWORD" ] || [ -z "$SCM_HOST" ]; then
+            echo "Failed to parse publish profile" >&2
+            exit 1
+          fi
+
+          DEPLOY_URL="https://${SCM_HOST}/api/zipdeploy"
+
+          # Upload zipped package to Kudu Zip Deploy endpoint
+          curl --fail -u "$USERNAME:$PASSWORD" \
+            -X POST \
+            -H "Content-Type: application/zip" \
+            --data-binary @package.zip \
+            "$DEPLOY_URL"
