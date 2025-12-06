@@ -68,13 +68,44 @@ jobs:
           npm run build
           npm prune --production
 
-      - name: Deploy catalogue-service-func
+      - name: Zip catalogue-service-func
+        working-directory: catalogue-service-func
+        run: zip -r ../catalogue-service-func.zip .
+
+      - name: Deploy catalogue-service-func via Kudu Zip Deploy
         if: ${{ env.PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC != '' }}
-        uses: Azure/functions-action@v1
-        with:
-          app-name: catalogue-service-func
-          publish-profile: ${{ env.PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC }}
-          package: catalogue-service-func
+        env:
+          PUBLISH_PROFILE: ${{ env.PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC }}
+        run: |
+          set -euo pipefail
+          PARSED=$(python - <<'PY'
+import sys, xml.etree.ElementTree as ET
+xml = sys.stdin.read()
+root = ET.fromstring(xml)
+zip_profile = None
+for prof in root.findall('.//publishProfile'):
+    if prof.get('publishMethod') == 'ZipDeploy':
+        zip_profile = prof
+        break
+if zip_profile is None:
+    zip_profile = root.find('.//publishProfile')
+if zip_profile is None:
+    sys.exit(1)
+print(f"{zip_profile.get('userName','')} {zip_profile.get('userPWD','')} {zip_profile.get('publishUrl','')}")
+PY
+          )
+          read -r USERNAME PASSWORD SCM_HOST <<<"$PARSED"
+          if [ -z "$USERNAME" ] || [ -z "$PASSWORD" ] || [ -z "$SCM_HOST" ]; then
+            echo "Failed to parse publish profile" >&2
+            exit 1
+          fi
+          AUTH=$(printf "%s" "$USERNAME:$PASSWORD" | base64)
+          curl --fail \
+            -X POST \
+            -H "Authorization: Basic ${AUTH}" \
+            -H "Content-Type: application/zip" \
+            --data-binary @catalogue-service-func.zip \
+            "https://${SCM_HOST}/api/zipdeploy"
 
       - name: Build inventory-service-func
         working-directory: inventory-service-func
@@ -87,13 +118,44 @@ jobs:
           npm run build
           npm prune --production
 
-      - name: Deploy inventory-service-func
+      - name: Zip inventory-service-func
+        working-directory: inventory-service-func
+        run: zip -r ../inventory-service-func.zip .
+
+      - name: Deploy inventory-service-func via Kudu Zip Deploy
         if: ${{ env.PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC != '' }}
-        uses: Azure/functions-action@v1
-        with:
-          app-name: inventory-service-func
-          publish-profile: ${{ env.PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC }}
-          package: inventory-service-func
+        env:
+          PUBLISH_PROFILE: ${{ env.PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC }}
+        run: |
+          set -euo pipefail
+          PARSED=$(python - <<'PY'
+import sys, xml.etree.ElementTree as ET
+xml = sys.stdin.read()
+root = ET.fromstring(xml)
+zip_profile = None
+for prof in root.findall('.//publishProfile'):
+    if prof.get('publishMethod') == 'ZipDeploy':
+        zip_profile = prof
+        break
+if zip_profile is None:
+    zip_profile = root.find('.//publishProfile')
+if zip_profile is None:
+    sys.exit(1)
+print(f"{zip_profile.get('userName','')} {zip_profile.get('userPWD','')} {zip_profile.get('publishUrl','')}")
+PY
+          )
+          read -r USERNAME PASSWORD SCM_HOST <<<"$PARSED"
+          if [ -z "$USERNAME" ] || [ -z "$PASSWORD" ] || [ -z "$SCM_HOST" ]; then
+            echo "Failed to parse publish profile" >&2
+            exit 1
+          fi
+          AUTH=$(printf "%s" "$USERNAME:$PASSWORD" | base64)
+          curl --fail \
+            -X POST \
+            -H "Authorization: Basic ${AUTH}" \
+            -H "Content-Type: application/zip" \
+            --data-binary @inventory-service-func.zip \
+            "https://${SCM_HOST}/api/zipdeploy"
 
       - name: Build loans-service-func
         working-directory: loans-service-func
@@ -106,13 +168,44 @@ jobs:
           npm run build
           npm prune --production
 
-      - name: Deploy loans-service-func
+      - name: Zip loans-service-func
+        working-directory: loans-service-func
+        run: zip -r ../loans-service-func.zip .
+
+      - name: Deploy loans-service-func via Kudu Zip Deploy
         if: ${{ env.PUBLISH_PROFILE_LOANS_SERVICE_FUNC != '' }}
-        uses: Azure/functions-action@v1
-        with:
-          app-name: loans-service-func
-          publish-profile: ${{ env.PUBLISH_PROFILE_LOANS_SERVICE_FUNC }}
-          package: loans-service-func
+        env:
+          PUBLISH_PROFILE: ${{ env.PUBLISH_PROFILE_LOANS_SERVICE_FUNC }}
+        run: |
+          set -euo pipefail
+          PARSED=$(python - <<'PY'
+import sys, xml.etree.ElementTree as ET
+xml = sys.stdin.read()
+root = ET.fromstring(xml)
+zip_profile = None
+for prof in root.findall('.//publishProfile'):
+    if prof.get('publishMethod') == 'ZipDeploy':
+        zip_profile = prof
+        break
+if zip_profile is None:
+    zip_profile = root.find('.//publishProfile')
+if zip_profile is None:
+    sys.exit(1)
+print(f"{zip_profile.get('userName','')} {zip_profile.get('userPWD','')} {zip_profile.get('publishUrl','')}")
+PY
+          )
+          read -r USERNAME PASSWORD SCM_HOST <<<"$PARSED"
+          if [ -z "$USERNAME" ] || [ -z "$PASSWORD" ] || [ -z "$SCM_HOST" ]; then
+            echo "Failed to parse publish profile" >&2
+            exit 1
+          fi
+          AUTH=$(printf "%s" "$USERNAME:$PASSWORD" | base64)
+          curl --fail \
+            -X POST \
+            -H "Authorization: Basic ${AUTH}" \
+            -H "Content-Type: application/zip" \
+            --data-binary @loans-service-func.zip \
+            "https://${SCM_HOST}/api/zipdeploy"
 
       - name: Build notifications-service-func
         working-directory: notifications-service-func
@@ -125,13 +218,44 @@ jobs:
           npm run build
           npm prune --production
 
-      - name: Deploy notifications-service-func
+      - name: Zip notifications-service-func
+        working-directory: notifications-service-func
+        run: zip -r ../notifications-service-func.zip .
+
+      - name: Deploy notifications-service-func via Kudu Zip Deploy
         if: ${{ env.PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC != '' }}
-        uses: Azure/functions-action@v1
-        with:
-          app-name: notifications-service-func
-          publish-profile: ${{ env.PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC }}
-          package: notifications-service-func
+        env:
+          PUBLISH_PROFILE: ${{ env.PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC }}
+        run: |
+          set -euo pipefail
+          PARSED=$(python - <<'PY'
+import sys, xml.etree.ElementTree as ET
+xml = sys.stdin.read()
+root = ET.fromstring(xml)
+zip_profile = None
+for prof in root.findall('.//publishProfile'):
+    if prof.get('publishMethod') == 'ZipDeploy':
+        zip_profile = prof
+        break
+if zip_profile is None:
+    zip_profile = root.find('.//publishProfile')
+if zip_profile is None:
+    sys.exit(1)
+print(f"{zip_profile.get('userName','')} {zip_profile.get('userPWD','')} {zip_profile.get('publishUrl','')}")
+PY
+          )
+          read -r USERNAME PASSWORD SCM_HOST <<<"$PARSED"
+          if [ -z "$USERNAME" ] || [ -z "$PASSWORD" ] || [ -z "$SCM_HOST" ]; then
+            echo "Failed to parse publish profile" >&2
+            exit 1
+          fi
+          AUTH=$(printf "%s" "$USERNAME:$PASSWORD" | base64)
+          curl --fail \
+            -X POST \
+            -H "Authorization: Basic ${AUTH}" \
+            -H "Content-Type: application/zip" \
+            --data-binary @notifications-service-func.zip \
+            "https://${SCM_HOST}/api/zipdeploy"
 
       - name: Summary
         run: |
