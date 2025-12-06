@@ -41,6 +41,22 @@ jobs:
           cache: npm
           cache-dependency-path: "**/package-lock.json"
 
+      - name: Debug publish profiles (non-sensitive)
+        run: |
+          summarize() {
+            local name="$1"
+            local value="$2"
+            if [ -z "$value" ]; then
+              echo "$name: MISSING"
+            else
+              echo "$name: present (length=${#value})"
+            fi
+          }
+          summarize "catalogue profile" "${PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC}"
+          summarize "inventory profile" "${PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC}"
+          summarize "loans profile" "${PUBLISH_PROFILE_LOANS_SERVICE_FUNC}"
+          summarize "notifications profile" "${PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC}"
+
       - name: Build catalogue-service-func
         working-directory: catalogue-service-func
         run: |
