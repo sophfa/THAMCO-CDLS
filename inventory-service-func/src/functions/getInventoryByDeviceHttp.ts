@@ -32,7 +32,6 @@ export async function getInventoryByDeviceHttp(
       status: 400,
       jsonBody: { success: false, message: "A device ID is required" },
     };
-
   }
 
   const query = `SELECT * FROM c WHERE ARRAY_CONTAINS(c.deviceIds, @deviceId) OR c.deviceId = @deviceId`;
@@ -64,6 +63,6 @@ export async function getInventoryByDeviceHttp(
 app.http("getInventoryByDeviceHttp", {
   route: "inventory/{deviceId}",
   methods: ["GET", "OPTIONS"],
-  authLevel: "anonymous",
+  authLevel: "function",
   handler: getInventoryByDeviceHttp,
 });

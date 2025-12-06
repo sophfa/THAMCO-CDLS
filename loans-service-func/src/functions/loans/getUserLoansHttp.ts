@@ -54,6 +54,6 @@ export async function getUserLoansHttp(
 app.http("getUserLoansHttp", {
   methods: ["GET"],
   route: "loans/user/{userId}",
-  authLevel: "anonymous",
+  authLevel: "function",
   handler: getUserLoansHttp,
 });

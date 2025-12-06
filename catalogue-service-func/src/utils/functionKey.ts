@@ -2,7 +2,7 @@ import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functio
 
 /**
  * Validates an inbound function key (x-functions-key header or code query param).
- * If no expected key is configured via env, validation is skipped to avoid blocking local dev.
+ * If no key is configured, returns 500 to force secure configuration in deployed environments.
  */
 export function validateFunctionKey(
   req: HttpRequest,
@@ -11,9 +11,20 @@ export function validateFunctionKey(
   const expected =
     process.env.FUNCTION_KEY || process.env.PRODUCTS_FUNCTION_KEY || null;
 
-  // If no key configured, allow the request (local/dev ease of use)
-  if (!expected) {
-    return null;
+  // No key configured: treat as misconfiguration to avoid accidental open access
+  if (!expected || expected.trim().length === 0) {
+    ctx.log("Function key configuration missing");
+    return {
+      status: 500,
+      jsonBody: {
+        success: false,
+        error: {
+          code: "CONFIGURATION_ERROR",
+          message:
+            "Function key is not configured. Set FUNCTION_KEY or PRODUCTS_FUNCTION_KEY.",
+        },
+      },
+    };
   }
 
   const provided =

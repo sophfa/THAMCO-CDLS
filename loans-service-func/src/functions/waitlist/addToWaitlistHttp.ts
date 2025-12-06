@@ -22,8 +22,8 @@ export async function addToWaitlistHttp(
         status: 400,
         jsonBody: {
           error: "BAD_REQUEST",
-          message: "userId is required and cannot be empty"
-        }
+          message: "userId is required and cannot be empty",
+        },
       };
     }
 
@@ -32,8 +32,8 @@ export async function addToWaitlistHttp(
         status: 400,
         jsonBody: {
           error: "BAD_REQUEST",
-          message: "Loan ID is required and cannot be empty"
-        }
+          message: "Loan ID is required and cannot be empty",
+        },
       };
     }
 
@@ -45,8 +45,8 @@ export async function addToWaitlistHttp(
         status: 404,
         jsonBody: {
           error: "NOT_FOUND",
-          message: `Loan with ID '${loanId}' not found`
-        }
+          message: `Loan with ID '${loanId}' not found`,
+        },
       };
     }
 
@@ -57,8 +57,8 @@ export async function addToWaitlistHttp(
         status: 409,
         jsonBody: {
           error: "ALREADY_EXISTS",
-          message: `User '${trimmedUserId}' is already in the waitlist for loan '${loanId}'`
-        }
+          message: `User '${trimmedUserId}' is already in the waitlist for loan '${loanId}'`,
+        },
       };
     }
 
@@ -71,7 +71,9 @@ export async function addToWaitlistHttp(
     loan.waitlist.push(trimmedUserId);
     await loansContainer.items.upsert(loan);
 
-    context.log(`User '${trimmedUserId}' added to waitlist for loan '${loanId}'`);
+    context.log(
+      `User '${trimmedUserId}' added to waitlist for loan '${loanId}'`
+    );
 
     return {
       status: 200,
@@ -82,19 +84,19 @@ export async function addToWaitlistHttp(
           id: loan.id,
           deviceId: loan.deviceId,
           waitlist: loan.waitlist,
-          waitlistPosition: loan.waitlist.length
-        }
-      }
+          waitlistPosition: loan.waitlist.length,
+        },
+      },
     };
   } catch (error: any) {
-    context.log('Error adding user to waitlist:', error);
-    
+    context.log("Error adding user to waitlist:", error);
+
     return {
       status: 500,
       jsonBody: {
         error: "INTERNAL_ERROR",
-        message: "An unexpected error occurred while adding user to waitlist"
-      }
+        message: "An unexpected error occurred while adding user to waitlist",
+      },
     };
   }
 }
@@ -102,6 +104,6 @@ export async function addToWaitlistHttp(
 app.http("addToWaitlistHttp", {
   route: "loans/{id}/waitlist",
   methods: ["POST"],
-  authLevel: "anonymous",
+  authLevel: "function",
   handler: addToWaitlistHttp,
 });

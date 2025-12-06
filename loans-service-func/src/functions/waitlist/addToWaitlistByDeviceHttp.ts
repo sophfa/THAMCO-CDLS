@@ -83,6 +83,6 @@ export async function addToWaitlistByDeviceHttp(
 app.http("addToWaitlistByDeviceHttp", {
   route: "loans/device/{deviceId}/waitlist",
   methods: ["POST"],
-  authLevel: "anonymous",
+  authLevel: "function",
   handler: addToWaitlistByDeviceHttp,
 });

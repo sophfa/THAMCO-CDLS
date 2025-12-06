@@ -65,7 +65,8 @@ export async function cancelLoanHttp(
         jsonBody: {
           error: "INVALID_STATUS",
           message: `Loan cannot be cancelled. Current status: '${loan.status}'`,
-          detail: 'Only loans with status "Requested" or "Approved" can be cancelled',
+          detail:
+            'Only loans with status "Requested" or "Approved" can be cancelled',
         },
       };
     }
@@ -107,6 +108,6 @@ export async function cancelLoanHttp(
 app.http("cancelLoanHttp", {
   methods: ["PUT", "DELETE"],
   route: "loans/{id}/cancel",
-  authLevel: "anonymous",
+  authLevel: "function",
   handler: cancelLoanHttp,
 });

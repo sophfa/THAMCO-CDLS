@@ -104,6 +104,6 @@ export async function rejectLoanHttp(
 app.http("rejectLoanHttp", {
   methods: ["PUT"],
   route: "loans/{id}/reject",
-  authLevel: "anonymous",
+  authLevel: "function",
   handler: rejectLoanHttp,
 });

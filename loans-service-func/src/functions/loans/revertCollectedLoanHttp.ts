@@ -24,8 +24,7 @@ export async function revertCollectedLoanHttp(
     }
 
     const loanId = req.params.id;
-    const correlationId =
-      req.headers.get("x-correlation-id") ?? randomUUID();
+    const correlationId = req.headers.get("x-correlation-id") ?? randomUUID();
 
     if (!loanId) {
       return {
@@ -119,6 +118,6 @@ export async function revertCollectedLoanHttp(
 app.http("revertCollectedLoanHttp", {
   methods: ["PUT"],
   route: "loans/{id}/revert-collection",
-  authLevel: "anonymous",
+  authLevel: "function",
   handler: revertCollectedLoanHttp,
 });
