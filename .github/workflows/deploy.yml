@@ -1,24 +1,35 @@
 name: Deploy
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment (for secrets scoping/approvals)"
+        required: false
+        default: "prod"
+        type: choice
+        options:
+          - dev
+          - prod
+  push:
+    tags:
+      - "v*"
 
 env:
-  NODE_VERSION: "22"
+  NODE_VERSION: "18"
   CI: "true"
 
 jobs:
-  build-and-publish:
-    name: Build and Package (catalogue-service-func)
+  deploy:
+    name: Build & Deploy
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    defaults:
-      run:
-        working-directory: catalogue-service-func
+    timeout-minutes: 25
+    environment: ${{ github.event.inputs.environment || 'prod' }}
+    env:
+      PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC: <publishData><publishProfile profileName="catalogue-service-func - Web Deploy" publishMethod="MSDeploy" publishUrl="catalogue-service-func.scm.azurewebsites.net:443" msdeploySite="catalogue-service-func" userName="REDACTED" userPWD="REDACTED" destinationAppUrl="http://catalogue-service-func.azurewebsites.net" SQLServerDBConnectionString="REDACTED" mySQLDBConnectionString="" hostingProviderForumLink="" controlPanelLink="https://portal.azure.com" webSystem="WebSites"><databases /></publishProfile><publishProfile profileName="catalogue-service-func - FTP" publishMethod="FTP" publishUrl="ftps://waws-prod-par-025.ftp.azurewebsites.windows.net/site/wwwroot" ftpPassiveMode="True" userName="REDACTED" userPWD="REDACTED" destinationAppUrl="http://catalogue-service-func.azurewebsites.net" SQLServerDBConnectionString="REDACTED" mySQLDBConnectionString="" hostingProviderForumLink="" controlPanelLink="https://portal.azure.com" webSystem="WebSites"><databases /></publishProfile><publishProfile profileName="catalogue-service-func - Zip Deploy" publishMethod="ZipDeploy" publishUrl="catalogue-service-func.scm.azurewebsites.net:443" userName="REDACTED" userPWD="REDACTED" destinationAppUrl="http://catalogue-service-func.azurewebsites.net" SQLServerDBConnectionString="REDACTED" mySQLDBConnectionString="" hostingProviderForumLink="" controlPanelLink="https://portal.azure.com" webSystem="WebSites"><databases /></publishProfile></publishData>
+      PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC: ${{ secrets.AZURE_PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC }}
+      PUBLISH_PROFILE_LOANS_SERVICE_FUNC: ${{ secrets.AZURE_PUBLISH_PROFILE_LOANS_SERVICE_FUNC }}
+      PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC: ${{ secrets.AZURE_PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,69 +39,12 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
+          cache-dependency-path: "**/package-lock.json"
 
-      - name: Install dependencies
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
-
-      - name: Build (dist)
-        run: npm run build
-
-      - name: Prepare package folder
-        run: |
-          rm -rf package
-          mkdir -p package/dist
-          cp host.json package/
-          cp package.json package/
-          if [ -f package-lock.json ]; then cp package-lock.json package/; fi
-          cp -r dist package/dist
-          # install runtime deps only into package
-          if [ -f package-lock.json ]; then
-            npm ci --omit=dev --prefix package
-          else
-            npm install --omit=dev --prefix package
-          fi
-
-      - name: Upload package artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: catalogue-service-func-package
-          path: catalogue-service-func/package
-          retention-days: 1
-
-  deploy:
-    name: Deploy to Function App
-    needs: build-and-publish
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC: ${{ secrets.AZURE_PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC }}
-    steps:
-      - name: Download package artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: catalogue-service-func-package
-          path: package
-
-      - name: Zip package
-        run: |
-          cd package
-          zip -r ../package.zip .
-
-      - name: Deploy via Kudu Zip Deploy
-        if: ${{ env.PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC != '' }}
-        env:
-          PUBLISH_PROFILE: ${{ env.PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC }}
+      - name: Debug publish profile parse (non-sensitive)
         run: |
           set -euo pipefail
-
-          # Extract ZipDeploy credentials and SCM host from publish profile XML
-          read -r USERNAME PASSWORD SCM_HOST <<'EOF'
-$(python - <<'PY'
+          PARSED=$(python - <<'PY'
 import sys, xml.etree.ElementTree as ET
 xml = sys.stdin.read()
 root = ET.fromstring(xml)
@@ -100,28 +54,77 @@ for prof in root.findall('.//publishProfile'):
         zip_profile = prof
         break
 if zip_profile is None:
-    # fallback to any profile
     zip_profile = root.find('.//publishProfile')
 if zip_profile is None:
     sys.exit(1)
-print(f"{zip_profile.get('userName','')} {zip_profile.get('userPWD','')} {zip_profile.get('publishUrl','')}")
+user = bool(zip_profile.get('userName',''))
+pwd = bool(zip_profile.get('userPWD',''))
+host = zip_profile.get('publishUrl','')
+print(f"user_present={user} pwd_present={pwd} host={host}")
 PY
-EOF
+          )
+          echo "$PARSED"
 
+      - name: Build catalogue-service-func
+        working-directory: catalogue-service-func
+        run: |
+          npm ci
+          npm run build
+          npm prune --production
 
-          if [ -z "$USERNAME" ] || [ -z "$PASSWORD" ] || [ -z "$SCM_HOST" ]; then
-            echo "Failed to parse publish profile" >&2
-            exit 1
-          fi
+      - name: Deploy catalogue-service-func
+        if: ${{ env.PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC != '' }}
+        uses: Azure/functions-action@v1
+        with:
+          app-name: catalogue-service-func
+          publish-profile: ${{ env.PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC }}
+          package: catalogue-service-func
 
-          DEPLOY_URL="https://${SCM_HOST}/api/zipdeploy"
-          # Build Basic auth header to avoid shell escaping issues with backslashes
-          AUTH_HEADER=$(printf "%s" "$USERNAME:$PASSWORD" | base64)
+      - name: Build inventory-service-func
+        working-directory: inventory-service-func
+        run: |
+          npm ci
+          npm run build
+          npm prune --production
 
-          # Upload zipped package to Kudu Zip Deploy endpoint
-          curl --fail \
-            -X POST \
-            -H "Authorization: Basic ${AUTH_HEADER}" \
-            -H "Content-Type: application/zip" \
-            --data-binary @package.zip \
-            "$DEPLOY_URL"
+      - name: Deploy inventory-service-func
+        if: ${{ env.PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC != '' }}
+        uses: Azure/functions-action@v1
+        with:
+          app-name: inventory-service-func
+          publish-profile: ${{ env.PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC }}
+          package: inventory-service-func
+
+      - name: Build loans-service-func
+        working-directory: loans-service-func
+        run: |
+          npm ci
+          npm run build
+          npm prune --production
+
+      - name: Deploy loans-service-func
+        if: ${{ env.PUBLISH_PROFILE_LOANS_SERVICE_FUNC != '' }}
+        uses: Azure/functions-action@v1
+        with:
+          app-name: loans-service-func
+          publish-profile: ${{ env.PUBLISH_PROFILE_LOANS_SERVICE_FUNC }}
+          package: loans-service-func
+
+      - name: Build notifications-service-func
+        working-directory: notifications-service-func
+        run: |
+          npm ci
+          npm run build
+          npm prune --production
+
+      - name: Deploy notifications-service-func
+        if: ${{ env.PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC != '' }}
+        uses: Azure/functions-action@v1
+        with:
+          app-name: notifications-service-func
+          publish-profile: ${{ env.PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC }}
+          package: notifications-service-func
+
+      - name: Summary
+        run: |
+          echo "Deployment complete (or skipped if secrets missing)."
