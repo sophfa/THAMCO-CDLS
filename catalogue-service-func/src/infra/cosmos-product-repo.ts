@@ -1,12 +1,13 @@
 // Cosmos DB Product Repository Implementation - Infrastructure Layer
 
-import { CosmosClient, Container, ItemResponse } from '@azure/cosmos';
-import { Product } from '../domain/product';
+import { CosmosClient, Container, ItemResponse } from "@azure/cosmos";
+import { DefaultAzureCredential } from "@azure/identity";
+import { Product } from "../domain/product";
 import {
   ProductRepo,
   RepositoryResult,
   RepositoryError,
-} from '../domain/product-repo';
+} from "../domain/product-repo";
 
 /**
  * Configuration options for Cosmos DB connection
@@ -15,7 +16,7 @@ export interface CosmosProductRepoOptions {
   readonly endpoint: string;
   readonly databaseId: string;
   readonly containerId: string;
-  readonly key?: string; // Optional access key for key-based auth
+  readonly key?: string; // Optional access key for key-based auth (fallback)
 }
 
 /**
@@ -63,7 +64,8 @@ export class CosmosProductRepo implements ProductRepo {
         })
       : new CosmosClient({
           endpoint: options.endpoint,
-        }); // Uses default credential chain when no key provided
+          aadCredentials: new DefaultAzureCredential(),
+        }); // Uses managed identity / default Azure credential chain when no key provided
 
     this.container = cosmosClient
       .database(options.databaseId)

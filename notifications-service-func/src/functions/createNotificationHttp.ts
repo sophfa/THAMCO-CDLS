@@ -956,7 +956,7 @@ export async function createNotificationHttp(
         error: {
           code: "CONFIGURATION_ERROR",
           message:
-            "Cosmos DB configuration is incomplete. Please configure COSMOS_ENDPOINT, COSMOS_DATABASE, COSMOS_CONTAINER, and COSMOS_KEY.",
+            "Cosmos DB configuration is incomplete. Please configure COSMOS_ENDPOINT, COSMOS_DATABASE, and COSMOS_CONTAINER.",
           details: error.missingSettings,
         },
       };

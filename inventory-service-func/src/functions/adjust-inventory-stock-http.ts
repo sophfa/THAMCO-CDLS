@@ -4,7 +4,7 @@ import {
   HttpResponseInit,
   InvocationContext,
 } from "@azure/functions";
-import { CosmosClient } from "@azure/cosmos";
+import { cosmosClient } from "../config/cosmosClient";
 import "dotenv/config";
 
 interface AdjustStockRequest {
@@ -14,12 +14,7 @@ interface AdjustStockRequest {
   lastAdjustmentRef?: string;
 }
 
-const client = new CosmosClient({
-  endpoint: process.env.COSMOS_ENDPOINT!,
-  key: process.env.COSMOS_KEY!,
-});
-
-const container = client
+const container = cosmosClient
   .database(process.env.COSMOS_DATABASE!)
   .container(process.env.COSMOS_CONTAINER!);
 

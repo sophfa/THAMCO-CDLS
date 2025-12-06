@@ -5,7 +5,6 @@ const requiredCosmosEnvVars = [
   'COSMOS_ENDPOINT',
   'COSMOS_DATABASE',
   'COSMOS_CONTAINER',
-  'COSMOS_KEY',
 ] as const;
 
 export class MissingCosmosConfigurationError extends Error {

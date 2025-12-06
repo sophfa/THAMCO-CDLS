@@ -1,12 +1,13 @@
 // Cosmos DB Notification Repository Implementation - Infrastructure Layer
 
-import { CosmosClient, Container, ItemResponse } from '@azure/cosmos';
-import { Notification } from '../domain/notification';
+import { CosmosClient, Container, ItemResponse } from "@azure/cosmos";
+import { DefaultAzureCredential } from "@azure/identity";
+import { Notification } from "../domain/notification";
 import {
   NotificationRepo,
   RepositoryResult,
   RepositoryError,
-} from '../domain/notification-repo';
+} from "../domain/notification-repo";
 
 /**
  * Configuration options for Cosmos DB connection
@@ -59,7 +60,8 @@ export class CosmosNotificationRepo implements NotificationRepo {
         })
       : new CosmosClient({
           endpoint: options.endpoint,
-        }); // Uses default credential chain when no key provided
+          aadCredentials: new DefaultAzureCredential(),
+        }); // Uses managed identity/default credentials when no key provided
 
     this.container = cosmosClient
       .database(options.databaseId)

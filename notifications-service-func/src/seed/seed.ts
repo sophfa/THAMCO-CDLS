@@ -1,12 +1,15 @@
-import 'dotenv/config';
-import { CosmosClient } from '@azure/cosmos';
+import "dotenv/config";
+import { CosmosClient } from "@azure/cosmos";
+import { DefaultAzureCredential } from "@azure/identity";
 
 const endpoint = process.env.COSMOS_ENDPOINT!;
-const key = process.env.COSMOS_KEY!;
 const databaseId = process.env.COSMOS_DATABASE;
 const containerId = process.env.COSMOS_CONTAINER;
 
-const client = new CosmosClient({ endpoint, key });
+const client = new CosmosClient({
+  endpoint,
+  aadCredentials: new DefaultAzureCredential(),
+});
 
 async function seed() {
   const container = client.database(databaseId).container(containerId);
