@@ -88,10 +88,26 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Extract credentials and SCM host from publish profile XML
-          USERNAME=$(echo "$PUBLISH_PROFILE" | sed -n 's/.*userName="\([^"]*\)".*/\1/p' | head -1)
-          PASSWORD=$(echo "$PUBLISH_PROFILE" | sed -n 's/.*userPWD="\([^"]*\)".*/\1/p' | head -1)
-          SCM_HOST=$(echo "$PUBLISH_PROFILE" | sed -n 's/.*publishUrl="\([^"]*\)".*/\1/p' | head -1)
+          # Extract ZipDeploy credentials and SCM host from publish profile XML
+          read -r USERNAME PASSWORD SCM_HOST <<'EOF'
+$(python - <<'PY'
+import sys, xml.etree.ElementTree as ET
+xml = sys.stdin.read()
+root = ET.fromstring(xml)
+zip_profile = None
+for prof in root.findall('.//publishProfile'):
+    if prof.get('publishMethod') == 'ZipDeploy':
+        zip_profile = prof
+        break
+if zip_profile is None:
+    # fallback to any profile
+    zip_profile = root.find('.//publishProfile')
+if zip_profile is None:
+    sys.exit(1)
+print(f"{zip_profile.get('userName','')} {zip_profile.get('userPWD','')} {zip_profile.get('publishUrl','')}")
+PY
+EOF
+
 
           if [ -z "$USERNAME" ] || [ -z "$PASSWORD" ] || [ -z "$SCM_HOST" ]; then
             echo "Failed to parse publish profile" >&2
