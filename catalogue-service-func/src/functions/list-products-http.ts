@@ -1,26 +1,16 @@
-// Azure Function - List Products HTTP Trigger
-
 import {
   app,
   HttpRequest,
   HttpResponseInit,
   InvocationContext,
 } from "@azure/functions";
+import { COSMOS_OPTIONS } from "../config/cosmosOptions";
 import { Product } from "../domain/product";
 import { ProductRepo } from "../domain/product-repo";
 import { CosmosProductRepo } from "../infra/cosmos-product-repo";
+import { validateFunctionKey } from "../utils/functionKey";
 
-// Configuration from environment variables
-const cosmosOptions = {
-  endpoint: process.env.COSMOS_ENDPOINT,
-  databaseId: process.env.COSMOS_DATABASE,
-  containerId: process.env.COSMOS_CONTAINER,
-
-  key: process.env.COSMOS_KEY,
-};
-
-// Initialize repository - in production, this could be dependency injected
-const productRepo: ProductRepo = new CosmosProductRepo(cosmosOptions);
+const productRepo: ProductRepo = new CosmosProductRepo(COSMOS_OPTIONS);
 
 /**
  * Response format for product list API
@@ -50,6 +40,11 @@ export async function listProductsHttp(
   context: InvocationContext
 ): Promise<HttpResponseInit> {
   context.log("HTTP trigger function processed a request to list products");
+
+  const keyResult = validateFunctionKey(request, context);
+  if (keyResult) {
+    return keyResult;
+  }
 
   try {
     const result = await productRepo.list();
