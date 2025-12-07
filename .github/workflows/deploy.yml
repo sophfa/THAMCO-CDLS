@@ -58,9 +58,11 @@ jobs:
 
       - name: Package with Azure Functions Core Tools
         working-directory: ${{ matrix.path }}
+        env:
+          FUNCTIONS_WORKER_RUNTIME: node
         run: |
           npm install -g azure-functions-core-tools@4 --unsafe-perm true
-          npx func pack --build --output package
+          npx func pack --build --worker-runtime node --output package
 
       - name: Save package temporarily for deployment
         uses: actions/upload-artifact@v4
