@@ -56,20 +56,11 @@ jobs:
         working-directory: ${{ matrix.path }}
         run: npm run build
 
-      - name: Publish function app to package folder
+      - name: Package with Azure Functions Core Tools
         working-directory: ${{ matrix.path }}
         run: |
-          rm -rf package
-          mkdir -p package/dist
-          cp host.json package/
-          cp package.json package/
-          if [ -f package-lock.json ]; then cp package-lock.json package/; fi
-          cp -r dist package/dist
-          if [ -f package-lock.json ]; then
-            npm ci --omit=dev --prefix package
-          else
-            npm install --omit=dev --prefix package
-          fi
+          npm install -g azure-functions-core-tools@4 --unsafe-perm true
+          npx func pack --build --output package
 
       - name: Save package temporarily for deployment
         uses: actions/upload-artifact@v4
