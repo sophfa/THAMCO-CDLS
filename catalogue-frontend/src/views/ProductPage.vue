@@ -388,14 +388,12 @@ export default {
       () => (user.value?.role || "").toLowerCase() === "admin"
     );
 
-    // Use the favorites service
     const {
       isFavorite,
       toggleFavorite: serviceToggleFavorite,
       initializeFavorites,
     } = useFavorites();
 
-    // Computed property to check if current product is favorited
     const isFavorited = computed(() => {
       return product.value ? isFavorite(product.value.id) : false;
     });
@@ -428,7 +426,6 @@ export default {
 
     onMounted(async () => {
       try {
-        // Initialize favorites
         await initializeFavorites();
 
         const productId = route.params.id;
@@ -474,7 +471,6 @@ export default {
 .product-images,
 .product-details {
   height: auto;
-  /* min-height: 100vh; */
 }
 
 .product-details {
@@ -533,8 +529,8 @@ export default {
   gap: 1rem;
   padding: 1rem;
   align-items: flex-start;
-  height: auto; /* allow to expand with content */
-  min-height: 100vh; /* still fills screen on short pages */
+  height: auto;
+  min-height: 100vh;
 }
 
 .button-container {
@@ -556,9 +552,6 @@ button[aria-pressed="true"] svg {
   fill: currentColor;
 }
 
-/* === Enhanced Button Styling === */
-
-/* Shared base styles for all buttons */
 .actions button {
   position: relative;
   font-family: "Inter", "Segoe UI", system-ui, sans-serif;
@@ -574,7 +567,6 @@ button[aria-pressed="true"] svg {
   gap: 0.5rem;
 }
 
-/* Primary Action – Reserve / Waitlist */
 .reserve-btn {
   background: #867537;
   color: #fff;
@@ -595,7 +587,6 @@ button[aria-pressed="true"] svg {
   box-shadow: none;
 }
 
-/* Waitlist Button - Green */
 .waitlist-btn {
   background: #6c7c69;
   color: #fff;
@@ -609,7 +600,6 @@ button[aria-pressed="true"] svg {
   box-shadow: 0 10px 25px rgba(108, 124, 105, 0.25);
 }
 
-/* Share Button - Gold */
 .share-btn {
   color: white;
   width: 30px;
@@ -626,7 +616,6 @@ button[aria-pressed="true"] svg {
   box-shadow: 0 8px 20px rgba(134, 117, 55, 0.3);
 }
 
-/* Wishlist Button */
 .wishlist-btn {
   background: linear-gradient(135deg, #ffffff, #f9fafb);
   border: 2px solid #e5e7eb;
@@ -640,7 +629,6 @@ button[aria-pressed="true"] svg {
   transform: translateY(-2px);
 }
 
-/* Secondary Buttons – Back / Share */
 .secondary-btn {
   background: linear-gradient(135deg, #f9fafb, #f3f4f6);
   border: 1px solid #e5e7eb;
@@ -652,7 +640,6 @@ button[aria-pressed="true"] svg {
   transform: translateY(-2px);
 }
 
-/* Ripple highlight effect on click */
 .actions button::after {
   content: "";
   position: absolute;
@@ -673,13 +660,11 @@ button[aria-pressed="true"] svg {
   opacity: 0;
 }
 
-/* Accessibility focus */
 button:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.4);
 }
 
-/* Specification Cards */
 .spec-card {
   background: white;
   padding: 1rem;
@@ -711,7 +696,6 @@ button:focus-visible {
   color: #111827;
 }
 
-/* Enhanced Button Styling */
 .reserve-btn {
   position: relative;
   overflow: hidden;
@@ -760,7 +744,6 @@ button:focus-visible {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
-/* Section Styling */
 .description-section {
   border-left: 4px solid #867537;
   padding-left: 1rem;
@@ -771,7 +754,6 @@ button:focus-visible {
   padding-left: 1rem;
 }
 
-/* Enhanced specification cards */
 .spec-card {
   background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
   border: 1px solid #e2e8f0;
@@ -832,7 +814,6 @@ button:focus-visible {
   border-color: #cbd5e1;
 }
 
-/* Loading animation improvements */
 @keyframes pulse-slow {
   0%,
   100% {
@@ -847,7 +828,6 @@ button:focus-visible {
   animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-/* Custom scrollbar for specs section */
 .specifications::-webkit-scrollbar {
   width: 4px;
 }
@@ -866,7 +846,6 @@ button:focus-visible {
   background: #a1a1a1;
 }
 
-/* Responsive improvements */
 @media (max-width: 768px) {
   .product-details {
     padding-top: 0;
@@ -881,7 +860,6 @@ button:focus-visible {
   }
 }
 
-/* Focus states for accessibility */
 button:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px #3b82f6, 0 0 0 4px rgba(59, 130, 246, 0.1);
@@ -892,7 +870,6 @@ button:focus-visible {
   box-shadow: 0 0 0 2px #3b82f6, 0 0 0 4px rgba(59, 130, 246, 0.1);
 }
 
-/* Enhanced button animations */
 .actions button {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -901,7 +878,6 @@ button:focus-visible {
   transform: scale(0.98);
 }
 
-/* Gradient text effect for price */
 .text-3xl.font-bold.text-blue-600 {
   background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
   -webkit-background-clip: text;
@@ -909,7 +885,6 @@ button:focus-visible {
   background-clip: text;
 }
 
-/* Improved card shadows */
 .spec-card,
 .spec-card-wide {
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
@@ -921,12 +896,10 @@ button:focus-visible {
     0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
-/* Status indicator animation */
 .w-3.h-3.rounded-full {
   animation: pulse-slow 3s ease-in-out infinite;
 }
 
-/* Corner Banner Styles */
 .status-banner-available,
 .status-banner-loaned {
   position: absolute;
@@ -979,7 +952,6 @@ button:focus-visible {
   position: absolute;
   top: 0px;
   left: 11px;
-  /* Favourite Button Styles */
 }
 .favorite-btn {
   background: none;

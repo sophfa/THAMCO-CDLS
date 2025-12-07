@@ -232,4 +232,41 @@ export class CosmosInventoryRepo implements InventoryRepo {
       };
     }
   }
+
+  /**
+   * Updates only the stock flag for an inventory item
+   */
+  async setStock(
+    id: string,
+    inStock: boolean
+  ): Promise<RepositoryResult<Inventory>> {
+    try {
+      const readResult = await this.container.item(id, id).read<InventoryDocument>();
+      if (!readResult.resource) {
+        return {
+          success: false,
+          error: { code: "NOT_FOUND", message: "Inventory not found" },
+        };
+      }
+
+      const updatedDoc = { ...readResult.resource, inStock };
+      const replaceResult = await this.container
+        .item(id, id)
+        .replace<InventoryDocument>(updatedDoc);
+
+      if (!replaceResult.resource) {
+        return {
+          success: false,
+          error: {
+            code: "PERSISTENCE_ERROR",
+            message: "Failed to update inventory stock",
+          },
+        };
+      }
+
+      return { success: true, data: this.toDomain(replaceResult.resource) };
+    } catch (error: any) {
+      return { success: false, error: this.mapCosmosError(error) };
+    }
+  }
 }

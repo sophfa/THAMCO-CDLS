@@ -13,7 +13,6 @@ const STORAGE_KEYS = {
 // Session timeout (30 minutes of inactivity)
 const SESSION_TIMEOUT = 30 * 60 * 1000;
 
-// Simple encryption/obfuscation for localStorage (basic security)
 function encodeData(data: any): string {
   try {
     return btoa(JSON.stringify(data));
@@ -32,7 +31,6 @@ function decodeData(encoded: string): any {
   }
 }
 
-// Session management
 function isSessionValid(): boolean {
   const timestamp = localStorage.getItem(STORAGE_KEYS.TOKEN_TIMESTAMP);
   if (!timestamp) return false;
@@ -56,7 +54,6 @@ function clearSession() {
 function saveUserToStorage(user: any) {
   if (!user) return;
 
-  // Only store non-sensitive user data
   const userToStore = {
     sub: user.sub,
     name: user.name,
@@ -69,7 +66,6 @@ function saveUserToStorage(user: any) {
   localStorage.setItem(STORAGE_KEYS.USER, encodeData(userToStore));
   updateSessionTimestamp();
 
-  // Generate a simple session ID for this login session
   if (!localStorage.getItem(STORAGE_KEYS.SESSION_ID)) {
     const sessionId = `${Date.now()}-${Math.random()
       .toString(36)
@@ -87,7 +83,7 @@ function getUserFromStorage(): any | null {
   const encoded = localStorage.getItem(STORAGE_KEYS.USER);
   if (!encoded) return null;
 
-  updateSessionTimestamp(); // Extend session on activity
+  updateSessionTimestamp();
   return decodeData(encoded);
 }
 
@@ -98,11 +94,11 @@ export async function initAuth() {
     clientId: import.meta.env.VITE_AUTH0_CLIENT_ID,
     authorizationParams: {
       redirect_uri: import.meta.env.VITE_AUTH0_CALLBACK_URL,
-      audience: import.meta.env.VITE_AUTH0_AUDIENCE, // your API identifier
+      audience: import.meta.env.VITE_AUTH0_AUDIENCE,
       scope: "openid profile email",
     },
     useRefreshTokens: true,
-    cacheLocation: "localstorage", // Use localStorage for token caching
+    cacheLocation: "localstorage",
   });
 
   if (
@@ -180,15 +176,13 @@ export async function logout() {
   });
 }
 
-// Get a valid access token silently (for API calls)
 export async function getToken(): Promise<string | null> {
   try {
     const token = await auth0?.getTokenSilently();
-    updateSessionTimestamp(); // Extend session on API activity
+    updateSessionTimestamp();
     return token ?? null;
   } catch (err) {
     console.error("Token retrieval failed:", err);
-    // If token refresh fails, session might be expired
     if (!isSessionValid()) {
       clearSession();
     }
@@ -196,7 +190,7 @@ export async function getToken(): Promise<string | null> {
   }
 }
 
-// Check if user is authenticated (including cached session)
+// Check if user is authenticated
 export async function isAuthenticated(): Promise<boolean> {
   const auth0Authenticated = await auth0?.isAuthenticated();
   if (auth0Authenticated) {
@@ -204,6 +198,5 @@ export async function isAuthenticated(): Promise<boolean> {
     return true;
   }
 
-  // Check if we have a valid cached session
   return isSessionValid() && !!getUserFromStorage();
 }

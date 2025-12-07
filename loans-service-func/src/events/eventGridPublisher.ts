@@ -5,6 +5,7 @@ const topicEndpoint = process.env.EVENT_GRID_TOPIC_ENDPOINT;
 const topicKey = process.env.EVENT_GRID_TOPIC_KEY;
 
 let missingConfigLogged = false;
+const DEFAULT_RETRIES = 2;
 
 export interface LoanStatusEventPayload {
   loanId: string;
@@ -35,6 +36,11 @@ export async function publishLoanStatusChangedEvent(
     return;
   }
 
+  if (!payload.loanId || !payload.newStatus) {
+    context.warn("Event Grid publish skipped: invalid payload", payload);
+    return;
+  }
+
   const statusChangedAt =
     payload.statusChangedAt ?? new Date().toISOString();
 
@@ -62,24 +68,47 @@ export async function publishLoanStatusChangedEvent(
     },
   ];
 
-  try {
-    const response = await fetch(topicEndpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "aeg-sas-key": topicKey,
-      },
-      body: JSON.stringify(events),
-    });
+  await sendWithRetry(events, context);
+}
 
-    if (!response.ok) {
+async function sendWithRetry(
+  events: any[],
+  context: InvocationContext,
+  retries: number = DEFAULT_RETRIES
+): Promise<void> {
+  let attempt = 0;
+  let lastError: unknown;
+
+  while (attempt <= retries) {
+    try {
+      const response = await fetch(topicEndpoint as string, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "aeg-sas-key": topicKey as string,
+        },
+        body: JSON.stringify(events),
+      });
+
+      if (response.ok) {
+        return;
+      }
+
       const errorBody = await response.text();
-
-      context.error(
-        `Event Grid publish failed (${response.status} ${response.statusText}): ${errorBody}`
-      );
+      lastError = `${response.status} ${response.statusText}: ${errorBody}`;
+    } catch (err) {
+      lastError = err;
     }
-  } catch (error) {
-    context.error("Unexpected error while publishing to Event Grid:", error);
+
+    attempt += 1;
+    if (attempt <= retries) {
+      const backoff = 100 * attempt;
+      context.warn(
+        `Event Grid publish attempt ${attempt} failed, retrying in ${backoff}ms`
+      );
+      await new Promise((resolve) => setTimeout(resolve, backoff));
+    }
   }
+
+  context.error("Event Grid publish failed after retries", lastError);
 }

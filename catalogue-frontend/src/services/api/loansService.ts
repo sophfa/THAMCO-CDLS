@@ -312,8 +312,6 @@ export async function getUserLoans(userId: string): Promise<Loan[]> {
   }
 }
 
-// === FAVORITES API METHODS ===
-
 export async function getUserFavorites(userId: string): Promise<string[]> {
   console.log(`[LoansService] Fetching favorites for user: ${userId}`);
 
@@ -432,8 +430,6 @@ export async function clearAllFavorites(userId: string) {
   );
   return result;
 }
-
-// === WAITLIST API METHODS ===
 
 export async function getUserWaitlistEntries(
   userId: string

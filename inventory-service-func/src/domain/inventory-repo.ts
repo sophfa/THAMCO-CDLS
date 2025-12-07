@@ -45,4 +45,12 @@ export interface InventoryRepo {
    * @returns Promise resolving to either the found inventory or a repository error
    */
   get(id: string): Promise<RepositoryResult<Inventory>>;
+
+  /**
+   * Updates the stock status for a device
+   */
+  setStock(
+    id: string,
+    inStock: boolean
+  ): Promise<RepositoryResult<Inventory>>;
 }
