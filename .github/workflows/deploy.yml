@@ -62,13 +62,14 @@ jobs:
           FUNCTIONS_WORKER_RUNTIME: node
         run: |
           npm install -g azure-functions-core-tools@4 --unsafe-perm true
-          npx func pack --build --worker-runtime node --output package
+          # Produce a single zip ready for run-from-package
+          npx func pack --build --worker-runtime node --output ../${{ matrix.artifact }}.zip
 
       - name: Save package temporarily for deployment
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: ${{ matrix.path }}/package
+          path: ${{ matrix.artifact }}.zip
           retention-days: 1
 
   deploy-to-test:
@@ -99,7 +100,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: package
+          path: artifacts
 
       - name: Deploy to Azure Function App
         env:
@@ -108,5 +109,5 @@ jobs:
         uses: azure/functions-action@v1
         with:
           app-name: ${{ matrix.app-name }}
-          package: package
+          package: artifacts/${{ matrix.artifact }}.zip
           publish-profile: ${{ env.PUBLISH_PROFILE }}
