@@ -27,7 +27,8 @@ export async function getDeviceLoanHistoryHttp(
 
     // Query all loans for this device
     const querySpec = {
-      query: "SELECT * FROM c WHERE c.deviceId = @deviceId ORDER BY c.createdAt DESC",
+      query:
+        "SELECT * FROM c WHERE c.deviceId = @deviceId ORDER BY c.createdAt DESC",
       parameters: [{ name: "@deviceId", value: decodedDeviceId }],
     };
 
@@ -44,10 +45,11 @@ export async function getDeviceLoanHistoryHttp(
         acc[loan.status] = (acc[loan.status] || 0) + 1;
         return acc;
       }, {}),
-      currentLoan: loans.find(
-        (loan: any) =>
-          loan.status === "Collected" || loan.status === "Approved"
-      ) || null,
+      currentLoan:
+        loans.find(
+          (loan: any) =>
+            loan.status === "Collected" || loan.status === "Approved"
+        ) || null,
     };
 
     return {
@@ -87,6 +89,6 @@ export async function getDeviceLoanHistoryHttp(
 app.http("getDeviceLoanHistoryHttp", {
   methods: ["GET"],
   route: "loans/device/{deviceId}",
-  authLevel: "anonymous",
+  authLevel: "function",
   handler: getDeviceLoanHistoryHttp,
 });

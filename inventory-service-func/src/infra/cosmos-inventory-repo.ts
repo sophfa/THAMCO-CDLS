@@ -24,25 +24,8 @@ export interface CosmosInventoryRepoOptions {
  */
 interface InventoryDocument {
   readonly id: string;
-  readonly name: string;
-  readonly brand: string;
-  readonly category: string;
-  readonly model: string;
-  readonly processor: string;
-  readonly ram: string;
-  readonly storage: string;
-  readonly gpu: string;
-  readonly display: string;
-  readonly os: string;
-  readonly batteryLife: string;
-  readonly weight: string;
-  readonly ports: string[];
-  readonly connectivity: string[];
-  readonly description?: string;
-  readonly imageUrl?: string;
-  readonly price: number;
-  readonly inStock: boolean;
-  readonly createdAt: Date;
+  readonly deviceIds: string[];
+  readonly stock: number;
 }
 
 /**
@@ -90,25 +73,8 @@ export class CosmosInventoryRepo implements InventoryRepo {
   private toDocument(inventory: Inventory): InventoryDocument {
     return {
       id: inventory.id,
-      name: inventory.name,
-      brand: inventory.brand,
-      category: inventory.category,
-      model: inventory.model,
-      processor: inventory.processor,
-      ram: inventory.ram,
-      storage: inventory.storage,
-      gpu: inventory.gpu,
-      display: inventory.display,
-      os: inventory.os,
-      batteryLife: inventory.batteryLife,
-      weight: inventory.weight,
-      ports: inventory.ports,
-      connectivity: inventory.connectivity,
-      description: inventory.description,
-      imageUrl: inventory.imageUrl,
-      price: inventory.price,
-      inStock: inventory.inStock,
-      createdAt: inventory.createdAt,
+      deviceIds: inventory.deviceIds,
+      stock: inventory.stock,
     };
   }
 
@@ -118,25 +84,8 @@ export class CosmosInventoryRepo implements InventoryRepo {
   private toDomain(document: InventoryDocument): Inventory {
     return {
       id: document.id,
-      name: document.name,
-      brand: document.brand,
-      category: document.category,
-      model: document.model,
-      processor: document.processor,
-      ram: document.ram,
-      storage: document.storage,
-      gpu: document.gpu,
-      display: document.display,
-      os: document.os,
-      batteryLife: document.batteryLife,
-      weight: document.weight,
-      ports: document.ports,
-      connectivity: document.connectivity,
-      description: document.description,
-      imageUrl: document.imageUrl,
-      price: document.price,
-      inStock: document.inStock,
-      createdAt: new Date(document.createdAt),
+      deviceIds: document.deviceIds,
+      stock: document.stock,
     };
   }
 

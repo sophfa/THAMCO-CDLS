@@ -1,9 +1,12 @@
-import { CosmosClient } from '@azure/cosmos';
-import 'dotenv/config';
+import { CosmosClient } from "@azure/cosmos";
+import { DefaultAzureCredential } from "@azure/identity";
+import "dotenv/config";
 
 const endpoint = process.env.COSMOS_ENDPOINT!;
-const key = process.env.COSMOS_KEY!;
-const client = new CosmosClient({ endpoint, key });
+const client = new CosmosClient({
+  endpoint,
+  aadCredentials: new DefaultAzureCredential(),
+});
 
 const databaseId = 'catalogue-db';
 const containerId = 'Devices';

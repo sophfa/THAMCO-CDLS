@@ -46,6 +46,9 @@ export interface Product {
   description: string;
   imageUrl: string;
   price: number;
+  stock?: number | null;
+  availableStock?: number | null;
+  activeLoans?: number;
   inStock: boolean;
   createdAt: string;
   _rid: string;

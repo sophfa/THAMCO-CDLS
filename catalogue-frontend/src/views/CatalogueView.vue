@@ -13,6 +13,7 @@ import SearchBar from "../components/SearchBar.vue";
 import { getCloudinaryUrl } from "../assets/cloudinary";
 import { getUserId, getUserEmail, getUserRole } from "../services/authService";
 import { createNotification } from "../services/api/notificationsService";
+import { getAvailabilityForDevice } from "../services/api/availabilityService";
 const { user, loggedIn, logout } = useAuth();
 
 const products = ref<Product[]>([]);
@@ -73,7 +74,7 @@ watch(
 async function refreshProductCatalogue() {
   try {
     const data = await fetchCatalogue();
-    products.value = data;
+    products.value = await withInventoryStock(data);
     console.log("[Catalogue] Refreshed products:", data);
   } catch (e: any) {
     console.error("[Catalogue] Failed to refresh products:", e);
@@ -104,6 +105,37 @@ function isOnWaitlist(deviceId: string): boolean {
   return userWaitlistDeviceIds.value.has(deviceId);
 }
 
+async function withInventoryStock(items: Product[]): Promise<Product[]> {
+  const enriched = await Promise.all(
+    items.map(async (p) => {
+      try {
+        const availability = await getAvailabilityForDevice(p.id);
+        console.log("availability: ", p.id, "=>", availability);
+        return {
+          ...p,
+          stock: availability.stock ?? null,
+          availableStock: availability.available,
+          activeLoans: availability.activeLoans,
+          inStock:
+            typeof availability.available === "number"
+              ? availability.available > 0
+              : false,
+        };
+      } catch (err) {
+        console.warn("[Catalogue] Failed to load stock for", p.id, err);
+        return {
+          ...p,
+          stock: null,
+          availableStock: null,
+          activeLoans: undefined,
+          inStock: false,
+        };
+      }
+    })
+  );
+  return enriched;
+}
+
 async function confirmDialog() {
   if (!dialog.product) return;
   dialog.loading = true;
@@ -116,6 +148,7 @@ async function confirmDialog() {
         dialog.endDate ||
         new Date(Date.now() + 86400000).toISOString().slice(0, 10);
       await createLoan(dialog.product.id, start, end, "Requested");
+      await refreshProductCatalogue();
     } else {
       const _wl = await joinWaitlistForDevice(dialog.product.id);
       (dialog as any)._waitlistResult = _wl;
@@ -191,7 +224,7 @@ onMounted(async () => {
     await initializeFavorites();
 
     const data = await fetchCatalogue();
-    products.value = data;
+    products.value = await withInventoryStock(data);
     console.log("[Catalogue] Fetched products:", data);
 
     // Load user's waitlist entries if logged in
@@ -722,7 +755,21 @@ const viewDetails = (product: Product) => {
               <h2>{{ p.name }}</h2>
               <p><strong>Category:</strong> {{ p.category }}</p>
               <p><strong>Price:</strong> £{{ p.price }}</p>
+              <p v-if="p.availableStock !== undefined">
+                <strong>Available:</strong>
+                {{ p.availableStock ?? "Unknown" }}
+                <span v-if="p.stock !== undefined">/ {{ p.stock ?? "?" }}</span>
+              </p>
+              <p v-else-if="p.stock !== undefined">
+                <strong>Stock:</strong> {{ p.stock }}
+              </p>
+              <p v-if="p.activeLoans !== undefined">
+                <strong>On Loan:</strong> {{ p.activeLoans }}
+              </p>
               <p v-if="p.description">{{ p.description }}</p>
+              <p v-if="p.availableStock === 0">
+                <em>All units are currently loaned out.</em>
+              </p>
             </div>
 
             <div

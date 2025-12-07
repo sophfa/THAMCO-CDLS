@@ -22,7 +22,7 @@ export async function returnLoanHttp(
     }
 
     // Update the loan status to fit the new model
-    loan.status = 'Returned';
+    loan.status = "Returned";
 
     await loansContainer.items.upsert(loan);
 
@@ -37,6 +37,6 @@ export async function returnLoanHttp(
 app.http("returnLoanHttp", {
   route: "loans/{id}",
   methods: ["PATCH"],
-  authLevel: "anonymous",
+  authLevel: "function",
   handler: returnLoanHttp,
 });

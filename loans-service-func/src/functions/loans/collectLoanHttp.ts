@@ -1,4 +1,9 @@
-import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+import {
+  app,
+  HttpRequest,
+  HttpResponseInit,
+  InvocationContext,
+} from "@azure/functions";
 import { randomUUID } from "crypto";
 import { loansContainer } from "../../config/cosmosClient";
 import { publishLoanStatusChangedEvent } from "../../events/eventGridPublisher";
@@ -10,7 +15,7 @@ export async function collectLoanHttp(
 ): Promise<HttpResponseInit> {
   try {
     // Validate authentication token
-    const authResult = validateToken(req, context);
+    const authResult = await validateToken(req, context);
     if (!authResult.isValid) {
       context.log("Authentication failed:", authResult.error);
       return {
@@ -20,8 +25,7 @@ export async function collectLoanHttp(
     }
 
     const loanId = req.params.id;
-    const correlationId =
-      req.headers.get("x-correlation-id") ?? randomUUID();
+    const correlationId = req.headers.get("x-correlation-id") ?? randomUUID();
 
     if (!loanId) {
       return {
@@ -118,6 +122,6 @@ export async function collectLoanHttp(
 app.http("collectLoanHttp", {
   methods: ["PUT"],
   route: "loans/{id}/collect",
-  authLevel: "anonymous",
+  authLevel: "function",
   handler: collectLoanHttp,
 });

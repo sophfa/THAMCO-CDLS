@@ -1,25 +1,50 @@
 import { HttpRequest, InvocationContext } from "@azure/functions";
+import jwt, { JwtHeader } from "jsonwebtoken";
+import jwksClient from "jwks-rsa";
 
 export interface AuthResult {
   isValid: boolean;
   userId?: string;
+  token?: any;
   error?: string;
 }
 
-/**
- * Validates the Bearer token from the Authorization header
- *
- * PRODUCTION SETUP:
- * 1. Install dependencies: npm install jsonwebtoken jwks-rsa
- * 2. Set environment variables:
- *    - AUTH0_DOMAIN: Your Auth0 domain (e.g., dev-xxx.us.auth0.com)
- *    - AUTH0_AUDIENCE: Your API identifier
- * 3. Uncomment the JWT verification code below
- */
-export function validateToken(
+const domain = process.env.AUTH0_DOMAIN;
+const audience = process.env.AUTH0_AUDIENCE;
+
+const client = domain
+  ? jwksClient({
+      jwksUri: `https://${domain}/.well-known/jwks.json`,
+      cache: true,
+      rateLimit: true,
+    })
+  : null;
+
+function getSigningKey(header: JwtHeader): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (!client) {
+      reject(new Error("JWKS client not configured"));
+      return;
+    }
+    client.getSigningKey(header.kid || "", (err, key) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      const signingKey = key?.getPublicKey();
+      if (!signingKey) {
+        reject(new Error("No signing key available"));
+        return;
+      }
+      resolve(signingKey);
+    });
+  });
+}
+
+export async function validateToken(
   req: HttpRequest,
   ctx: InvocationContext
-): AuthResult {
+): Promise<AuthResult> {
   try {
     const authHeader = req.headers.get("authorization") || "";
 
@@ -37,91 +62,64 @@ export function validateToken(
       return { isValid: false, error: "No token provided" };
     }
 
-    // ==== PRODUCTION JWT VERIFICATION ====
-    // Uncomment this section and install required packages for production
-    /*
-    const jwt = require('jsonwebtoken');
-    const jwksClient = require('jwks-rsa');
-    
-    const client = jwksClient({
-      jwksUri: `https://${process.env.AUTH0_DOMAIN}/.well-known/jwks.json`,
-      cache: true,
-      rateLimit: true,
-    });
-    
-    function getKey(header: any, callback: any) {
-      client.getSigningKey(header.kid, function (err: any, key: any) {
-        if (err) {
-          callback(err);
-          return;
+    // Fallback: no Auth0 config -> perform basic structural validation (dev mode)
+    if (!domain || !audience || !client) {
+      try {
+        const parts = token.split(".");
+        if (parts.length !== 3) {
+          return { isValid: false, error: "Invalid token structure" };
         }
-        const signingKey = key.publicKey || key.rsaPublicKey;
-        callback(null, signingKey);
-      });
+        const payload = JSON.parse(Buffer.from(parts[1], "base64").toString());
+        const userId = payload.sub;
+        if (!userId) {
+          return { isValid: false, error: "Token missing user ID (sub claim)" };
+        }
+        if (payload.exp && payload.exp * 1000 < Date.now()) {
+          return { isValid: false, error: "Token has expired" };
+        }
+        ctx.log(
+          `Token validated for user: ${userId} (DEV MODE - NO SIGNATURE VERIFICATION)`
+        );
+        return { isValid: true, userId };
+      } catch (err) {
+        ctx.log("Token decode error (dev mode):", err);
+        return { isValid: false, error: "Failed to decode token" };
+      }
     }
-    
-    return new Promise((resolve) => {
+
+    const decoded: any = await new Promise((resolve, reject) => {
       jwt.verify(
         token,
-        getKey,
-        {
-          audience: process.env.AUTH0_AUDIENCE,
-          issuer: `https://${process.env.AUTH0_DOMAIN}/`,
-          algorithms: ['RS256'],
+        async (header, callback) => {
+          try {
+            const signingKey = await getSigningKey(header as JwtHeader);
+            callback(null, signingKey);
+          } catch (err) {
+            callback(err as Error, undefined);
+          }
         },
-        (err: any, decoded: any) => {
+        {
+          audience,
+          issuer: `https://${domain}/`,
+          algorithms: ["RS256"],
+        },
+        (err, payload) => {
           if (err) {
-            ctx.log('JWT verification failed:', err);
-            resolve({ isValid: false, error: 'Invalid or expired token' });
+            reject(err);
             return;
           }
-          
-          const userId = decoded.sub;
-          if (!userId) {
-            resolve({ isValid: false, error: 'Token missing user ID (sub claim)' });
-            return;
-          }
-          
-          ctx.log(`Token validated for user: ${userId}`);
-          resolve({ isValid: true, userId });
+          resolve(payload);
         }
       );
     });
-    */
-    // ==== END PRODUCTION CODE ====
 
-    // DEVELOPMENT/TESTING: Basic token validation (NO SIGNATURE VERIFICATION)
-    // This should be replaced with proper JWT verification above for production
-    try {
-      // Basic token structure validation
-      const parts = token.split(".");
-      if (parts.length !== 3) {
-        return { isValid: false, error: "Invalid token structure" };
-      }
-
-      // Decode payload (WARNING: Not verifying signature!)
-      const payload = JSON.parse(Buffer.from(parts[1], "base64").toString());
-
-      // Extract user ID from 'sub' claim
-      const userId = payload.sub;
-
-      if (!userId) {
-        return { isValid: false, error: "Token missing user ID (sub claim)" };
-      }
-
-      // Check token expiration
-      if (payload.exp && payload.exp * 1000 < Date.now()) {
-        return { isValid: false, error: "Token has expired" };
-      }
-
-      ctx.log(
-        `Token validated for user: ${userId} (DEV MODE - NO SIGNATURE VERIFICATION)`
-      );
-      return { isValid: true, userId };
-    } catch (decodeError) {
-      ctx.log("Token decode error:", decodeError);
-      return { isValid: false, error: "Failed to decode token" };
+    const userId = decoded?.sub;
+    if (!userId) {
+      return { isValid: false, error: "Token missing user ID (sub claim)" };
     }
+
+    ctx.log(`Token validated for user: ${userId}`);
+    return { isValid: true, userId, token: decoded };
   } catch (error: any) {
     ctx.log("Token validation error:", error);
     return { isValid: false, error: "Token validation failed" };
@@ -143,11 +141,6 @@ export function verifyUserAccess(
  * Assumes roles are passed in the token as a custom claim
  */
 export function isAdmin(token: any): boolean {
-  // Customize this based on how you store roles in your Auth0 token
-  // Common patterns:
-  // - token['https://yourapp.com/roles']
-  // - token.roles
-  // - token.permissions
   const roles = token["https://thamco.com/roles"] || token.roles || [];
   return Array.isArray(roles) && roles.includes("Admin");
 }

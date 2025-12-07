@@ -4,15 +4,11 @@ import {
   HttpResponseInit,
   InvocationContext,
 } from "@azure/functions";
-import { CosmosClient } from "@azure/cosmos";
+import { cosmosClient } from "../config/cosmosClient";
 
-const client = new CosmosClient({
-  endpoint: process.env.COSMOS_ENDPOINT,
-  key: process.env.COSMOS_KEY,
-});
 const databaseId = process.env.COSMOS_DATABASE;
 const containerId = process.env.COSMOS_CONTAINER;
-const container = client.database(databaseId).container(containerId);
+const container = cosmosClient.database(databaseId).container(containerId);
 
 export async function markNotificationReadHttp(
   request: HttpRequest,
@@ -56,7 +52,7 @@ export async function markNotificationReadHttp(
 
 app.http("markNotificationRead", {
   methods: ["PATCH"],
-  authLevel: "anonymous",
+  authLevel: "function",
   route: "notifications/{id}/read",
   handler: markNotificationReadHttp,
 });

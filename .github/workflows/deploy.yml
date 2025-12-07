@@ -1,0 +1,123 @@
+name: Build and Deploy to Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  build-and-publish:
+    name: Build and Package (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: catalogue
+            path: catalogue-service-func
+            artifact: package-catalogue
+          - name: inventory
+            path: inventory-service-func
+            artifact: package-inventory
+          - name: loans
+            path: loans-service-func
+            artifact: package-loans
+          - name: notifications
+            path: notifications-service-func
+            artifact: package-notifications
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: "**/package-lock.json"
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.path }}
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Build (into ./dist)
+        working-directory: ${{ matrix.path }}
+        run: npm run build
+
+      - name: Package with Azure Functions Core Tools
+        working-directory: ${{ matrix.path }}
+        env:
+          FUNCTIONS_WORKER_RUNTIME: node
+        run: |
+          npm install -g azure-functions-core-tools@4 --unsafe-perm true
+          # Produce a single zip ready for run-from-package
+          npx func pack --build --worker-runtime node --output ../${{ matrix.artifact }}.zip
+
+      - name: Save package temporarily for deployment
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}.zip
+          retention-days: 1
+
+  deploy-to-test:
+    name: Deploy (${{ matrix.name }})
+    needs: build-and-publish
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: catalogue
+            app-name: catalogue-service-func
+            artifact: package-catalogue
+            secret: AZURE_PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC
+          - name: inventory
+            app-name: inventory-service-func
+            artifact: package-inventory
+            secret: AZURE_PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC
+          - name: loans
+            app-name: loans-service-func
+            artifact: package-loans
+            secret: AZURE_PUBLISH_PROFILE_LOANS_SERVICE_FUNC
+          - name: notifications
+            app-name: notifications-service-func
+            artifact: package-notifications
+            secret: AZURE_PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC
+    steps:
+      - name: Download package artefact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: artifacts
+
+      - name: Locate package file
+        run: |
+          echo "Downloaded files:" && ls -lR artifacts || true
+          PKG=$(find artifacts -maxdepth 2 -type f -name '*.zip' | head -n1)
+          if [ -z "$PKG" ]; then
+            echo "Package not found" >&2
+            exit 1
+          fi
+          echo "PACKAGE_PATH=$PKG" >> "$GITHUB_ENV"
+
+      - name: Deploy to Azure Function App
+        env:
+          PUBLISH_PROFILE: ${{ secrets[matrix.secret] }}
+        if: ${{ env.PUBLISH_PROFILE != '' }}
+        uses: azure/functions-action@v1
+        with:
+          app-name: ${{ matrix.app-name }}
+          package: ${{ env.PACKAGE_PATH }}
+          publish-profile: ${{ env.PUBLISH_PROFILE }}

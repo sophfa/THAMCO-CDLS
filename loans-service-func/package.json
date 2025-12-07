@@ -18,12 +18,13 @@
   "dependencies": {
     "@azure/functions": "^4.0.0",
     "@types/jsonwebtoken": "^9.0.10",
+    "@azure/identity": "^4.1.0",
     "dotenv": "^17.2.3",
     "jsonwebtoken": "^9.0.2",
     "jwks-rsa": "^3.2.0"
   },
   "devDependencies": {
-    "@azure/cosmos": "^4.7.0",
+    "@azure/cosmos": "4.7.0",
     "@types/jest": "^29.5.0",
     "@types/node": "^18.19.130",
     "@types/supertest": "^6.0.0",

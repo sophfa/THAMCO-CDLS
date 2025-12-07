@@ -13,7 +13,7 @@ export async function getUserWaitlistPositionsHttp(
 ): Promise<HttpResponseInit> {
   try {
     // Validate authentication token
-    const authResult = validateToken(req, ctx);
+    const authResult = await validateToken(req, ctx);
     if (!authResult.isValid) {
       ctx.log("Authentication failed:", authResult.error);
       return {
@@ -68,6 +68,6 @@ export async function getUserWaitlistPositionsHttp(
 app.http("getUserWaitlistPositionsHttp", {
   methods: ["GET"],
   route: "loans/waitlist/{userId}",
-  authLevel: "anonymous",
+  authLevel: "function",
   handler: getUserWaitlistPositionsHttp,
 });

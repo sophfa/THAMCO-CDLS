@@ -14,7 +14,7 @@ export async function createLoanHttp(
 ): Promise<HttpResponseInit> {
   try {
     // Validate authentication token
-    const authResult = validateToken(req, context);
+    const authResult = await validateToken(req, context);
     if (!authResult.isValid) {
       context.log("Authentication failed:", authResult.error);
       return {
@@ -75,6 +75,6 @@ export async function createLoanHttp(
 app.http("createLoanHttp", {
   route: "loans",
   methods: ["POST"],
-  authLevel: "anonymous",
+  authLevel: "function",
   handler: createLoanHttp,
 });

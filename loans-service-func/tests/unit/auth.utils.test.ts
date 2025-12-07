@@ -23,42 +23,42 @@ const createJwt = (payload: Record<string, unknown>) => {
 };
 
 describe("auth utils - validateToken", () => {
-  it("rejects missing header", () => {
-    const result = validateToken(createRequest(), ctx);
+  it("rejects missing header", async () => {
+    const result = await validateToken(createRequest(), ctx);
     expect(result).toEqual({
       isValid: false,
       error: "No authorization header provided",
     });
   });
 
-  it("rejects invalid header format", () => {
-    const result = validateToken(createRequest("Basic abc"), ctx);
+  it("rejects invalid header format", async () => {
+    const result = await validateToken(createRequest("Basic abc"), ctx);
     expect(result.isValid).toBe(false);
   });
 
-  it("rejects malformed tokens", () => {
-    const result = validateToken(createRequest("Bearer not-a.jwt"), ctx);
+  it("rejects malformed tokens", async () => {
+    const result = await validateToken(createRequest("Bearer not-a.jwt"), ctx);
     expect(result.isValid).toBe(false);
     expect(result.error).toMatch(/Invalid token structure/);
   });
 
-  it("rejects token without user id", () => {
+  it("rejects token without user id", async () => {
     const token = createJwt({});
-    const result = validateToken(createRequest(`Bearer ${token}`), ctx);
+    const result = await validateToken(createRequest(`Bearer ${token}`), ctx);
     expect(result.isValid).toBe(false);
     expect(result.error).toMatch(/sub/);
   });
 
-  it("rejects expired token", () => {
+  it("rejects expired token", async () => {
     const token = createJwt({ sub: "user-1", exp: Math.floor(Date.now() / 1000) - 10 });
-    const result = validateToken(createRequest(`Bearer ${token}`), ctx);
+    const result = await validateToken(createRequest(`Bearer ${token}`), ctx);
     expect(result.isValid).toBe(false);
     expect(result.error).toMatch(/expired/);
   });
 
-  it("accepts valid token", () => {
+  it("accepts valid token", async () => {
     const token = createJwt({ sub: "user-1", exp: Math.floor(Date.now() / 1000) + 60 });
-    const result = validateToken(createRequest(`Bearer ${token}`), ctx);
+    const result = await validateToken(createRequest(`Bearer ${token}`), ctx);
     expect(result).toEqual({ isValid: true, userId: "user-1" });
   });
 });

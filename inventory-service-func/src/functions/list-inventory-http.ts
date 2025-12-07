@@ -21,6 +21,21 @@ const cosmosOptions = {
 // Initialize repository - in inventoryion, this could be dependency injected
 const inventoryRepo: InventoryRepo = new CosmosInventoryRepo(cosmosOptions);
 
+function withCors(
+  res: HttpResponseInit,
+  allowMethods = "GET,OPTIONS"
+): HttpResponseInit {
+  return {
+    ...res,
+    headers: {
+      ...(res.headers ?? {}),
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": allowMethods,
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    },
+  };
+}
+
 /**
  * Response format for inventory list API
  */
@@ -48,6 +63,10 @@ export async function listInventorysHttp(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
+  if (request.method === "OPTIONS") {
+    return withCors({ status: 204 }, "GET,OPTIONS");
+  }
+
   context.log("HTTP trigger function processed a request to list inventorys");
 
   try {
@@ -72,14 +91,14 @@ export async function listInventorysHttp(
       },
     };
 
-    return {
+    return withCors({
       status: 200,
       headers: {
         "Content-Type": "application/json",
         "Cache-Control": "no-cache",
       },
       body: JSON.stringify(response, null, 2),
-    };
+    });
   } catch (error: any) {
     context.log("Error listing inventorys:", error);
     const errorResponse: ListInventorysResponse = {
@@ -89,18 +108,18 @@ export async function listInventorysHttp(
         message: "An unexpected error occurred while listing inventorys",
       },
     };
-    return {
+    return withCors({
       status: 500,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(errorResponse, null, 2),
-    };
+    });
   }
 }
 
 // Register the function with Azure Functions runtime
 app.http("listInventorys", {
-  methods: ["GET"],
-  authLevel: "anonymous",
+  methods: ["GET", "OPTIONS"],
+  authLevel: "function",
   route: "inventorys",
   handler: listInventorysHttp,
 });

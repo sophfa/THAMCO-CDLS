@@ -23,6 +23,6 @@ export async function listFavouritesHttp(
 app.http("listFavouritesHttp", {
   methods: ["GET"],
   route: "loans/user/{userId}/favorites",
-  authLevel: "anonymous",
+  authLevel: "function",
   handler: listFavouritesHttp,
 });

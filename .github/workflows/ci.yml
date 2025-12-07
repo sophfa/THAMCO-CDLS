@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "18"
+  CI: "true"
+
+jobs:
+  build-and-test:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Frontend
+            path: catalogue-frontend
+            build: npm run build
+            nodeVersion: "20.19.0"
+          - name: Catalogue Service
+            path: catalogue-service-func
+            build: npm run build
+          - name: Inventory Service
+            path: inventory-service-func
+            build: npm run build
+          - name: Loans Service
+            path: loans-service-func
+            build: npm run build
+            test: npm run test:ci
+          - name: Notifications Service
+            path: notifications-service-func
+            build: npm run build
+
+    defaults:
+      run:
+        working-directory: ${{ matrix.path }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.nodeVersion || env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Run tests
+        if: ${{ matrix.test }}
+        run: ${{ matrix.test }}
+
+      - name: Build
+        if: ${{ matrix.build }}
+        run: ${{ matrix.build }}
