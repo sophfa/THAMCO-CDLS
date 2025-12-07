@@ -14,7 +14,7 @@ export async function revertCollectedLoanHttp(
   context: InvocationContext
 ): Promise<HttpResponseInit> {
   try {
-    const authResult = validateToken(req, context);
+    const authResult = await validateToken(req, context);
     if (!authResult.isValid) {
       context.log("Authentication failed:", authResult.error);
       return {

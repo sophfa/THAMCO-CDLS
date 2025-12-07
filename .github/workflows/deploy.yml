@@ -1,143 +1,117 @@
-name: Deploy
+name: Build and Deploy to Test
 
 on:
-  workflow_dispatch:
-    inputs:
-      environment:
-        description: "Target environment (for secrets scoping/approvals)"
-        required: false
-        default: "prod"
-        type: choice
-        options:
-          - dev
-          - prod
   push:
-    tags:
-      - "v*"
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 env:
-  NODE_VERSION: "18"
-  CI: "true"
+  NODE_VERSION: "22"
 
 jobs:
-  deploy:
-    name: Build & Deploy
+  build-and-publish:
+    name: Build and Package (${{ matrix.name }})
     runs-on: ubuntu-latest
-    timeout-minutes: 25
-    environment: ${{ github.event.inputs.environment || 'prod' }}
-    env:
-      AZURE_PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC: ${{ secrets.AZURE_PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC }}
-      AZURE_PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC: ${{ secrets.AZURE_PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC }}
-      AZURE_PUBLISH_PROFILE_LOANS_SERVICE_FUNC: ${{ secrets.AZURE_PUBLISH_PROFILE_LOANS_SERVICE_FUNC }}
-      AZURE_PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC: ${{ secrets.AZURE_PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC }}
+    strategy:
+      matrix:
+        include:
+          - name: catalogue
+            path: catalogue-service-func
+            artifact: package-catalogue
+          - name: inventory
+            path: inventory-service-func
+            artifact: package-inventory
+          - name: loans
+            path: loans-service-func
+            artifact: package-loans
+          - name: notifications
+            path: notifications-service-func
+            artifact: package-notifications
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-          cache-dependency-path: "**/package-lock.json"
+          cache-dependency-path: ${{ matrix.path }}/package-lock.json
 
-      - name: Debug publish profiles (non-sensitive)
-        run: |
-          summarize() {
-            local name="$1"
-            local value="$2"
-            if [ -z "$value" ]; then
-              echo "$name: MISSING"
-            else
-              echo "$name: present (length=${#value})"
-            fi
-          }
-          summarize "catalogue profile" "${AZURE_PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC}"
-          summarize "inventory profile" "${AZURE_PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC}"
-          summarize "loans profile" "${AZURE_PUBLISH_PROFILE_LOANS_SERVICE_FUNC}"
-          summarize "notifications profile" "${AZURE_PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC}"
-        env:
-          AZURE_PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC: ${{ secrets.AZURE_PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC }}
-          AZURE_PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC: ${{ secrets.AZURE_PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC }}
-          AZURE_PUBLISH_PROFILE_LOANS_SERVICE_FUNC: ${{ secrets.AZURE_PUBLISH_PROFILE_LOANS_SERVICE_FUNC }}
-          AZURE_PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC: ${{ secrets.AZURE_PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC }}
-
-      - name: Build catalogue-service-func
-        working-directory: catalogue-service-func
+      - name: Install dependencies
+        working-directory: ${{ matrix.path }}
         run: |
           if [ -f package-lock.json ]; then
             npm ci
           else
             npm install
           fi
-          npm run build
-          npm prune --production
 
-      - name: Deploy catalogue-service-func
-        if: ${{ env.AZURE_PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC != '' }}
-        uses: Azure/functions-action@v1
-        with:
-          app-name: catalogue-service-func
-          publish-profile: ${{ env.AZURE_PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC }}
-          package: catalogue-service-func
+      - name: Build (into ./dist)
+        working-directory: ${{ matrix.path }}
+        run: npm run build
 
-      - name: Build inventory-service-func
-        working-directory: inventory-service-func
+      - name: Publish function app to package folder
+        working-directory: ${{ matrix.path }}
         run: |
+          rm -rf package
+          mkdir -p package/dist
+          cp host.json package/
+          cp package.json package/
+          if [ -f package-lock.json ]; then cp package-lock.json package/; fi
+          cp -r dist package/dist
           if [ -f package-lock.json ]; then
-            npm ci
+            npm ci --omit=dev --prefix package
           else
-            npm install
+            npm install --omit=dev --prefix package
           fi
-          npm run build
-          npm prune --production
 
-      - name: Deploy inventory-service-func
-        if: ${{ env.AZURE_PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC != '' }}
-        uses: Azure/functions-action@v1
+      - name: Save package temporarily for deployment
+        uses: actions/upload-artifact@v4
         with:
-          app-name: inventory-service-func
-          publish-profile: ${{ env.AZURE_PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC }}
-          package: inventory-service-func
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.path }}/package
+          retention-days: 1
 
-      - name: Build loans-service-func
-        working-directory: loans-service-func
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
-          npm run build
-          npm prune --production
-
-      - name: Deploy loans-service-func
-        if: ${{ env.AZURE_PUBLISH_PROFILE_LOANS_SERVICE_FUNC != '' }}
-        uses: Azure/functions-action@v1
+  deploy-to-test:
+    name: Deploy (${{ matrix.name }})
+    needs: build-and-publish
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: catalogue
+            app-name: catalogue-service-func
+            artifact: package-catalogue
+            secret: AZURE_PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC
+          - name: inventory
+            app-name: inventory-service-func
+            artifact: package-inventory
+            secret: AZURE_PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC
+          - name: loans
+            app-name: loans-service-func
+            artifact: package-loans
+            secret: AZURE_PUBLISH_PROFILE_LOANS_SERVICE_FUNC
+          - name: notifications
+            app-name: notifications-service-func
+            artifact: package-notifications
+            secret: AZURE_PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC
+    steps:
+      - name: Download package artefact
+        uses: actions/download-artifact@v4
         with:
-          app-name: loans-service-func
-          publish-profile: ${{ env.AZURE_PUBLISH_PROFILE_LOANS_SERVICE_FUNC }}
-          package: loans-service-func
+          name: ${{ matrix.artifact }}
+          path: package
 
-      - name: Build notifications-service-func
-        working-directory: notifications-service-func
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
-          npm run build
-          npm prune --production
-
-      - name: Deploy notifications-service-func
-        if: ${{ env.AZURE_PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC != '' }}
-        uses: Azure/functions-action@v1
+      - name: Deploy to Azure Function App
+        if: ${{ secrets[matrix.secret] != '' }}
+        uses: azure/functions-action@v1
         with:
-          app-name: notifications-service-func
-          publish-profile: ${{ env.AZURE_PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC }}
-          package: notifications-service-func
-
-      - name: Summary
-        run: |
-          echo "Deployment complete (or skipped if secrets missing)."
+          app-name: ${{ matrix.app-name }}
+          package: package
+          publish-profile: ${{ secrets[matrix.secret] }}

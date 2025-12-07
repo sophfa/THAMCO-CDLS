@@ -58,7 +58,7 @@ export async function addFavouriteHttp(
 
   try {
     // Validate authentication token
-    const authResult = validateToken(request, context);
+    const authResult = await validateToken(request, context);
     if (!authResult.isValid) {
       context.log("Authentication failed:", authResult.error);
       return {

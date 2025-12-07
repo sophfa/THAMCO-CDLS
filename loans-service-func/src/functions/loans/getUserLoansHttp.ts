@@ -13,7 +13,7 @@ export async function getUserLoansHttp(
 ): Promise<HttpResponseInit> {
   try {
     // Validate authentication token
-    const authResult = validateToken(req, ctx);
+    const authResult = await validateToken(req, ctx);
     if (!authResult.isValid) {
       ctx.log("Authentication failed:", authResult.error);
       return {

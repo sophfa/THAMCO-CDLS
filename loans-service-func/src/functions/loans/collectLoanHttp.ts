@@ -15,7 +15,7 @@ export async function collectLoanHttp(
 ): Promise<HttpResponseInit> {
   try {
     // Validate authentication token
-    const authResult = validateToken(req, context);
+    const authResult = await validateToken(req, context);
     if (!authResult.isValid) {
       context.log("Authentication failed:", authResult.error);
       return {
