@@ -102,6 +102,16 @@ jobs:
           name: ${{ matrix.artifact }}
           path: artifacts
 
+      - name: Locate package file
+        run: |
+          echo "Downloaded files:" && ls -lR artifacts || true
+          PKG=$(find artifacts -maxdepth 2 -type f -name '*.zip' | head -n1)
+          if [ -z "$PKG" ]; then
+            echo "Package not found" >&2
+            exit 1
+          fi
+          echo "PACKAGE_PATH=$PKG" >> "$GITHUB_ENV"
+
       - name: Deploy to Azure Function App
         env:
           PUBLISH_PROFILE: ${{ secrets[matrix.secret] }}
@@ -109,5 +119,5 @@ jobs:
         uses: azure/functions-action@v1
         with:
           app-name: ${{ matrix.app-name }}
-          package: artifacts/${{ matrix.artifact }}.zip
+          package: ${{ env.PACKAGE_PATH }}
           publish-profile: ${{ env.PUBLISH_PROFILE }}
