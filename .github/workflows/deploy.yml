@@ -65,7 +65,11 @@ jobs:
       - name: Build catalogue-service-func
         working-directory: catalogue-service-func
         run: |
-          npm ci
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
           npm run build
           npm prune --production
 
@@ -80,7 +84,11 @@ jobs:
       - name: Build inventory-service-func
         working-directory: inventory-service-func
         run: |
-          npm ci
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
           npm run build
           npm prune --production
 
@@ -95,7 +103,11 @@ jobs:
       - name: Build loans-service-func
         working-directory: loans-service-func
         run: |
-          npm ci
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
           npm run build
           npm prune --production
 
@@ -110,7 +122,11 @@ jobs:
       - name: Build notifications-service-func
         working-directory: notifications-service-func
         run: |
-          npm ci
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
           npm run build
           npm prune --production
 
