@@ -8,7 +8,6 @@ import { COSMOS_OPTIONS } from "../config/cosmosOptions";
 import { Product } from "../domain/product";
 import { ProductRepo } from "../domain/product-repo";
 import { CosmosProductRepo } from "../infra/cosmos-product-repo";
-import { validateFunctionKey } from "../utils/functionKey";
 
 const productRepo: ProductRepo = new CosmosProductRepo(COSMOS_OPTIONS);
 
@@ -40,11 +39,6 @@ export async function listProductsHttp(
   context: InvocationContext
 ): Promise<HttpResponseInit> {
   context.log("HTTP trigger function processed a request to list products");
-
-  const keyResult = validateFunctionKey(request, context);
-  if (keyResult) {
-    return keyResult;
-  }
 
   try {
     const result = await productRepo.list();
@@ -96,7 +90,7 @@ export async function listProductsHttp(
 // Register the function with Azure Functions runtime
 app.http("listProducts", {
   methods: ["GET"],
-  authLevel: "function",
+  authLevel: "anonymous",
   route: "products",
   handler: listProductsHttp,
 });

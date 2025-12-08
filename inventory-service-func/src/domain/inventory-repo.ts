@@ -51,6 +51,6 @@ export interface InventoryRepo {
    */
   setStock(
     id: string,
-    inStock: boolean
+    available: boolean
   ): Promise<RepositoryResult<Inventory>>;
 }

@@ -9,7 +9,6 @@ import {
 import { Product } from "../domain/product";
 import { ProductRepo } from "../domain/product-repo";
 import { CosmosProductRepo } from "../infra/cosmos-product-repo";
-import { validateFunctionKey } from "../utils/functionKey";
 
 // Configuration from environment variables
 const cosmosOptions = {
@@ -49,11 +48,6 @@ export async function getProductByIdHttp(
   context.log(
     `HTTP trigger function processed a request to get product: ${productId}`
   );
-
-  const keyResult = validateFunctionKey(request, context);
-  if (keyResult) {
-    return keyResult;
-  }
 
   // Validate product ID parameter
   if (!productId || productId.trim().length === 0) {
@@ -154,7 +148,7 @@ export async function getProductByIdHttp(
 // Register the function with Azure Functions runtime
 app.http("getProductById", {
   methods: ["GET"],
-  authLevel: "function",
+  authLevel: "anonymous",
   route: "products/{id}",
   handler: getProductByIdHttp,
 });

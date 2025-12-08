@@ -46,16 +46,16 @@ export async function updateInventoryFromLoanEvent(
     return;
   }
 
-  const inStock = AVAILABLE_STATUSES.has(data.newStatus);
+  const available = AVAILABLE_STATUSES.has(data.newStatus);
   context.log(
-    `Loan ${data.loanId} status ${data.newStatus} -> set device ${data.deviceId} inStock=${inStock}`
+    `Loan ${data.loanId} status ${data.newStatus} -> set device ${data.deviceId} available=${available}`
   );
 
-  const result = await repo.setStock(data.deviceId, inStock);
+  const result = await repo.setStock(data.deviceId, available);
 
   if (result.success) {
     context.log(
-      `Inventory updated for device ${data.deviceId}, inStock=${result.data.inStock}`
+      `Inventory updated for device ${data.deviceId}, stock=${result.data.stock}`
     );
   } else {
     const err = (result as { success: false; error: { code: string; message: string } }).error;

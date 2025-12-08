@@ -187,7 +187,7 @@ export class CosmosInventoryRepo implements InventoryRepo {
    */
   async setStock(
     id: string,
-    inStock: boolean
+    available: boolean
   ): Promise<RepositoryResult<Inventory>> {
     try {
       const readResult = await this.container.item(id, id).read<InventoryDocument>();
@@ -198,7 +198,10 @@ export class CosmosInventoryRepo implements InventoryRepo {
         };
       }
 
-      const updatedDoc = { ...readResult.resource, inStock };
+      const currentStock = readResult.resource.stock ?? 0;
+      const updatedStock = available ? Math.max(currentStock, 1) : 0;
+
+      const updatedDoc = { ...readResult.resource, stock: updatedStock };
       const replaceResult = await this.container
         .item(id, id)
         .replace<InventoryDocument>(updatedDoc);
