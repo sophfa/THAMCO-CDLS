@@ -89,6 +89,6 @@ export async function getDeviceLoanHistoryHttp(
 app.http("getDeviceLoanHistoryHttp", {
   methods: ["GET"],
   route: "loans/device/{deviceId}",
-  authLevel: "function",
+  authLevel: "anonymous",
   handler: getDeviceLoanHistoryHttp,
 });
