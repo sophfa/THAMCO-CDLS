@@ -8,8 +8,10 @@ const PROD_CALLBACK_URL = import.meta.env.VITE_AUTH0_PROD_CALLBACK_URL;
 
 function getRedirectUri(): string | undefined {
   if (import.meta.env.PROD && PROD_CALLBACK_URL) {
+    console.log("in prod");
     return PROD_CALLBACK_URL;
   }
+  console.log("in dev");
   return DEFAULT_CALLBACK_URL;
 }
 
@@ -72,7 +74,7 @@ function saveUserToStorage(user: any) {
     picture: user.picture,
     roles: user["https://thamco-clds.app/roles"],
   };
-
+  console.log("usertostore: ", userToStore);
   localStorage.setItem(STORAGE_KEYS.USER, encodeData(userToStore));
   updateSessionTimestamp();
 
