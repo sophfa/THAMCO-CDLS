@@ -3,6 +3,16 @@ import { computed } from "vue";
 
 let auth0: Auth0Client | null = null;
 
+const DEFAULT_CALLBACK_URL = import.meta.env.VITE_AUTH0_CALLBACK_URL;
+const PROD_CALLBACK_URL = import.meta.env.VITE_AUTH0_PROD_CALLBACK_URL;
+
+function getRedirectUri(): string | undefined {
+  if (import.meta.env.PROD && PROD_CALLBACK_URL) {
+    return PROD_CALLBACK_URL;
+  }
+  return DEFAULT_CALLBACK_URL;
+}
+
 // Secure storage keys
 const STORAGE_KEYS = {
   USER: "thamco_user_data",
@@ -93,7 +103,7 @@ export async function initAuth() {
     domain: import.meta.env.VITE_AUTH0_DOMAIN,
     clientId: import.meta.env.VITE_AUTH0_CLIENT_ID,
     authorizationParams: {
-      redirect_uri: import.meta.env.VITE_AUTH0_CALLBACK_URL,
+      redirect_uri: getRedirectUri(),
       audience: import.meta.env.VITE_AUTH0_AUDIENCE,
       scope: "openid profile email",
     },

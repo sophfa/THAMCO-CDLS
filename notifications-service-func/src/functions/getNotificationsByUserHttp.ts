@@ -11,6 +11,7 @@ import {
   getNotificationRepo,
   MissingCosmosConfigurationError,
 } from '../infra/notificationRepoFactory';
+import { validateToken } from "../utils/auth";
 
 /**
  * Response format for get notifications by user API
@@ -35,6 +36,15 @@ export async function getNotificationsByUserHttp(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
+  const auth = await validateToken(request, context);
+  if (!auth.isValid || !auth.userId) {
+    return {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ success: false, error: "Unauthorized" }),
+    };
+  }
+
   const userId = request.params.userId;
 
   context.log(

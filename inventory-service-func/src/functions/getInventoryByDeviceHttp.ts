@@ -63,6 +63,6 @@ export async function getInventoryByDeviceHttp(
 app.http("getInventoryByDeviceHttp", {
   route: "inventory/{deviceId}",
   methods: ["GET", "OPTIONS"],
-  authLevel: "function",
+  authLevel: "anonymous",
   handler: getInventoryByDeviceHttp,
 });

@@ -6,6 +6,7 @@ import {
 } from "@azure/functions";
 import { cosmosClient } from "../config/cosmosClient";
 import "dotenv/config";
+import { validateToken, isAdmin } from "../utils/auth";
 
 interface AdjustStockRequest {
   delta?: number;
@@ -39,6 +40,20 @@ export async function adjustInventoryStockHttp(
 ): Promise<HttpResponseInit> {
   if (req.method === "OPTIONS") {
     return withCors({ status: 204 }, "POST,OPTIONS");
+  }
+
+  const auth = await validateToken(req, context);
+  if (!auth.isValid || !auth.token) {
+    return withCors({
+      status: 401,
+      jsonBody: { success: false, message: "Unauthorized" },
+    });
+  }
+  if (!isAdmin(auth.token)) {
+    return withCors({
+      status: 403,
+      jsonBody: { success: false, message: "Forbidden" },
+    });
   }
 
   const inventoryId = req.params.id;
@@ -166,6 +181,6 @@ export async function adjustInventoryStockHttp(
 app.http("adjustInventoryStockHttp", {
   route: "inventory/{id}/stock-adjustment",
   methods: ["POST", "OPTIONS"],
-  authLevel: "function",
+  authLevel: "anonymous",
   handler: adjustInventoryStockHttp,
 });

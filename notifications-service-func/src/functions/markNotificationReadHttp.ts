@@ -5,6 +5,7 @@ import {
   InvocationContext,
 } from "@azure/functions";
 import { cosmosClient } from "../config/cosmosClient";
+import { validateToken, isAdminOrOwner } from "../utils/auth";
 
 const databaseId = process.env.COSMOS_DATABASE;
 const containerId = process.env.COSMOS_CONTAINER;
@@ -14,6 +15,13 @@ export async function markNotificationReadHttp(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
+  if (request.method === "OPTIONS") return { status: 204 };
+
+  const auth = await validateToken(request, context);
+  if (!auth.isValid || !auth.userId) {
+    return { status: 401, jsonBody: { error: "Unauthorized" } };
+  }
+
   const id = request.params.id;
 
   if (!id) {
@@ -30,6 +38,10 @@ export async function markNotificationReadHttp(
         status: 404,
         jsonBody: { error: `Notification ${id} not found` },
       };
+    }
+
+    if (!isAdminOrOwner(auth, doc.userId)) {
+      return { status: 403, jsonBody: { error: "Forbidden" } };
     }
 
     doc.read = read;
@@ -52,7 +64,7 @@ export async function markNotificationReadHttp(
 
 app.http("markNotificationRead", {
   methods: ["PATCH"],
-  authLevel: "function",
+  authLevel: "anonymous",
   route: "notifications/{id}/read",
   handler: markNotificationReadHttp,
 });
