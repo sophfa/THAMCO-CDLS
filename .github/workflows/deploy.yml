@@ -129,7 +129,7 @@ jobs:
       NODE_VERSION: "22"
       VITE_AUTH0_PROD_CALLBACK_URL: ${{ secrets.VITE_AUTH0_PROD_CALLBACK_URL }}
       AZ_STORAGE_ACCOUNT: ${{ secrets.AZ_STORAGE_ACCOUNT }}
-      AZ_STORAGE_SAS: ${{ secrets.AZ_STORAGE_SAS }}
+      AZ_STORAGE_KEY: ${{ secrets.AZ_STORAGE_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -163,7 +163,7 @@ jobs:
         run: |
           az storage blob upload-batch \
             --account-name "${{ env.AZ_STORAGE_ACCOUNT }}" \
-            --account-key "${{ env.AZ_STORAGE_SAS }}" \
+            --account-key "${{ env.AZ_STORAGE_KEY }}" \
             --source catalogue-frontend/dist \
             --destination '$web' \
             --overwrite
