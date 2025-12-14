@@ -8,18 +8,7 @@ import {
 } from "@azure/functions";
 import { Inventory } from "../domain/inventory";
 import { InventoryRepo } from "../domain/inventory-repo";
-import { CosmosInventoryRepo } from "../infra/cosmos-inventory-repo";
-
-// Configuration from environment variables
-const cosmosOptions = {
-  endpoint: process.env.COSMOS_ENDPOINT,
-  databaseId: process.env.COSMOS_DATABASE,
-  containerId: process.env.COSMOS_CONTAINER,
-  key: process.env.COSMOS_KEY,
-};
-
-// Initialize repository - in inventoryion, this could be dependency injected
-const inventoryRepo: InventoryRepo = new CosmosInventoryRepo(cosmosOptions);
+import { getInventoryRepo } from "../infra/inventory-repo-factory";
 
 function withCors(
   res: HttpResponseInit,
@@ -70,7 +59,8 @@ export async function listInventorysHttp(
   context.log("HTTP trigger function processed a request to list inventorys");
 
   try {
-    const result = await inventoryRepo.list();
+    const repo = getInventoryRepo();
+    const result = await repo.list();
 
     if (!result.success) {
       throw new Error(
@@ -101,11 +91,16 @@ export async function listInventorysHttp(
     });
   } catch (error: any) {
     context.log("Error listing inventorys:", error);
+    const isConfigError =
+      error instanceof Error &&
+      error.message.includes("Missing required environment variable");
     const errorResponse: ListInventorysResponse = {
       success: false,
       error: {
         code: "INTERNAL_ERROR",
-        message: "An unexpected error occurred while listing inventorys",
+        message: isConfigError
+          ? "Inventory service is not configured with Cosmos DB connection settings"
+          : "An unexpected error occurred while listing inventorys",
       },
     };
     return withCors({

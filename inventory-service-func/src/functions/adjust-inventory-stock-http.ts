@@ -4,7 +4,8 @@ import {
   HttpResponseInit,
   InvocationContext,
 } from "@azure/functions";
-import { cosmosClient } from "../config/cosmosClient";
+import { Container } from "@azure/cosmos";
+import { getCosmosClient } from "../config/cosmosClient";
 import "dotenv/config";
 import { validateToken, isAdmin } from "../utils/auth";
 
@@ -15,9 +16,23 @@ interface AdjustStockRequest {
   lastAdjustmentRef?: string;
 }
 
-const container = cosmosClient
-  .database(process.env.COSMOS_DATABASE!)
-  .container(process.env.COSMOS_CONTAINER!);
+let container: Container | undefined;
+
+function getInventoryContainer(): Container {
+  if (!container) {
+    const databaseId = process.env.COSMOS_DATABASE;
+    const containerId = process.env.COSMOS_CONTAINER;
+    if (!databaseId || !containerId) {
+      throw new Error(
+        "Missing required environment variable: COSMOS_DATABASE or COSMOS_CONTAINER"
+      );
+    }
+    container = getCosmosClient()
+      .database(databaseId)
+      .container(containerId);
+  }
+  return container;
+}
 
 function withCors(
   res: HttpResponseInit,
@@ -99,8 +114,24 @@ export async function adjustInventoryStockHttp(
     });
   }
 
+  let inventoryContainer: Container;
   try {
-    const response = await container.item(inventoryId, inventoryId).read<any>();
+    inventoryContainer = getInventoryContainer();
+  } catch (error: any) {
+    context.log?.("[inventory] cosmos container init failed", error);
+    return withCors({
+      status: 500,
+      jsonBody: {
+        success: false,
+        message: "Inventory service is not configured with Cosmos DB settings",
+      },
+    });
+  }
+
+  try {
+    const response = await inventoryContainer
+      .item(inventoryId, inventoryId)
+      .read<any>();
 
     if (!response.resource) {
       context.log?.("[inventory] inventory not found", { inventoryId });
@@ -147,7 +178,7 @@ export async function adjustInventoryStockHttp(
         : {}),
     };
 
-    const replaceResult = await container
+    const replaceResult = await inventoryContainer
       .item(inventoryId, inventoryId)
       .replace(updated);
 

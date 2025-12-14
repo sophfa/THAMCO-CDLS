@@ -1,8 +1,15 @@
 import { CosmosClient } from "@azure/cosmos";
 import { DefaultAzureCredential } from "@azure/identity";
+import { getCosmosConfig } from "./cosmosConfig";
 
-const endpoint = process.env.COSMOS_ENDPOINT!;
+let client: CosmosClient | undefined;
 
-export const cosmosClient = process.env.COSMOS_KEY
-  ? new CosmosClient({ endpoint, key: process.env.COSMOS_KEY })
-  : new CosmosClient({ endpoint, aadCredentials: new DefaultAzureCredential() });
+export function getCosmosClient(): CosmosClient {
+  if (!client) {
+    const { endpoint, key } = getCosmosConfig();
+    client = key
+      ? new CosmosClient({ endpoint, key })
+      : new CosmosClient({ endpoint, aadCredentials: new DefaultAzureCredential() });
+  }
+  return client;
+}

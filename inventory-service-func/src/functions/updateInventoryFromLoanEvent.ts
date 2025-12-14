@@ -1,6 +1,6 @@
 import { app, EventGridEvent, InvocationContext } from "@azure/functions";
-import { CosmosInventoryRepo } from "../infra/cosmos-inventory-repo";
 import { InventoryRepo } from "../domain/inventory-repo";
+import { getInventoryRepo } from "../infra/inventory-repo-factory";
 
 type LoanStatus =
   | "Requested"
@@ -24,15 +24,6 @@ const AVAILABLE_STATUSES = new Set<LoanStatus>([
   "Cancelled",
 ]);
 
-const cosmosOptions = {
-  endpoint: process.env.COSMOS_ENDPOINT,
-  databaseId: process.env.COSMOS_DATABASE,
-  containerId: process.env.COSMOS_CONTAINER,
-  key: process.env.COSMOS_KEY,
-};
-
-const repo: InventoryRepo = new CosmosInventoryRepo(cosmosOptions);
-
 export async function updateInventoryFromLoanEvent(
   event: EventGridEvent,
   context: InvocationContext
@@ -50,6 +41,14 @@ export async function updateInventoryFromLoanEvent(
   context.log(
     `Loan ${data.loanId} status ${data.newStatus} -> set device ${data.deviceId} available=${available}`
   );
+
+  let repo: InventoryRepo;
+  try {
+    repo = getInventoryRepo();
+  } catch (error) {
+    context.error("Inventory repository is not configured", error);
+    return;
+  }
 
   const result = await repo.setStock(data.deviceId, available);
 

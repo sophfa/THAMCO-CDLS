@@ -4,12 +4,26 @@ import {
   HttpResponseInit,
   InvocationContext,
 } from "@azure/functions";
-import { cosmosClient } from "../config/cosmosClient";
+import { Container } from "@azure/cosmos";
+import { getCosmosClient } from "../config/cosmosClient";
 import "dotenv/config";
 
-const container = cosmosClient
-  .database(process.env.COSMOS_DATABASE!)
-  .container(process.env.COSMOS_CONTAINER!);
+let container: Container | undefined;
+function getInventoryContainer(): Container {
+  if (!container) {
+    const databaseId = process.env.COSMOS_DATABASE;
+    const containerId = process.env.COSMOS_CONTAINER;
+    if (!databaseId || !containerId) {
+      throw new Error(
+        "Missing required environment variable: COSMOS_DATABASE or COSMOS_CONTAINER"
+      );
+    }
+    container = getCosmosClient()
+      .database(databaseId)
+      .container(containerId);
+  }
+  return container;
+}
 
 export async function getInventoryByDeviceHttp(
   req: HttpRequest,
@@ -34,9 +48,23 @@ export async function getInventoryByDeviceHttp(
     };
   }
 
+  let inventoryContainer: Container;
+  try {
+    inventoryContainer = getInventoryContainer();
+  } catch (error) {
+    context.error("[inventory] cosmos container init failed", error);
+    return {
+      status: 500,
+      jsonBody: {
+        success: false,
+        message: "Inventory service is not configured with Cosmos DB settings",
+      },
+    };
+  }
+
   const query = `SELECT * FROM c WHERE ARRAY_CONTAINS(c.deviceIds, @deviceId) OR c.deviceId = @deviceId`;
 
-  const { resources } = await container.items
+  const { resources } = await inventoryContainer.items
     .query({ query, parameters: [{ name: "@deviceId", value: deviceId }] })
     .fetchAll();
 
