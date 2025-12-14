@@ -1,18 +1,24 @@
 import { createAuth0Client, Auth0Client } from "@auth0/auth0-spa-js";
+import { clear } from "console";
 import { computed } from "vue";
 
 let auth0: Auth0Client | null = null;
 
-const DEFAULT_CALLBACK_URL = import.meta.env.VITE_AUTH0_CALLBACK_URL;
+const DEV_CALLBACK_URL = import.meta.env.VITE_AUTH0_DEV_CALLBACK_URL;
 const PROD_CALLBACK_URL = import.meta.env.VITE_AUTH0_PROD_CALLBACK_URL;
 
 function getRedirectUri(): string | undefined {
+  console.log("env vars: ", {
+    DEV_CALLBACK_URL,
+    PROD_CALLBACK_URL,
+    isProd: import.meta.env.PROD,
+  });
   if (import.meta.env.PROD && PROD_CALLBACK_URL) {
     console.log("in prod");
     return PROD_CALLBACK_URL;
   }
   console.log("in dev");
-  return DEFAULT_CALLBACK_URL;
+  return DEV_CALLBACK_URL;
 }
 
 // Secure storage keys
