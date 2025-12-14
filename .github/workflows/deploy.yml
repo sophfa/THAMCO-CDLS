@@ -153,6 +153,7 @@ jobs:
       - name: Build frontend
         run: |
           cd catalogue-frontend
+          echo "Using prod callback ${VITE_AUTH0_PROD_CALLBACK_URL}"
           npm run build
 
       - name: Install Azure CLI

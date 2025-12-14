@@ -101,6 +101,8 @@ function getUserFromStorage(): any | null {
 
 // Initialize Auth0 and handle redirect callback if present
 export async function initAuth() {
+  const redirect = getRedirectUri();
+  console.log("Auth0 redirect URI: ", redirect);
   auth0 = await createAuth0Client({
     domain: import.meta.env.VITE_AUTH0_DOMAIN,
     clientId: import.meta.env.VITE_AUTH0_CLIENT_ID,
