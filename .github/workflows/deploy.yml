@@ -128,8 +128,8 @@ jobs:
     env:
       NODE_VERSION: "22"
       VITE_AUTH0_PROD_CALLBACK_URL: ${{ secrets.VITE_AUTH0_PROD_CALLBACK_URL }}
-      STORAGE_ACCOUNT_NAME: ${{ secrets.STORAGE_ACCOUNT_NAME }}
-      STORAGE_ACCOUNT_KEY: ${{ secrets.STORAGE_ACCOUNT_KEY }}
+      STORAGE_ACCOUNT_NAME: ${{ secrets.AZ_STORAGE_ACCOUNT }}
+      STORAGE_ACCOUNT_KEY: ${{ secrets.AZ_STORAGE_SAS }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
