@@ -50,7 +50,7 @@ async function init() {
   // Load user profile from Auth0 or secure localStorage cache
   const authUser = await getUser();
   user.value = authUser || null;
-  console.log("user before role assign: ", user.value);
+  console.log("user before role assign hi sophie: ", user.value);
 
   if (user.value) {
     // Assign default role if not Admin

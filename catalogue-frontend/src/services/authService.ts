@@ -107,6 +107,7 @@ function getUserFromStorage(): any | null {
 
 // Initialize Auth0 and handle redirect callback if present
 export async function initAuth() {
+  console.log("Initializing Auth0 client...");
   const redirect = getRedirectUri();
   console.log("Auth0 redirect URI: ", redirect);
   auth0 = await createAuth0Client({
