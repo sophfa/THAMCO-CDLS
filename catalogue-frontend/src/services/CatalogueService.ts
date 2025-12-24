@@ -13,6 +13,7 @@ export { isTablet, isCamera, isLaptop } from "../types/models";
 const BASE_URL = import.meta.env.PROD
   ? import.meta.env.VITE_CATALOGUE_API_URL_PROD + "/products"
   : import.meta.env.VITE_CATALOGUE_API_URL + "/products";
+console.log("[CatalogueService] Base URL:", BASE_URL);
 
 export async function fetchCatalogue(): Promise<CategoryProduct[]> {
   const response = await fetch(BASE_URL);

@@ -5,6 +5,7 @@ const BASE_URL = import.meta.env.PROD
   ? import.meta.env.VITE_LOANS_API_URL_PROD ||
     import.meta.env.VITE_LOANS_API_URL
   : import.meta.env.VITE_LOANS_API_URL;
+console.log("[ReservationsService] Base URL:", BASE_URL);
 if (!BASE_URL) {
   console.error(
     "[ReservationsService] Missing VITE_LOANS_API_URL(_PROD); requests will fail."

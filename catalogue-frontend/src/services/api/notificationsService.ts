@@ -6,7 +6,7 @@ const BASE_URL = import.meta.env.PROD
   ? import.meta.env.VITE_NOTIFICATIONS_API_URL_PROD
   : import.meta.env.VITE_NOTIFICATIONS_API_URL;
 
-console.log("base_url for notifications: ", BASE_URL);
+console.log("[NotificationsService] Base URL:", BASE_URL);
 
 async function fetchWithAuth(
   url: string,

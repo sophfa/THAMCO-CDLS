@@ -2,6 +2,7 @@ const BASE_URL = (import.meta.env.VITE_INVENTORY_API_URL || "").replace(
   /\/$/,
   ""
 );
+console.log("[InventoryService] Base URL:", BASE_URL);
 
 export interface InventoryRecord {
   id: string;
