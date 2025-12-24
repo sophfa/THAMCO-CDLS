@@ -11,10 +11,15 @@ import { ProductRepo } from "../domain/product-repo";
 import { CosmosProductRepo } from "../infra/cosmos-product-repo";
 
 // Configuration from environment variables
+const isLocal =
+  (process.env.AZURE_FUNCTIONS_ENVIRONMENT || "").toLowerCase() ===
+    "development" || (process.env.NODE_ENV || "").toLowerCase() === "development";
+
 const cosmosOptions = {
   endpoint: process.env.COSMOS_ENDPOINT,
   databaseId: process.env.COSMOS_DATABASE,
   containerId: process.env.COSMOS_CONTAINER,
+  key: isLocal ? process.env.COSMOS_KEY : undefined,
 };
 
 // Initialize repository

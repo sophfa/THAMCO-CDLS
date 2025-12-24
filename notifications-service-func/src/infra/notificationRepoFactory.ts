@@ -7,6 +7,10 @@ const requiredCosmosEnvVars = [
   'COSMOS_CONTAINER',
 ] as const;
 
+const isLocal =
+  (process.env.AZURE_FUNCTIONS_ENVIRONMENT || '').toLowerCase() ===
+    'development' || (process.env.NODE_ENV || '').toLowerCase() === 'development';
+
 export class MissingCosmosConfigurationError extends Error {
   readonly missingSettings: readonly string[];
 
@@ -36,7 +40,7 @@ export function getNotificationRepo(): NotificationRepo {
       endpoint: process.env.COSMOS_ENDPOINT as string,
       databaseId: process.env.COSMOS_DATABASE as string,
       containerId: process.env.COSMOS_CONTAINER as string,
-      key: process.env.COSMOS_KEY,
+      key: isLocal ? process.env.COSMOS_KEY : undefined,
     });
   }
 

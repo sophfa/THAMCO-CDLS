@@ -2,7 +2,11 @@
 import { CosmosClient, Container } from "@azure/cosmos";
 import { DefaultAzureCredential } from "@azure/identity";
 
-const client = process.env.COSMOS_KEY
+const isLocal =
+  (process.env.AZURE_FUNCTIONS_ENVIRONMENT || "").toLowerCase() ===
+    "development" || (process.env.NODE_ENV || "").toLowerCase() === "development";
+
+const client = isLocal && process.env.COSMOS_KEY
   ? new CosmosClient({
       endpoint: process.env.COSMOS_ENDPOINT!,
       key: process.env.COSMOS_KEY!,

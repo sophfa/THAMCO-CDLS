@@ -22,16 +22,35 @@ export interface AvailabilityResult {
 export async function getAvailabilityForProduct(
   productId: string
 ): Promise<AvailabilityResult> {
-  const [stock, loanStats] = await Promise.all([
-    getStockForProduct(productId),
-    getActiveLoanCountForDevice(productId),
-  ]);
+  console.log("[AvailabilityService] Fetching availability", { productId });
+  let stock: number | null;
+  let loanStats: { activeLoans: number; byStatus?: Record<string, number> };
+  try {
+    [stock, loanStats] = await Promise.all([
+      getStockForProduct(productId),
+      getActiveLoanCountForDevice(productId),
+    ]);
+  } catch (error) {
+    console.error("[AvailabilityService] Fetch failed", {
+      productId,
+      error,
+    });
+    throw error;
+  }
 
   const activeLoans = loanStats.activeLoans;
   const available =
     typeof stock === "number"
       ? Math.max(stock - activeLoans, 0)
       : null;
+
+  console.log("[AvailabilityService] Computed availability", {
+    productId,
+    stock,
+    activeLoans,
+    available,
+    byStatus: loanStats.byStatus,
+  });
 
   return {
     stock,
