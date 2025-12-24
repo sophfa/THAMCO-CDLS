@@ -45,7 +45,6 @@ export interface Product {
   connectivity: string[];
   description: string;
   imageUrl: string;
-  price: number;
   stock?: number | null;
   availableStock?: number | null;
   activeLoans?: number;

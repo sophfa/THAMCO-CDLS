@@ -492,7 +492,6 @@ async function loadLoans() {
         }
       })
     );
-    console.log("loans: ", loans.value);
   } catch (e: any) {
     error.value = e?.message || "Failed to load loans";
   } finally {

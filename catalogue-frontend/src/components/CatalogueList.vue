@@ -9,7 +9,6 @@ const error = ref<string | null>(null);
 onMounted(async () => {
   try {
     products.value = await fetchCatalogue();
-    console.log("Fetched products:", products.value);
   } catch (e: any) {
     error.value = e.message;
   } finally {
@@ -34,7 +33,6 @@ onMounted(async () => {
         />
         <h2>{{ p.name }}</h2>
         <p><strong>Category:</strong> {{ p.category }}</p>
-        <p><strong>Price:</strong> £{{ p.price }}</p>
         <p>
           <strong>Status:</strong> {{ p.inStock ? "Available" : "Loaned Out" }}
         </p>

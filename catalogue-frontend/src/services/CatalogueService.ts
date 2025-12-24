@@ -1,3 +1,5 @@
+import { CategoryProduct } from "../types/models";
+
 export type {
   Product as Product,
   LaptopProduct,
@@ -5,14 +7,18 @@ export type {
   CameraProduct,
   CategoryProduct,
 } from "../types/models";
+
 export { isTablet, isCamera, isLaptop } from "../types/models";
-const BASE_URL = import.meta.env.VITE_CATALOGUE_API_URL + "/products";
+
+const BASE_URL = import.meta.env.PROD
+  ? import.meta.env.VITE_CATALOGUE_API_URL_PROD + "/products"
+  : import.meta.env.VITE_CATALOGUE_API_URL + "/products";
 
 export async function fetchCatalogue(): Promise<CategoryProduct[]> {
   const response = await fetch(BASE_URL);
   if (!response.ok) throw new Error("Failed to fetch catalogue");
   const body = await response.json();
-  return body.data ?? []; // your API returns { success, data: [...] }
+  return body.data ?? [];
 }
 
 export async function fetchProductById(id: string): Promise<CategoryProduct> {

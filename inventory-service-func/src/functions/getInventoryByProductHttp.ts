@@ -25,7 +25,7 @@ function getInventoryContainer(): Container {
   return container;
 }
 
-export async function getInventoryByDeviceHttp(
+export async function getInventoryByProductHttp(
   req: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
@@ -33,18 +33,18 @@ export async function getInventoryByDeviceHttp(
     return { status: 204 };
   }
 
-  const deviceId = req.params.deviceId;
-  context.log?.("[inventory] getInventoryByDeviceHttp", {
-    deviceId,
+  const productId = req.params.productId;
+  context.log?.("[inventory] getInventoryByProductHttp", {
+    productId,
     method: req.method,
     url: req.url,
   });
 
-  if (!deviceId || deviceId.trim().length === 0) {
-    context.log?.("[inventory] missing deviceId");
+  if (!productId || productId.trim().length === 0) {
+    context.log?.("[inventory] missing productId");
     return {
       status: 400,
-      jsonBody: { success: false, message: "A device ID is required" },
+      jsonBody: { success: false, message: "A product ID is required" },
     };
   }
 
@@ -62,10 +62,10 @@ export async function getInventoryByDeviceHttp(
     };
   }
 
-  const query = `SELECT * FROM c WHERE ARRAY_CONTAINS(c.deviceIds, @deviceId) OR c.deviceId = @deviceId`;
+  const query = `SELECT * FROM c WHERE c.id = @productId OR ARRAY_CONTAINS(c.deviceIds, @productId) OR c.deviceId = @productId`;
 
   const { resources } = await inventoryContainer.items
-    .query({ query, parameters: [{ name: "@deviceId", value: deviceId }] })
+    .query({ query, parameters: [{ name: "@productId", value: productId }] })
     .fetchAll();
 
   context.log?.("[inventory] query result", {
@@ -75,12 +75,12 @@ export async function getInventoryByDeviceHttp(
   });
 
   if (!resources || resources.length === 0) {
-    context.log?.("[inventory] no inventory for device", { deviceId });
+    context.log?.("[inventory] no inventory for product", { productId });
     return {
       status: 404,
       jsonBody: {
         success: false,
-        message: `No inventory found for device ${deviceId}`,
+        message: `No inventory found for product ${productId}`,
       },
     };
   }
@@ -88,9 +88,9 @@ export async function getInventoryByDeviceHttp(
   return { status: 200, jsonBody: { success: true, data: resources[0] } };
 }
 
-app.http("getInventoryByDeviceHttp", {
-  route: "inventory/{deviceId}",
+app.http("getInventoryByProductHttp", {
+  route: "inventory/{productId}",
   methods: ["GET", "OPTIONS"],
   authLevel: "anonymous",
-  handler: getInventoryByDeviceHttp,
+  handler: getInventoryByProductHttp,
 });

@@ -117,36 +117,31 @@
               <!-- Action Buttons Below Images -->
               <div class="button-container" v-if="user">
                 <button
-                  @click="isAdmin ? viewWaitlist() : addToCart"
-                  :disabled="!product.inStock"
+                  v-if="!isAdmin"
+                  @click="handleReserveOrWaitlist(product)"
+                  :disabled="!product.inStock && isOnWaitlist(product.id)"
                   :class="[
-                    'action-button flex-1 py-4 px-8 rounded-full font-semibold text-base transition-all duration-200',
-                    product.inStock ? 'reserve-btn' : 'waitlist-btn',
+                    'action-btn',
+                    hasActiveLoanForProduct(product.id)
+                      ? 'cancel-btn'
+                      : product.inStock
+                      ? 'reserve-btn'
+                      : 'waitlist-btn',
                   ]"
                 >
-                  <span v-if="product.inStock && !isAdmin">Reserve Device</span>
-                  <span v-else-if="!isAdmin">Join Waitlist</span>
-                  <span v-else-if="isAdmin">View Waitlist</span>
+                  <span v-if="hasActiveLoanForProduct(product.id)">
+                    Cancel Reservation
+                  </span>
+                  <span v-else-if="product.inStock">Reserve Device</span>
+                  <span v-else-if="isOnWaitlist(product.id)">On Waitlist</span>
+                  <span v-else>Join Waitlist</span>
                 </button>
-
                 <button
-                  class="share-btn py-4 px-4 rounded-full transition-all duration-200"
-                  title="Share"
+                  v-else
+                  @click="viewWaitlist"
+                  class="action-btn reserve-btn"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke-width="1.5"
-                    stroke="currentColor"
-                    class="h-5 w-5"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z"
-                    />
-                  </svg>
+                  View Waitlist
                 </button>
               </div>
             </div>
@@ -376,22 +371,118 @@
       </div>
     </div>
   </div>
+  <div v-if="dialog.open" class="modal-backdrop">
+    <div class="modal">
+      <h3 class="modal-title">
+        <span v-if="dialog.state === 'confirm'">
+          {{
+            dialog.kind === "reserve"
+              ? "Confirm Reservation"
+              : dialog.kind === "waitlist"
+              ? "Join Waitlist"
+              : "Cancel Reservation"
+          }}
+        </span>
+        <span v-else-if="dialog.state === 'success'">
+          {{
+            dialog.kind === "reserve"
+              ? "Reservation Confirmed"
+              : dialog.kind === "waitlist"
+              ? "Waitlist Joined"
+              : "Reservation Cancelled"
+          }}
+        </span>
+        <span v-else> Action Failed </span>
+      </h3>
+
+      <div class="modal-body">
+        <template v-if="dialog.state === 'confirm' && dialog.product">
+          <p>
+            {{
+              dialog.kind === "reserve"
+                ? `Reserve ${dialog.product.name}?`
+                : dialog.kind === "waitlist"
+                ? `Join the waitlist for ${dialog.product.name}?`
+                : `Cancel the reservation for ${dialog.product.name}?`
+            }}
+          </p>
+          <div v-if="dialog.kind === 'reserve'" class="date-range">
+            <div class="date-field">
+              <label>From</label>
+              <input type="date" v-model="dialog.startDate" />
+            </div>
+            <div class="date-field">
+              <label>Until</label>
+              <input
+                type="date"
+                v-model="dialog.endDate"
+                :min="dialog.startDate"
+              />
+            </div>
+          </div>
+        </template>
+
+        <template v-else-if="dialog.state === 'success' && dialog.product">
+          <p v-if="dialog.kind === 'reserve'">
+            Device reserved. A receipt has been emailed to you.
+          </p>
+          <p v-else-if="dialog.kind === 'waitlist'">
+            You have joined the waitlist. We'll notify you when it's available.
+          </p>
+          <p v-else>
+            Your reservation has been cancelled.
+          </p>
+        </template>
+
+        <template v-else>
+          <p>{{ dialog.error || "Something went wrong. Please try again." }}</p>
+        </template>
+      </div>
+
+      <div class="modal-actions">
+        <template v-if="dialog.state === 'confirm'">
+          <button class="btn-secondary" @click="closeDialog">Cancel</button>
+          <button
+            class="btn-primary"
+            :disabled="dialog.loading"
+            @click="confirmDialog"
+          >
+            {{
+              dialog.loading
+                ? "Working…"
+                : dialog.kind === "reserve"
+                ? "Confirm"
+                : dialog.kind === "waitlist"
+                ? "Join"
+                : "Cancel Reservation"
+            }}
+          </button>
+        </template>
+
+        <template v-else>
+          <button class="btn-primary" @click="closeDialog">Close</button>
+        </template>
+      </div>
+    </div>
+  </div>
 </template>
 
-<script>
-import { ref, onMounted, computed, watch } from "vue";
+<script lang="ts">
+import { ref, onMounted, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import type { Product } from "../types/models";
 import { fetchProductById } from "../services/CatalogueService";
 import { useFavorites } from "../services/favouritesService";
 import { useAuth } from "../composables/useAuth";
-import { getStockForDevice } from "../services/api/inventoryService";
+import { getStockForProduct } from "../services/api/inventoryService";
+import { useReservationFlow } from "../composables/useReservationFlow";
 
 export default {
   name: "ProductPage",
   setup() {
     const route = useRoute();
     const router = useRouter();
-    const product = ref(null);
+    const product = ref<Product | null>(null);
     const loading = ref(true);
     const error = ref("");
 
@@ -406,25 +497,26 @@ export default {
       initializeFavorites,
     } = useFavorites();
 
-    const isFavorited = computed(() => {
-      return product.value ? isFavorite(product.value.id) : false;
-    });
+    const isFavorited = computed(() =>
+      product.value ? isFavorite(product.value.id) : false
+    );
 
-    const selectImage = (image) => {
+    const {
+      dialog,
+      handleReserveOrWaitlist,
+      confirmDialog,
+      closeDialog,
+      hasActiveLoanForProduct,
+      isOnWaitlist,
+    } = useReservationFlow();
+
+    const selectImage = (image: string) => {
       if (product.value) product.value.mainImage = image;
-    };
-
-    const addToCart = () => {
-      if (product.value) console.log("Added to cart:", product.value.name);
     };
 
     const toggleFavorite = async () => {
       if (product.value) {
         await serviceToggleFavorite(product.value.id);
-        console.log(
-          isFavorited.value ? "Added to favorites:" : "Removed from favorites:",
-          product.value.name
-        );
       }
     };
 
@@ -440,18 +532,18 @@ export default {
       try {
         await initializeFavorites();
 
-        const productId = route.params.id ;
+        const productId = route.params.id as string | undefined;
         if (productId) {
           const fetched = await fetchProductById(productId);
           const fallbackStock =
-            typeof (fetched).stock === "number"
-              ? (fetched).stock
+            typeof fetched.stock === "number"
+              ? fetched.stock
               : fetched.inStock
               ? 1
               : 0;
-          let stock = null;
+          let stock: number | null = null;
           try {
-            stock = await getStockForDevice(productId);
+            stock = await getStockForProduct(productId);
           } catch (err) {
             console.warn("[ProductPage] Failed to load stock", err);
           }
@@ -465,27 +557,29 @@ export default {
             images: imageUrl ? [imageUrl] : [],
           };
         }
-      } catch (e) {
+      } catch (e: any) {
         error.value = e.message;
       } finally {
         loading.value = false;
       }
     });
-    // Debug: log the current product object (not the Ref wrapper)
-    console.log("product:", product.value);
-    // Also log whenever it changes
-    watch(product, (v) => console.log("product changed:", v));
+
     return {
       product,
       loading,
       error,
       isFavorited,
       selectImage,
-      addToCart,
       toggleFavorite,
       isAdmin,
       viewWaitlist,
       user,
+      dialog,
+      handleReserveOrWaitlist,
+      confirmDialog,
+      closeDialog,
+      hasActiveLoanForProduct,
+      isOnWaitlist,
     };
   },
 };
@@ -1018,5 +1112,107 @@ button:focus-visible {
 
 .favorite-btn:hover {
   transform: scale(1.1);
+}
+
+.action-btn {
+  flex: 1;
+  padding: 0.85rem 1.5rem;
+  border: none;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+.reserve-btn {
+  background-color: #6c7c69;
+  color: white;
+}
+.reserve-btn:hover {
+  background-color: #5a6857;
+  transform: translateY(-1px);
+}
+.waitlist-btn {
+  background-color: #6b7280;
+  color: white;
+}
+.waitlist-btn:hover:not(:disabled) {
+  background-color: #4b5563;
+}
+.waitlist-btn:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.cancel-btn {
+  background-color: #c0392b;
+  color: white;
+}
+.cancel-btn:hover {
+  background-color: #a6211f;
+}
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.modal {
+  background: #fff;
+  border-radius: 12px;
+  width: 95%;
+  max-width: 480px;
+  padding: 1.25rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+.modal-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+.modal-body {
+  color: #374151;
+  margin-bottom: 1rem;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+.date-range {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+.date-field label {
+  display: block;
+  font-size: 0.85rem;
+  color: #374151;
+  margin-bottom: 0.25rem;
+}
+.date-field input[type="date"] {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 0.4rem 0.5rem;
+}
+.btn-primary {
+  background: #6c7c69;
+  color: #fff;
+  border: none;
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.btn-secondary {
+  background: #e5e7eb;
+  color: #111827;
+  border: none;
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  cursor: pointer;
 }
 </style>

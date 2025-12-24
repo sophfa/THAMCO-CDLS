@@ -1,19 +1,14 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, reactive } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { fetchCatalogue, type Product } from "../services/CatalogueService";
-import {
-  createLoan,
-  joinWaitlistForDevice,
-  getUserWaitlistEntries,
-} from "../services/api/loansService";
 import { useFavorites } from "../services/favouritesService";
 import { useAuth } from "../composables/useAuth";
 import SearchBar from "../components/SearchBar.vue";
 import { getCloudinaryUrl } from "../assets/cloudinary";
-import { getUserId, getUserEmail, getUserRole } from "../services/authService";
-import { createNotification } from "../services/api/notificationsService";
-import { getAvailabilityForDevice } from "../services/api/availabilityService";
+import { getUserRole } from "../services/authService";
+import { getAvailabilityForProduct } from "../services/api/availabilityService";
+import { useReservationFlow } from "../composables/useReservationFlow";
 const { user, loggedIn, logout } = useAuth();
 
 const products = ref<Product[]>([]);
@@ -21,32 +16,27 @@ const searchTerm = ref("");
 const selectedCategory = ref<string>("");
 const onlyInStock = ref<boolean>(false);
 const showFilters = ref<boolean>(false);
-const userWaitlistDeviceIds = ref<Set<string>>(new Set());
 
 // Faceted filter state
 const selectedBrands = ref<string[]>([]);
 const selectedRam = ref<string[]>([]);
 const selectedPorts = ref<string[]>([]);
 const selectedConnectivity = ref<string[]>([]);
-const priceMin = ref<string>("");
-const priceMax = ref<string>("");
 const loading = ref(true);
 const error = ref("");
 const router = useRouter();
 const route = useRoute();
+const {
+  dialog,
+  hasActiveLoanForProduct,
+  isOnWaitlist,
+  handleReserveOrWaitlist,
+  confirmDialog,
+  closeDialog,
+} = useReservationFlow();
+const isCatalogueFetching = ref(false);
 
 // Confirmation / result dialog state
-const dialog = reactive({
-  open: false as boolean,
-  kind: "reserve" as "reserve" | "waitlist",
-  state: "confirm" as "confirm" | "success" | "error",
-  loading: false as boolean,
-  error: "" as string,
-  product: null as null | Product,
-  startDate: "" as string,
-  endDate: "" as string,
-});
-
 const userRole = ref<string | null>(null);
 
 // Keep track of the user's role when auth state changes (and on first render)
@@ -55,10 +45,8 @@ watch(
   async (isLoggedIn) => {
     if (isLoggedIn) {
       try {
-        // Prefer service call; falls back to composable user if needed
         const role = (await getUserRole()) ?? user.value?.role ?? null;
         userRole.value = role;
-        console.log("User role:", role);
       } catch (e) {
         console.warn("Failed to get user role", e);
         userRole.value = user.value?.role ?? null;
@@ -71,46 +59,28 @@ watch(
 );
 
 // Function to refresh product catalogue
-async function refreshProductCatalogue() {
+async function refreshProductCatalogue(showIndicator = true) {
+  if (showIndicator) {
+    isCatalogueFetching.value = true;
+  }
   try {
     const data = await fetchCatalogue();
     products.value = await withInventoryStock(data);
-    console.log("[Catalogue] Refreshed products:", data);
   } catch (e: any) {
     console.error("[Catalogue] Failed to refresh products:", e);
+  } finally {
+    if (showIndicator) {
+      isCatalogueFetching.value = false;
+    }
   }
 }
 
 // Function to load user's waitlist entries
-async function loadUserWaitlist() {
-  try {
-    const userId = await getUserId();
-    if (!userId) return;
-
-    const waitlistEntries = await getUserWaitlistEntries(userId);
-    userWaitlistDeviceIds.value = new Set(
-      waitlistEntries.map((entry) => entry.deviceId)
-    );
-    console.log(
-      "[Catalogue] User is on waitlist for:",
-      Array.from(userWaitlistDeviceIds.value)
-    );
-  } catch (e) {
-    console.warn("[Catalogue] Failed to load user waitlist:", e);
-  }
-}
-
-// Check if user is on waitlist for a device
-function isOnWaitlist(deviceId: string): boolean {
-  return userWaitlistDeviceIds.value.has(deviceId);
-}
-
 async function withInventoryStock(items: Product[]): Promise<Product[]> {
   const enriched = await Promise.all(
     items.map(async (p) => {
       try {
-        const availability = await getAvailabilityForDevice(p.id);
-        console.log("availability: ", p.id, "=>", availability);
+        const availability = await getAvailabilityForProduct(p.id);
         return {
           ...p,
           stock: availability.stock ?? null,
@@ -136,79 +106,6 @@ async function withInventoryStock(items: Product[]): Promise<Product[]> {
   return enriched;
 }
 
-async function confirmDialog() {
-  if (!dialog.product) return;
-  dialog.loading = true;
-  dialog.error = "";
-  try {
-    if (dialog.kind === "reserve") {
-      // Fallback to today/tomorrow if missing
-      const start = dialog.startDate || new Date().toISOString().slice(0, 10);
-      const end =
-        dialog.endDate ||
-        new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-      await createLoan(dialog.product.id, start, end, "Requested");
-      await refreshProductCatalogue();
-    } else {
-      const _wl = await joinWaitlistForDevice(dialog.product.id);
-      (dialog as any)._waitlistResult = _wl;
-
-      // After successfully joining waitlist, refresh the catalogue and waitlist
-      await Promise.all([refreshProductCatalogue(), loadUserWaitlist()]);
-    }
-    // Fire-and-forget notification
-    try {
-      const uid = await getUserId();
-      const email = await getUserEmail();
-      if (uid) {
-        const message =
-          dialog.kind === "reserve"
-            ? `Your reservation for ${dialog.product.name} is confirmed (${dialog.startDate} → ${dialog.endDate}). A receipt has been emailed to you.`
-            : `You joined the waitlist for ${dialog.product.name}. We'll notify you when it's available.`;
-        if (dialog.kind === "reserve") {
-          const start =
-            dialog.startDate || new Date().toISOString().slice(0, 10);
-          await createNotification(uid, "Reservation", dialog.product.id, {
-            collectionDate: start,
-            userEmail: email || undefined,
-          });
-        } else {
-          const wl = ((dialog as any)._waitlistResult as any)?.waitlist as
-            | string[]
-            | undefined;
-          let position: number | undefined;
-          if (Array.isArray(wl)) {
-            const idx = wl.indexOf(uid);
-            position = idx >= 0 ? idx + 1 : wl.length;
-          }
-          await createNotification(uid, "Waitlist", dialog.product.id, {
-            numInQueue: position,
-            userEmail: email || undefined,
-          });
-        }
-      }
-    } catch (e) {
-      console.warn("Notification failed:", e);
-    }
-    dialog.state = "success";
-  } catch (e: any) {
-    dialog.state = "error";
-    dialog.error = e?.message || "Operation failed";
-  } finally {
-    dialog.loading = false;
-  }
-}
-
-function closeDialog() {
-  dialog.open = false;
-  dialog.loading = false;
-  dialog.error = "";
-  dialog.product = null;
-  dialog.state = "confirm";
-  dialog.startDate = "";
-  dialog.endDate = "";
-}
-
 // Use the API-based favorites service
 const {
   isFavorite,
@@ -223,17 +120,9 @@ onMounted(async () => {
     // Initialize favorites from API
     await initializeFavorites();
 
-    const data = await fetchCatalogue();
-    products.value = await withInventoryStock(data);
-    console.log("[Catalogue] Fetched products:", data);
-
-    // Load user's waitlist entries if logged in
-    if (loggedIn.value) {
-      await loadUserWaitlist();
-    }
+    await refreshProductCatalogue(false);
 
     // Prefill from route query if present
-    console.log("[Catalogue] Initial route query:", route.query);
     const qCategory = (route.query.category as string) || "";
     if (qCategory) {
       // Map query to a known category ignoring case
@@ -241,10 +130,6 @@ onMounted(async () => {
         (c) => c.toLowerCase() === qCategory.toLowerCase()
       );
       selectedCategory.value = cat || qCategory;
-      console.log(
-        "[Catalogue] Applied category from query:",
-        selectedCategory.value
-      );
     }
     const qSearch = (route.query.search as string) || "";
     if (qSearch) searchTerm.value = qSearch;
@@ -263,8 +148,6 @@ onMounted(async () => {
     selectedRam.value = parseCsv(route.query.ram);
     selectedPorts.value = parseCsv(route.query.ports);
     selectedConnectivity.value = parseCsv(route.query.connectivity);
-    priceMin.value = (route.query.min as string) || "";
-    priceMax.value = (route.query.max as string) || "";
   } catch (e: any) {
     error.value = e.message;
   } finally {
@@ -276,7 +159,6 @@ onMounted(async () => {
 watch(
   () => route.query,
   (q) => {
-    console.log("[Catalogue] Route query changed:", q);
     const qCategory = (q.category as string) || "";
     const qSearch = (q.search as string) || "";
     const qInStock = (q.inStock as string) || "";
@@ -307,8 +189,6 @@ watch(
     selectedRam.value = parseCsv(q.ram);
     selectedPorts.value = parseCsv(q.ports);
     selectedConnectivity.value = parseCsv(q.connectivity);
-    priceMin.value = (q.min as string) || "";
-    priceMax.value = (q.max as string) || "";
   }
 );
 
@@ -322,19 +202,6 @@ const applyFilters = () => {
   if (selectedPorts.value.length) query.ports = selectedPorts.value.join(",");
   if (selectedConnectivity.value.length)
     query.connectivity = selectedConnectivity.value.join(",");
-  if (priceMin.value) query.min = priceMin.value;
-  if (priceMax.value) query.max = priceMax.value;
-  console.log("[Catalogue] Applying filters:", {
-    selectedCategory: selectedCategory.value,
-    onlyInStock: onlyInStock.value,
-    searchTerm: searchTerm.value,
-    brands: selectedBrands.value,
-    ram: selectedRam.value,
-    ports: selectedPorts.value,
-    connectivity: selectedConnectivity.value,
-    min: priceMin.value,
-    max: priceMax.value,
-  });
   router.push({ path: "/catalogue", query });
 };
 
@@ -428,12 +295,6 @@ const filteredProducts = computed(() => {
       selectedConnectivity.value.length === 0 ||
       (Array.isArray(p.connectivity) &&
         selectedConnectivity.value.every((v) => p.connectivity.includes(v)));
-    const price = typeof p.price === "number" ? p.price : NaN;
-    const minOk =
-      !priceMin.value || (!isNaN(price) && price >= Number(priceMin.value));
-    const maxOk =
-      !priceMax.value || (!isNaN(price) && price <= Number(priceMax.value));
-
     return (
       matchesSearch &&
       matchesCategory &&
@@ -441,43 +302,11 @@ const filteredProducts = computed(() => {
       matchesBrand &&
       matchesRam &&
       matchesPorts &&
-      matchesConnectivity &&
-      minOk &&
-      maxOk
+      matchesConnectivity
     );
   });
 });
-
-// Log filter results when inputs change
-watch(
-  [selectedCategory, onlyInStock, searchTerm, products],
-  () => {
-    console.log("[Catalogue] Filters updated:", {
-      selectedCategory: selectedCategory.value,
-      onlyInStock: onlyInStock.value,
-      searchTerm: searchTerm.value,
-    });
-    console.log("[Catalogue] Filtered count:", filteredProducts.value.length);
-  },
-  { deep: false }
-);
-
-const handleReserveOrWaitlist = async (product: Product) => {
-  // Open confirmation dialog instead of immediately performing the action
-  dialog.open = true;
-  dialog.kind = product.inStock ? "reserve" : "waitlist";
-  dialog.product = product;
-  dialog.state = "confirm";
-  if (product.inStock) {
-    const today = new Date();
-    const tomorrow = new Date(Date.now() + 86400000);
-    dialog.startDate = today.toISOString().slice(0, 10);
-    dialog.endDate = tomorrow.toISOString().slice(0, 10);
-  }
-};
 const viewDetails = (product: Product) => {
-  console.log(`Viewing details for ${product.name}`);
-
   // Navigate to product details page
   router.push(`/product/${product.id}`);
 };
@@ -571,33 +400,6 @@ const viewDetails = (product: Product) => {
               <div v-else class="empty-state">
                 <i class="fas fa-info-circle"></i>
                 No brands available for selected category
-              </div>
-            </div>
-
-            <div class="filter-group">
-              <label class="filter-label">Price Range</label>
-              <div class="price-inputs">
-                <div class="price-input-wrapper">
-                  <span class="currency">£</span>
-                  <input
-                    type="number"
-                    placeholder="Min"
-                    v-model="priceMin"
-                    class="price-input"
-                    min="0"
-                  />
-                </div>
-                <span class="price-separator">to</span>
-                <div class="price-input-wrapper">
-                  <span class="currency">£</span>
-                  <input
-                    type="number"
-                    placeholder="Max"
-                    v-model="priceMax"
-                    class="price-input"
-                    min="0"
-                  />
-                </div>
               </div>
             </div>
           </div>
@@ -714,8 +516,6 @@ const viewDetails = (product: Product) => {
                   selectedRam = [];
                   selectedPorts = [];
                   selectedConnectivity = [];
-                  priceMin = '';
-                  priceMax = '';
                   applyFilters();
                 })()
               "
@@ -728,11 +528,20 @@ const viewDetails = (product: Product) => {
       </aside>
 
       <!-- Products Grid -->
-      <div class="content" v-if="!loading && !error">
+      <div v-if="loading" class="catalogue-loading">
+        <div class="spinner"></div>
+        <p>Loading catalogue…</p>
+      </div>
+      <div class="content" v-else-if="!error">
+        <div v-if="isCatalogueFetching" class="catalogue-loading-overlay">
+          <div class="spinner"></div>
+          <p>Updating catalogue…</p>
+        </div>
         <div class="grid">
           <div v-for="p in filteredProducts" :key="p.id" class="card">
             <!-- Status Corner Banner -->
             <div
+              v-if="!hasActiveLoanForProduct(p.id)"
               class="absolute top-0 right-0 z-20"
               :class="
                 p.inStock ? 'status-banner-available' : 'status-banner-loaned'
@@ -754,7 +563,6 @@ const viewDetails = (product: Product) => {
               </div>
               <h2>{{ p.name }}</h2>
               <p><strong>Category:</strong> {{ p.category }}</p>
-              <p><strong>Price:</strong> £{{ p.price }}</p>
               <p v-if="p.availableStock !== undefined">
                 <strong>Available:</strong>
                 {{ p.availableStock ?? "Unknown" }}
@@ -789,10 +597,17 @@ const viewDetails = (product: Product) => {
                   :disabled="!p.inStock && isOnWaitlist(p.id)"
                   :class="[
                     'action-btn',
-                    p.inStock ? 'reserve-btn' : 'waitlist-btn',
+                    hasActiveLoanForProduct(p.id)
+                      ? 'cancel-btn'
+                      : p.inStock
+                      ? 'reserve-btn'
+                      : 'waitlist-btn',
                   ]"
                 >
-                  <span v-if="p.inStock">Reserve</span>
+                  <span v-if="hasActiveLoanForProduct(p.id)"
+                    >Cancel Reservation</span
+                  >
+                  <span v-else-if="p.inStock">Reserve</span>
                   <span v-else-if="isOnWaitlist(p.id)">On Waitlist</span>
                   <span v-else>Join Waitlist</span>
                 </button>
@@ -820,6 +635,9 @@ const viewDetails = (product: Product) => {
           </div>
         </div>
       </div>
+      <div v-else class="error">
+        <p>{{ error || "Unable to load the catalogue." }}</p>
+      </div>
     </div>
   </section>
 
@@ -829,14 +647,20 @@ const viewDetails = (product: Product) => {
       <h3 class="modal-title">
         <span v-if="dialog.state === 'confirm'">
           {{
-            dialog.kind === "reserve" ? "Confirm Reservation" : "Join Waitlist"
+            dialog.kind === "reserve"
+              ? "Confirm Reservation"
+              : dialog.kind === "waitlist"
+              ? "Join Waitlist"
+              : "Cancel Reservation"
           }}
         </span>
         <span v-else-if="dialog.state === 'success'">
           {{
             dialog.kind === "reserve"
               ? "Reservation Confirmed"
-              : "Waitlist Joined"
+              : dialog.kind === "waitlist"
+              ? "Waitlist Joined"
+              : "Reservation Cancelled"
           }}
         </span>
         <span v-else> Action Failed </span>
@@ -848,7 +672,9 @@ const viewDetails = (product: Product) => {
             {{
               dialog.kind === "reserve"
                 ? `Reserve ${dialog.product.name}?`
-                : `Join the waitlist for ${dialog.product.name}?`
+                : dialog.kind === "waitlist"
+                ? `Join the waitlist for ${dialog.product.name}?`
+                : `Cancel the reservation for ${dialog.product.name}?`
             }}
           </p>
           <div v-if="dialog.kind === 'reserve'" class="date-range">
@@ -871,8 +697,11 @@ const viewDetails = (product: Product) => {
           <p v-if="dialog.kind === 'reserve'">
             Device reserved. A receipt has been emailed to you.
           </p>
-          <p v-else>
+          <p v-else-if="dialog.kind === 'waitlist'">
             You have joined the waitlist. We'll notify you when it's available.
+          </p>
+          <p v-else>
+            Your reservation has been cancelled.
           </p>
         </template>
 
@@ -894,7 +723,9 @@ const viewDetails = (product: Product) => {
                 ? "Working…"
                 : dialog.kind === "reserve"
                 ? "Confirm"
-                : "Join"
+                : dialog.kind === "waitlist"
+                ? "Join"
+                : "Cancel Reservation"
             }}
           </button>
         </template>
@@ -1185,52 +1016,6 @@ const viewDetails = (product: Product) => {
   border-radius: 10px;
 }
 
-/* Price Inputs */
-.price-inputs {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-direction: column;
-  align-content: flex-start;
-  flex-wrap: wrap;
-}
-
-.price-input-wrapper {
-  position: relative;
-  flex: 1;
-}
-
-.currency {
-  position: absolute;
-  left: 0.75rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #6b7280;
-  font-size: 0.875rem;
-  font-weight: 500;
-}
-
-.price-input {
-  width: 100%;
-  padding: 0.75rem 0.75rem 0.75rem 1.75rem;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 0.875rem;
-  transition: border-color 0.2s ease;
-}
-
-.price-input:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.price-separator {
-  color: #6b7280;
-  font-size: 0.875rem;
-  font-weight: 500;
-}
-
 /* Empty State */
 .empty-state {
   display: flex;
@@ -1288,6 +1073,10 @@ const viewDetails = (product: Product) => {
 .btn-clear:hover {
   background: #f9fafb;
   color: #374151;
+}
+
+.content {
+  position: relative;
 }
 
 .grid {
@@ -1368,11 +1157,6 @@ const viewDetails = (product: Product) => {
     flex-direction: column;
   }
 
-  .price-inputs {
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-
   .checkbox-group {
     max-height: 120px;
   }
@@ -1442,6 +1226,13 @@ const viewDetails = (product: Product) => {
   cursor: not-allowed;
   opacity: 0.6;
 }
+.cancel-btn {
+  background-color: #c0392b;
+  color: white;
+}
+.cancel-btn:hover {
+  background-color: #a6211f;
+}
 .favorite-btn {
   background: none;
   border: none;
@@ -1455,6 +1246,50 @@ const viewDetails = (product: Product) => {
 }
 .favorite-btn:hover {
   background-color: #f5f5f5;
+}
+
+.catalogue-loading {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-height: 320px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  color: #374151;
+  font-size: 1.1rem;
+  padding: 1rem;
+}
+.catalogue-loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+  gap: 0.5rem;
+  font-weight: 600;
+  color: #374151;
+}
+.spinner {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 5px solid rgba(134, 125, 105, 0.3);
+  border-top-color: #6c7c69;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .error {
@@ -1472,6 +1307,11 @@ const viewDetails = (product: Product) => {
   border-radius: 4px;
   margin: 0.5rem 0;
   font-size: 0.9rem;
+}
+.reserve-hint {
+  margin-top: 0.25rem;
+  font-size: 0.85rem;
+  color: #d97706;
 }
 </style>
 
@@ -1520,7 +1360,7 @@ const viewDetails = (product: Product) => {
   margin-bottom: 0.25rem;
 }
 .date-field input[type="date"] {
-  width: 100%;
+  width: 92%;
   border: 1px solid #d1d5db;
   border-radius: 6px;
   padding: 0.4rem 0.5rem;

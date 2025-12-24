@@ -1,4 +1,4 @@
-import { getStockForDevice } from "./inventoryService";
+import { getStockForProduct } from "./inventoryService";
 import { getActiveLoanCountForDevice } from "./loansService";
 
 const ACTIVE_LOAN_STATUSES = new Set([
@@ -19,12 +19,12 @@ export interface AvailabilityResult {
  * Fetches inventory stock from the inventory service and active loan counts
  * from the loans service, then computes currently available units.
  */
-export async function getAvailabilityForDevice(
-  deviceId: string
+export async function getAvailabilityForProduct(
+  productId: string
 ): Promise<AvailabilityResult> {
   const [stock, loanStats] = await Promise.all([
-    getStockForDevice(deviceId),
-    getActiveLoanCountForDevice(deviceId),
+    getStockForProduct(productId),
+    getActiveLoanCountForDevice(productId),
   ]);
 
   const activeLoans = loanStats.activeLoans;

@@ -1,5 +1,4 @@
 import { createAuth0Client, Auth0Client } from "@auth0/auth0-spa-js";
-import { clear } from "console";
 import { computed } from "vue";
 
 let auth0: Auth0Client | null = null;
@@ -8,16 +7,9 @@ const DEV_CALLBACK_URL = import.meta.env.VITE_AUTH0_DEV_CALLBACK_URL;
 const PROD_CALLBACK_URL = import.meta.env.VITE_AUTH0_PROD_CALLBACK_URL;
 
 function getRedirectUri(): string | undefined {
-  console.log("env vars: ", {
-    DEV_CALLBACK_URL,
-    PROD_CALLBACK_URL,
-    isProd: import.meta.env.PROD,
-  });
   if (import.meta.env.PROD && PROD_CALLBACK_URL) {
-    console.log("in prod");
     return PROD_CALLBACK_URL;
   }
-  console.log("in dev");
   return DEV_CALLBACK_URL;
 }
 
@@ -80,7 +72,6 @@ function saveUserToStorage(user: any) {
     picture: user.picture,
     roles: user["https://thamco-clds.app/roles"],
   };
-  console.log("usertostore: ", userToStore);
   localStorage.setItem(STORAGE_KEYS.USER, encodeData(userToStore));
   updateSessionTimestamp();
 
@@ -107,9 +98,7 @@ function getUserFromStorage(): any | null {
 
 // Initialize Auth0 and handle redirect callback if present
 export async function initAuth() {
-  console.log("Initializing Auth0 client...");
   const redirect = getRedirectUri();
-  console.log("Auth0 redirect URI: ", redirect);
   auth0 = await createAuth0Client({
     domain: import.meta.env.VITE_AUTH0_DOMAIN,
     clientId: import.meta.env.VITE_AUTH0_CLIENT_ID,
@@ -146,7 +135,6 @@ export async function getUser() {
   const auth0User = await auth0?.getUser();
 
   if (auth0User) {
-    console.log("user from auth0: ", auth0User);
     saveUserToStorage(auth0User);
     return auth0User;
   }
@@ -154,7 +142,6 @@ export async function getUser() {
   // Fallback to localStorage if Auth0 session expired but local session valid
   const cachedUser = getUserFromStorage();
   if (cachedUser) {
-    console.log("user from cache (session still valid)");
     return cachedUser;
   }
 
@@ -176,7 +163,6 @@ export async function getUserRole(): Promise<string | null> {
   const user = await getUser();
   const namespace = "https://thamco-clds.app/";
   const roles = user?.[`${namespace}roles`];
-  console.log("roles from auth0: ", roles);
   return Array.isArray(roles) ? roles[0] : null;
 }
 

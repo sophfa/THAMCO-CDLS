@@ -52,19 +52,19 @@ export async function getInventoryByIdHttp(
     return withCors({ status: 204 }, "GET,OPTIONS");
   }
 
-  const inventoryId = request.params.id;
+  const productId = request.params.id;
 
   context.log(
-    `HTTP trigger function processed a request to get inventory: ${inventoryId}`
+    `HTTP trigger function processed a request to get inventory for product: ${productId}`
   );
 
-  // Validate inventory ID parameter
-  if (!inventoryId || inventoryId.trim().length === 0) {
+  // Validate product ID parameter
+  if (!productId || productId.trim().length === 0) {
     const errorResponse: GetInventoryResponse = {
       success: false,
       error: {
         code: "INVALID_INPUT",
-        message: "Inventory ID is required",
+        message: "Product ID is required",
       },
     };
 
@@ -80,7 +80,7 @@ export async function getInventoryByIdHttp(
   try {
     // Get inventory from repository
     const repo = getInventoryRepo();
-    const result = await repo.get(inventoryId.trim());
+    const result = await repo.get(productId.trim());
 
     if (result.success) {
       const response: GetInventoryResponse = {

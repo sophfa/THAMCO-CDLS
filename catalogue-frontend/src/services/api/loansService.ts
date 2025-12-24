@@ -1,7 +1,9 @@
-import { getUserId, getToken } from "../authService";
+import { getUserId, getToken, logout } from "../authService";
 import type { Loan, WaitlistEntry } from "../../types/models";
 
-const BASE_URL = import.meta.env.VITE_LOANS_API_URL;
+const BASE_URL = import.meta.env.PROD
+  ? import.meta.env.VITE_LOANS_API_URL_PROD
+  : import.meta.env.VITE_LOANS_API_URL;
 const LOANS_FUNCTION_CODE = import.meta.env.VITE_LOANS_API_CODE;
 const ACTIVE_LOAN_STATUSES = new Set<Loan["status"]>([
   "Requested",
@@ -10,13 +12,19 @@ const ACTIVE_LOAN_STATUSES = new Set<Loan["status"]>([
   "Overdue",
 ]);
 
+async function ensureNoDuplicateLoan(deviceId: string, userId: string) {
+  const existing = await getUserLoans(userId);
+  const hasActive = existing.some(
+    (loan) =>
+      loan.deviceId === deviceId && ACTIVE_LOAN_STATUSES.has(loan.status)
+  );
+  if (hasActive) {
+    throw new Error("You already have an active loan for this device");
+  }
+}
+
 // Helper function for authenticated API calls
 async function authenticatedFetch(url: string, options: RequestInit = {}) {
-  console.log(`[LoansService] Making API call to: ${url}`, {
-    method: options.method || "GET",
-    headers: options.headers,
-  });
-
   const token = await getToken();
   const headers = {
     "Content-Type": "application/json",
@@ -37,15 +45,20 @@ async function authenticatedFetch(url: string, options: RequestInit = {}) {
       statusText: response.statusText,
       method: options.method || "GET",
     });
+    if (response.status === 401 || response.status === 403) {
+      try {
+        await logout();
+      } catch (logoutErr) {
+        console.warn(
+          "[LoansService] Logout failed after auth error",
+          logoutErr
+        );
+      }
+    }
     throw new Error(errorMessage);
   }
 
   const data = await response.json();
-  console.log(`[LoansService] API call successful:`, {
-    url,
-    status: response.status,
-    dataLength: Array.isArray(data) ? data.length : Object.keys(data).length,
-  });
 
   return data;
 }
@@ -77,11 +90,14 @@ export async function getActiveLoanCountForDevice(deviceId: string): Promise<{
 }> {
   const history = await getDeviceLoanHistory(deviceId);
   const byStatus = history.stats?.byStatus ?? {};
-  const activeLoans = Object.entries(byStatus).reduce((sum, [status, count]) => {
-    return ACTIVE_LOAN_STATUSES.has(status as Loan["status"])
-      ? sum + (count || 0)
-      : sum;
-  }, 0);
+  const activeLoans = Object.entries(byStatus).reduce(
+    (sum, [status, count]) => {
+      return ACTIVE_LOAN_STATUSES.has(status as Loan["status"])
+        ? sum + (count || 0)
+        : sum;
+    },
+    0
+  );
   return { activeLoans, byStatus };
 }
 
@@ -91,12 +107,10 @@ export async function createLoan(
   till: string,
   status: Loan["status"] = "Requested"
 ): Promise<Loan> {
-  console.log(
-    `[LoansService] Creating loan for device: ${deviceId} from ${from} to ${till} (${status})`
-  );
-
   const userId = await getUserId();
   if (!userId) throw new Error("User not authenticated");
+
+  await ensureNoDuplicateLoan(deviceId, userId);
 
   const payload = {
     deviceId,
@@ -111,9 +125,7 @@ export async function createLoan(
       method: "POST",
       body: JSON.stringify(payload),
     });
-    console.log(
-      `[LoansService] Loan created successfully for device: ${deviceId}`
-    );
+
     return loan as Loan;
   } catch (error) {
     console.error(
@@ -125,15 +137,12 @@ export async function createLoan(
 }
 
 export async function returnLoan(loanId: string): Promise<Loan> {
-  console.log(`[LoansService] Returning loan: ${loanId}`);
-
   try {
     const data = await authenticatedFetch(`${BASE_URL}/loans/${loanId}`, {
       method: "PATCH",
       body: JSON.stringify({ status: "Returned" }),
     });
 
-    console.log(`[LoansService] Loan returned successfully: ${loanId}`);
     return data as Loan;
   } catch (error) {
     console.error(`[LoansService] Failed to return loan: ${loanId}`, error);
@@ -177,10 +186,6 @@ export async function addToWaitlist(
   userId: string,
   userEmail: string
 ): Promise<any> {
-  console.log(
-    `[LoansService] Adding user ${userId} to waitlist for device: ${deviceId}`
-  );
-
   try {
     const data = await authenticatedFetch(
       `${BASE_URL}/loans/${deviceId}/waitlist`,
@@ -190,9 +195,6 @@ export async function addToWaitlist(
       }
     );
 
-    console.log(
-      `[LoansService] Successfully added user ${userId} to waitlist for device: ${deviceId}`
-    );
     return data;
   } catch (error) {
     console.error(
@@ -204,8 +206,6 @@ export async function addToWaitlist(
 }
 
 export async function joinWaitlistForDevice(deviceId: string) {
-  console.log(`[LoansService] Joining waitlist for device: ${deviceId}`);
-
   const userId = await getUserId();
   if (!userId) throw new Error("User not authenticated");
 
@@ -217,9 +217,6 @@ export async function joinWaitlistForDevice(deviceId: string) {
     }
   );
 
-  console.log(
-    `[LoansService] Successfully joined waitlist for device: ${deviceId}`
-  );
   return data;
 }
 
@@ -233,8 +230,6 @@ export interface DeviceWaitlistResponse {
 export async function getWaitlistForDevice(
   deviceId: string
 ): Promise<DeviceWaitlistResponse> {
-  console.log(`[LoansService] Fetching waitlist for device: ${deviceId}`);
-
   try {
     const data = await authenticatedFetch(
       `${BASE_URL}/loans/device/${encodeURIComponent(deviceId)}/waitlist`,
@@ -253,8 +248,6 @@ export async function getWaitlistForDevice(
 }
 
 export async function cancelLoan(loanId: string): Promise<Loan> {
-  console.log(`[LoansService] Cancelling loan: ${loanId}`);
-
   try {
     const data = await authenticatedFetch(
       `${BASE_URL}/loans/${encodeURIComponent(loanId)}/cancel`,
@@ -262,7 +255,6 @@ export async function cancelLoan(loanId: string): Promise<Loan> {
         method: "PUT",
       }
     );
-    console.log(`[LoansService] Loan cancelled: ${loanId}`);
     return data as Loan;
   } catch (error) {
     console.error(`[LoansService] Failed to cancel loan: ${loanId}`, error);
@@ -271,8 +263,6 @@ export async function cancelLoan(loanId: string): Promise<Loan> {
 }
 
 export async function markLoanCollected(loanId: string): Promise<Loan> {
-  console.log(`[LoansService] Marking loan as collected: ${loanId}`);
-
   try {
     const data = await authenticatedFetch(
       `${BASE_URL}/loans/${encodeURIComponent(loanId)}/collect`,
@@ -291,8 +281,6 @@ export async function markLoanCollected(loanId: string): Promise<Loan> {
 }
 
 export async function revertLoanCollection(loanId: string): Promise<Loan> {
-  console.log(`[LoansService] Reverting collection for loan: ${loanId}`);
-
   try {
     const data = await authenticatedFetch(
       `${BASE_URL}/loans/${encodeURIComponent(loanId)}/revert-collection`,
@@ -314,8 +302,6 @@ export async function rejectLoan(
   loanId: string,
   reason = "Rejected by admin"
 ): Promise<Loan> {
-  console.log(`[LoansService] Rejecting loan: ${loanId}`);
-
   try {
     const data = await authenticatedFetch(
       `${BASE_URL}/loans/${encodeURIComponent(loanId)}/reject`,
@@ -332,17 +318,13 @@ export async function rejectLoan(
 }
 
 export async function getUserLoans(userId: string): Promise<Loan[]> {
-  console.log(`[LoansService] Fetching loans for user: ${userId}`);
-
   try {
     const data = await authenticatedFetch(
       `${BASE_URL}/loans/user/${encodeURIComponent(userId)}`
     );
 
     const loans = (Array.isArray(data) ? data : []) as Loan[];
-    console.log(
-      `[LoansService] Successfully fetched ${loans.length} loans for user: ${userId}`
-    );
+
     return loans;
   } catch (error) {
     console.error(
@@ -354,8 +336,6 @@ export async function getUserLoans(userId: string): Promise<Loan[]> {
 }
 
 export async function getUserFavorites(userId: string): Promise<string[]> {
-  console.log(`[LoansService] Fetching favorites for user: ${userId}`);
-
   const response = await authenticatedFetch(
     `${BASE_URL}/loans/user/${encodeURIComponent(userId)}/favorites`
   );
@@ -371,17 +351,10 @@ export async function getUserFavorites(userId: string): Promise<string[]> {
 
   const unique = Array.from(new Set(deviceIds));
 
-  console.log(
-    `[LoansService] Successfully fetched ${unique.length} favorites for user: ${userId}`
-  );
   return unique;
 }
 
 export async function addToFavorites(userId: string, deviceId: string) {
-  console.log(
-    `[LoansService] Adding device ${deviceId} to favorites for user: ${userId}`
-  );
-
   const result = await authenticatedFetch(`${BASE_URL}/favourites`, {
     method: "POST",
     body: JSON.stringify({
@@ -390,18 +363,10 @@ export async function addToFavorites(userId: string, deviceId: string) {
     }),
   });
 
-  console.log(
-    `[LoansService] Successfully added device ${deviceId} to favorites for user: ${userId}`
-  );
   return result;
 }
 
 export async function addFavourite(userId: string, deviceId: string) {
-  console.log(
-    `[LoansService] Adding device ${deviceId} to favorites for user: ${userId}`
-  );
-  console.log("base url:", BASE_URL);
-
   const result = await authenticatedFetch(`${BASE_URL}/favourites`, {
     method: "POST",
     body: JSON.stringify({
@@ -410,17 +375,10 @@ export async function addFavourite(userId: string, deviceId: string) {
     }),
   });
 
-  console.log(
-    `[LoansService] Successfully added device ${deviceId} to favorites for user: ${userId}`
-  );
   return result;
 }
 
 export async function removeFromFavorites(userId: string, deviceId: string) {
-  console.log(
-    `[LoansService] Removing device ${deviceId} from favorites for user: ${userId}`
-  );
-
   const result = await authenticatedFetch(
     `${BASE_URL}/loans/user/${userId}/favorites/${deviceId}`,
     {
@@ -428,18 +386,10 @@ export async function removeFromFavorites(userId: string, deviceId: string) {
     }
   );
 
-  console.log(
-    `[LoansService] Successfully removed device ${deviceId} from favorites for user: ${userId}`
-  );
   return result;
 }
 
 export async function syncAllFavorites(userId: string, favoriteIds: string[]) {
-  console.log(
-    `[LoansService] Syncing ${favoriteIds.length} favorites for user: ${userId}`,
-    favoriteIds
-  );
-
   const result = await authenticatedFetch(
     `${BASE_URL}/loans/user/${userId}/favorites`,
     {
@@ -450,15 +400,10 @@ export async function syncAllFavorites(userId: string, favoriteIds: string[]) {
     }
   );
 
-  console.log(
-    `[LoansService] Successfully synced ${favoriteIds.length} favorites for user: ${userId}`
-  );
   return result;
 }
 
 export async function clearAllFavorites(userId: string) {
-  console.log(`[LoansService] Clearing all favorites for user: ${userId}`);
-
   const result = await authenticatedFetch(
     `${BASE_URL}/loans/user/${userId}/favorites`,
     {
@@ -466,17 +411,12 @@ export async function clearAllFavorites(userId: string) {
     }
   );
 
-  console.log(
-    `[LoansService] Successfully cleared all favorites for user: ${userId}`
-  );
   return result;
 }
 
 export async function getUserWaitlistEntries(
   userId: string
 ): Promise<WaitlistEntry[]> {
-  console.log(`[LoansService] Fetching waitlist entries for user: ${userId}`);
-
   try {
     const response = await authenticatedFetch(
       `${BASE_URL}/loans/waitlist/${encodeURIComponent(userId)}`
@@ -484,7 +424,6 @@ export async function getUserWaitlistEntries(
 
     // Response is an array of { deviceId, position }
     const results = Array.isArray(response) ? response : [];
-    console.log("results: ", results);
     // Transform to WaitlistEntry format
     const waitlistEntries: WaitlistEntry[] = results
       .filter((item: any) => item.position !== null)
@@ -496,13 +435,6 @@ export async function getUserWaitlistEntries(
         estimatedAvailability: undefined,
       }));
 
-    console.log(
-      `[LoansService] Successfully fetched ${
-        waitlistEntries.length
-      } waitlist entries for user: ${userId}, value: ${JSON.stringify(
-        waitlistEntries
-      )}`
-    );
     return waitlistEntries;
   } catch (error) {
     console.error(
@@ -518,10 +450,6 @@ export async function removeFromWaitlist(
   userId: string,
   loanId: string
 ): Promise<void> {
-  console.log(
-    `[LoansService] Removing user ${userId} from waitlist for loan: ${loanId}`
-  );
-
   try {
     await authenticatedFetch(
       `${BASE_URL}/loans/${encodeURIComponent(loanId)}/waitlist`,
@@ -529,10 +457,6 @@ export async function removeFromWaitlist(
         method: "DELETE",
         body: JSON.stringify({ userId }),
       }
-    );
-
-    console.log(
-      `[LoansService] Successfully removed user ${userId} from waitlist for loan: ${loanId}`
     );
   } catch (error) {
     console.error(

@@ -339,13 +339,11 @@ const loadData = async () => {
         };
       })
     );
-    console.log("loans:", loans.value);
 
     // Reservations are loans in Requested/Approved state
     reservations.value = loans.value.filter(
       (l) => l.status === "Requested" || l.status === "Approved"
     );
-    console.log("reservations:", reservations.value);
 
     // Load waitlist data
     await loadWaitlistData(userId);
@@ -360,7 +358,6 @@ const loadWaitlistData = async (userId: string) => {
   try {
     waitlistLoading.value = true;
     const waitlistData = await getUserWaitlistEntries(userId);
-    console.log("raw response: ", waitlistData);
     // Enhance waitlist entries with device names
     waitlistEntries.value = await Promise.all(
       waitlistData.map(async (entry) => {
@@ -381,7 +378,6 @@ const loadWaitlistData = async (userId: string) => {
         }
       })
     );
-    console.log("waitlist entries:", waitlistEntries.value);
   } catch (e: any) {
     console.error("Failed to load waitlist data:", e);
     // Don't set error here as it's secondary data - just log it
@@ -444,7 +440,6 @@ const handleLeaveWaitlist = async (id: string) => {
       (entry) => entry.id !== id
     );
 
-    console.log(`Successfully left waitlist for loan ${id}`);
   } catch (e: any) {
     console.error("Failed to leave waitlist:", e);
     error.value = "Failed to leave waitlist";

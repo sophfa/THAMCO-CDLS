@@ -1,10 +1,31 @@
 import { apiPost } from "./httpClient";
 import { getProductById } from "./catalogueService";
-const BASE_URL = import.meta.env.VITE_NOTIFICATIONS_API_URL;
+import { getToken } from "../authService";
+
+const BASE_URL = import.meta.env.PROD
+  ? import.meta.env.VITE_NOTIFICATIONS_API_URL_PROD
+  : import.meta.env.VITE_NOTIFICATIONS_API_URL;
+
+console.log("base_url for notifications: ", BASE_URL);
+
+async function fetchWithAuth(
+  url: string,
+  options: RequestInit = {}
+): Promise<Response> {
+  const token = await getToken();
+  if (!token) throw new Error("User not authenticated");
+
+  const headers = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+    ...options.headers,
+  };
+
+  return fetch(url, { ...options, headers });
+}
 
 export async function getNotificationsForUser(userId: string) {
-  console.log("getting notifs for user: ", userId);
-  const response = await fetch(
+  const response = await fetchWithAuth(
     `${BASE_URL}/notifications/user/${encodeURIComponent(userId)}`
   );
   if (!response.ok)
@@ -14,7 +35,11 @@ export async function getNotificationsForUser(userId: string) {
   const raw = Array.isArray(body) ? body : body?.data || [];
   const mapped = raw.map((n: any) => {
     const ts = n?.createdAt || n?.timestamp;
-    const date = ts ? new Date(ts) : n?._ts ? new Date(n._ts * 1000) : new Date();
+    const date = ts
+      ? new Date(ts)
+      : n?._ts
+      ? new Date(n._ts * 1000)
+      : new Date();
     return {
       id: n?.id || n?.notificationId || n?._id,
       title: n?.title || n?.type || "Notification",
@@ -28,11 +53,10 @@ export async function getNotificationsForUser(userId: string) {
 }
 
 export async function markNotificationRead(id: string, read: boolean = true) {
-  const res = await fetch(
+  const res = await fetchWithAuth(
     `${BASE_URL}/notifications/${encodeURIComponent(id)}/read`,
     {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      method: "PATCH",
       body: JSON.stringify({ read }),
     }
   );
@@ -128,9 +152,5 @@ export async function createNotification(
     if (userEmail) payload.userEmail = userEmail;
   }
 
-  console.log(
-    "[notificationsService] Skipping createNotification call; handled by backend events.",
-    payload
-  );
   return Promise.resolve({ skipped: true });
 }

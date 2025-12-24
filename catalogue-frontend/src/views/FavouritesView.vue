@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from "vue";
 import { fetchCatalogue, type Product } from "../services/CatalogueService";
 import { useFavorites } from "../services/favouritesService";
 import { useRouter } from "vue-router";
+import { useReservationFlow } from "../composables/useReservationFlow";
 
 const products = ref<Product[]>([]);
 const loading = ref(true);
@@ -23,6 +24,15 @@ const {
 
 const favoriteProducts = computed(() => getFavoriteProducts(products.value));
 
+const {
+  dialog,
+  handleReserveOrWaitlist,
+  confirmDialog,
+  closeDialog,
+  hasActiveLoanForProduct,
+  isOnWaitlist,
+} = useReservationFlow();
+
 onMounted(async () => {
   try {
     // Initialize favorites from API first
@@ -39,16 +49,6 @@ onMounted(async () => {
 
 const viewDetails = (product: Product) => {
   router.push(`/product/${product.id}`);
-};
-
-const handleReserveOrWaitlist = (product: Product) => {
-  if (product.inStock) {
-    console.log(`Reserving ${product.name}`);
-    // Add reserve logic here
-  } else {
-    console.log(`Joining waitlist for ${product.name}`);
-    // Add waitlist logic here
-  }
 };
 </script>
 
@@ -107,12 +107,22 @@ const handleReserveOrWaitlist = (product: Product) => {
           <div class="action-buttons">
             <button
               @click="handleReserveOrWaitlist(product)"
+              :disabled="!product.inStock && isOnWaitlist(product.id)"
               :class="[
                 'action-btn',
-                product.inStock ? 'reserve-btn' : 'waitlist-btn',
+                hasActiveLoanForProduct(product.id)
+                  ? 'cancel-btn'
+                  : product.inStock
+                  ? 'reserve-btn'
+                  : 'waitlist-btn',
               ]"
             >
-              {{ product.inStock ? "Reserve" : "Join Waitlist" }}
+              <span v-if="hasActiveLoanForProduct(product.id)">
+                Cancel Reservation
+              </span>
+              <span v-else-if="product.inStock">Reserve</span>
+              <span v-else-if="isOnWaitlist(product.id)">On Waitlist</span>
+              <span v-else>Join Waitlist</span>
             </button>
 
             <div class="favorite">
@@ -130,6 +140,101 @@ const handleReserveOrWaitlist = (product: Product) => {
       </div>
     </div>
   </section>
+
+  <div v-if="dialog.open" class="modal-backdrop">
+    <div class="modal">
+      <h3 class="modal-title">
+        <span v-if="dialog.state === 'confirm'">
+          {{
+            dialog.kind === "reserve"
+              ? "Confirm Reservation"
+              : dialog.kind === "waitlist"
+              ? "Join Waitlist"
+              : "Cancel Reservation"
+          }}
+        </span>
+        <span v-else-if="dialog.state === 'success'">
+          {{
+            dialog.kind === "reserve"
+              ? "Reservation Confirmed"
+              : dialog.kind === "waitlist"
+              ? "Waitlist Joined"
+              : "Reservation Cancelled"
+          }}
+        </span>
+        <span v-else> Action Failed </span>
+      </h3>
+
+      <div class="modal-body">
+        <template v-if="dialog.state === 'confirm' && dialog.product">
+          <p>
+            {{
+              dialog.kind === "reserve"
+                ? `Reserve ${dialog.product.name}?`
+                : dialog.kind === "waitlist"
+                ? `Join the waitlist for ${dialog.product.name}?`
+                : `Cancel the reservation for ${dialog.product.name}?`
+            }}
+          </p>
+          <div v-if="dialog.kind === 'reserve'" class="date-range">
+            <div class="date-field">
+              <label>From</label>
+              <input type="date" v-model="dialog.startDate" />
+            </div>
+            <div class="date-field">
+              <label>Until</label>
+              <input
+                type="date"
+                v-model="dialog.endDate"
+                :min="dialog.startDate"
+              />
+            </div>
+          </div>
+        </template>
+
+        <template v-else-if="dialog.state === 'success' && dialog.product">
+          <p v-if="dialog.kind === 'reserve'">
+            Device reserved. A receipt has been emailed to you.
+          </p>
+          <p v-else-if="dialog.kind === 'waitlist'">
+            You have joined the waitlist. We'll notify you when it's available.
+          </p>
+          <p v-else>
+            Your reservation has been cancelled.
+          </p>
+        </template>
+
+        <template v-else>
+          <p>{{ dialog.error || "Something went wrong. Please try again." }}</p>
+        </template>
+      </div>
+
+      <div class="modal-actions">
+        <template v-if="dialog.state === 'confirm'">
+          <button class="btn-secondary" @click="closeDialog">Cancel</button>
+          <button
+            class="btn-primary"
+            :disabled="dialog.loading"
+            @click="confirmDialog"
+          >
+            {{
+              dialog.loading
+                ? "Working…"
+                : dialog.kind === "reserve"
+                ? "Confirm"
+                : dialog.kind === "waitlist"
+                ? "Join"
+                : "Cancel Reservation"
+            }}
+          </button>
+        </template>
+
+        <template v-else>
+          <button class="btn-primary" @click="closeDialog">Close</button>
+        </template>
+      </div>
+    </div>
+  </div>
 </template>
 
 <style scoped>
@@ -299,5 +404,78 @@ const handleReserveOrWaitlist = (product: Product) => {
 
 .favorite-btn:hover {
   background-color: #f5f5f5;
+}
+
+.cancel-btn {
+  background-color: #c0392b;
+  color: white;
+}
+.cancel-btn:hover {
+  background-color: #a6211f;
+}
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.modal {
+  background: #fff;
+  border-radius: 12px;
+  width: 95%;
+  max-width: 480px;
+  padding: 1.25rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+.modal-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+.modal-body {
+  color: #374151;
+  margin-bottom: 1rem;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+.date-range {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+.date-field label {
+  display: block;
+  font-size: 0.85rem;
+  color: #374151;
+  margin-bottom: 0.25rem;
+}
+.date-field input[type="date"] {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 0.4rem 0.5rem;
+}
+.btn-primary {
+  background: #6c7c69;
+  color: #fff;
+  border: none;
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.btn-secondary {
+  background: #e5e7eb;
+  color: #111827;
+  border: none;
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  cursor: pointer;
 }
 </style>

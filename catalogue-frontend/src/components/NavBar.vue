@@ -136,13 +136,9 @@ watch(loggedIn, async (isLoggedIn) => {
   if (isLoggedIn) {
     const userId = await getUserId();
     const userRole = await getUserRole();
-    console.log("user: ", user.value);
-    console.log("User role:", userRole);
     user.value.role = userRole;
     try {
-      console.log("Loading notifications for user:", userId);
       notifications.value = await getNotificationsForUser(userId as string);
-      console.log("notifications: ", notifications.value);
     } catch (err) {
       console.error("Failed to load notifications:", err);
       notifications.value = [];

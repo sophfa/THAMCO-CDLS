@@ -20,19 +20,17 @@ function resolveUrl(path: string): string {
   return path.startsWith("/") ? `${BASE_URL}${path}` : `${BASE_URL}/${path}`;
 }
 
-export async function getInventoryByDeviceId(
-  deviceId: string
+export async function getInventoryByProductId(
+  productId: string
 ): Promise<InventoryRecord | null> {
-  if (!deviceId) return null;
+  if (!productId) return null;
 
-  if (stockCache.has(deviceId)) {
-    console.log("stockcache ", deviceId, stockCache.get(deviceId));
-    return stockCache.get(deviceId)!;
+  if (stockCache.has(productId)) {
+    return stockCache.get(productId)!;
   }
 
-  const url = resolveUrl(`/inventory/${encodeURIComponent(deviceId)}`);
+  const url = resolveUrl(`/inventory/${encodeURIComponent(productId)}`);
   const response = await fetch(url);
-  console.log("response: ", response);
   if (!response.ok) {
     if (response.status === 404) {
       return null;
@@ -47,26 +45,23 @@ export async function getInventoryByDeviceId(
   const record: InventoryRecord | null = (body && (body.data ?? body)) || null;
 
   if (record) {
-    console.log("stock for: ", deviceId, "is", record);
-    stockCache.set(deviceId, record);
+    stockCache.set(productId, record);
   }
   return record;
 }
 
-export async function getAvailableStockForDevice(
-  deviceId: string
+export async function getAvailableStockForProduct(
+  productId: string
 ): Promise<number | null> {
-  const record = await get(deviceId);
+  const record = await getInventoryByProductId(productId);
   const stock = record?.stock;
-  console.log("available stock: ", deviceId, "=>", stock);
   return typeof stock === "number" && !Number.isNaN(stock) ? stock : null;
 }
 
-export async function getStockForDevice(
-  deviceId: string
+export async function getStockForProduct(
+  productId: string
 ): Promise<number | null> {
-  const record = await getInventoryByDeviceId(deviceId);
+  const record = await getInventoryByProductId(productId);
   const stock = record?.stock;
-  console.log("stock: ", deviceId, "=>", stock);
   return typeof stock === "number" && !Number.isNaN(stock) ? stock : null;
 }

@@ -6,7 +6,7 @@ import { app } from "@azure/functions";
 // HTTP trigger functions
 import "./functions/adjust-inventory-stock-http";
 import "./functions/get-inventory-http";
-import "./functions/getInventoryByDeviceHttp";
+import "./functions/getInventoryByProductHttp";
 import "./functions/list-inventory-http";
 
 // Event-driven functions

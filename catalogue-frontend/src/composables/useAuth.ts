@@ -22,7 +22,6 @@ function resetActivityTimer() {
     const authenticated = await isAuthenticated();
     if (!authenticated) {
       user.value = null;
-      console.log("Session expired due to inactivity");
     }
   }, 25 * 60 * 1000); // 25 minutes (less than the 30 min session timeout)
 }
@@ -50,7 +49,6 @@ async function init() {
   // Load user profile from Auth0 or secure localStorage cache
   const authUser = await getUser();
   user.value = authUser || null;
-  console.log("user before role assign hi sophie: ", user.value);
 
   if (user.value) {
     // Assign default role if not Admin

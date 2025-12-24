@@ -32,14 +32,15 @@ export async function updateInventoryFromLoanEvent(
     ? (event.data as unknown as LoanStatusChangedEventData)
     : undefined;
 
-  if (!data?.deviceId) {
-    context.warn("Loan status event missing deviceId; skipping.");
+  const productId = data?.deviceId;
+  if (!productId) {
+    context.warn("Loan status event missing productId; skipping.");
     return;
   }
 
   const available = AVAILABLE_STATUSES.has(data.newStatus);
   context.log(
-    `Loan ${data.loanId} status ${data.newStatus} -> set device ${data.deviceId} available=${available}`
+    `Loan ${data.loanId} status ${data.newStatus} -> set product ${productId} available=${available}`
   );
 
   let repo: InventoryRepo;
@@ -50,16 +51,16 @@ export async function updateInventoryFromLoanEvent(
     return;
   }
 
-  const result = await repo.setStock(data.deviceId, available);
+  const result = await repo.setStock(productId, available);
 
   if (result.success) {
     context.log(
-      `Inventory updated for device ${data.deviceId}, stock=${result.data.stock}`
+      `Inventory updated for product ${productId}, stock=${result.data.stock}`
     );
   } else {
     const err = (result as { success: false; error: { code: string; message: string } }).error;
     context.error(
-      `Failed to update stock for device ${data.deviceId}: ${err.code} ${err.message}`
+      `Failed to update stock for product ${productId}: ${err.code} ${err.message}`
     );
   }
 }
