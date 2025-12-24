@@ -1,7 +1,15 @@
 import { getUserId, getToken } from "../authService";
 import type { Loan } from "../../types/models";
 
-const BASE_URL = import.meta.env.VITE_LOANS_API_URL;
+const BASE_URL = import.meta.env.PROD
+  ? import.meta.env.VITE_LOANS_API_URL_PROD ||
+    import.meta.env.VITE_LOANS_API_URL
+  : import.meta.env.VITE_LOANS_API_URL;
+if (!BASE_URL) {
+  console.error(
+    "[ReservationsService] Missing VITE_LOANS_API_URL(_PROD); requests will fail."
+  );
+}
 
 async function authed<T>(url: string, init: RequestInit = {}): Promise<T> {
   const token = await getToken();
@@ -11,7 +19,8 @@ async function authed<T>(url: string, init: RequestInit = {}): Promise<T> {
     ...init.headers,
   } as Record<string, string>;
   const res = await fetch(url, { ...init, headers });
-  if (!res.ok) throw new Error(`${init.method || "GET"} ${url} failed: ${res.status}`);
+  if (!res.ok)
+    throw new Error(`${init.method || "GET"} ${url} failed: ${res.status}`);
   return (await res.json()) as T;
 }
 

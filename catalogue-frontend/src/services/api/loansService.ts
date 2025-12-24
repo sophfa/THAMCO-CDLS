@@ -2,8 +2,14 @@ import { getUserId, getToken, logout } from "../authService";
 import type { Loan, WaitlistEntry } from "../../types/models";
 
 const BASE_URL = import.meta.env.PROD
-  ? import.meta.env.VITE_LOANS_API_URL_PROD
+  ? import.meta.env.VITE_LOANS_API_URL_PROD ||
+    import.meta.env.VITE_LOANS_API_URL
   : import.meta.env.VITE_LOANS_API_URL;
+if (!BASE_URL) {
+  console.error(
+    "[LoansService] Missing VITE_LOANS_API_URL(_PROD); requests will fail."
+  );
+}
 const LOANS_FUNCTION_CODE = import.meta.env.VITE_LOANS_API_CODE;
 const ACTIVE_LOAN_STATUSES = new Set<Loan["status"]>([
   "Requested",
