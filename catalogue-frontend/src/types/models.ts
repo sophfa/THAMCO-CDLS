@@ -49,6 +49,7 @@ export interface Product {
   availableStock?: number | null;
   activeLoans?: number;
   inStock: boolean;
+  availabilityStatus?: "available" | "loaned" | "unavailable";
   createdAt: string;
   _rid: string;
   _self: string;

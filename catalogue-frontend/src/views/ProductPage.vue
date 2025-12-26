@@ -56,6 +56,7 @@
                 >
                   <!-- Loan Status Corner Banner -->
                   <div
+                    v-if="product.availabilityStatus !== 'unavailable'"
                     class="absolute top-0 right-0 z-20"
                     :class="
                       product.inStock
@@ -535,24 +536,39 @@ export default {
         const productId = route.params.id as string | undefined;
         if (productId) {
           const fetched = await fetchProductById(productId);
-          const fallbackStock =
-            typeof fetched.stock === "number"
-              ? fetched.stock
-              : fetched.inStock
-              ? 1
-              : 0;
           let stock: number | null = null;
           try {
             stock = await getStockForProduct(productId);
           } catch (err) {
             console.warn("[ProductPage] Failed to load stock", err);
           }
-          const resolvedStock = stock ?? fallbackStock;
+          const hasStockFromFetch = typeof fetched.stock === "number";
+          const hasInStockFromFetch = typeof fetched.inStock === "boolean";
+          const resolvedStock =
+            typeof stock === "number"
+              ? stock
+              : hasStockFromFetch
+              ? fetched.stock
+              : hasInStockFromFetch
+              ? fetched.inStock
+                ? 1
+                : 0
+              : null;
+          const hasKnownAvailability =
+            typeof stock === "number" || hasStockFromFetch || hasInStockFromFetch;
+          const isInStock =
+            typeof resolvedStock === "number" ? resolvedStock > 0 : false;
+          const availabilityStatus = hasKnownAvailability
+            ? isInStock
+              ? "available"
+              : "loaned"
+            : "unavailable";
           const imageUrl = fetched.imageUrl;
           product.value = {
             ...fetched,
-            stock: resolvedStock,
-            inStock: resolvedStock > 0,
+            stock: hasKnownAvailability ? resolvedStock : null,
+            inStock: availabilityStatus === "available",
+            availabilityStatus,
             mainImage: imageUrl,
             images: imageUrl ? [imageUrl] : [],
           };

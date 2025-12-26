@@ -1,7 +1,9 @@
 <template>
-  <div style="height: 100%">
+  <div class="app-shell">
     <NavBar />
-    <router-view />
+    <main class="app-content">
+      <router-view />
+    </main>
   </div>
 </template>
 
@@ -26,5 +28,20 @@ body,
   button {
     font-family: "Gentium Book Plus", serif !important;
   }
+}
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.app-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.app-content > * {
+  flex: 1;
+  min-height: 0;
 }
 </style>

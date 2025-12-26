@@ -99,7 +99,8 @@ const navigateToDevice = (deviceType: string) => {
 </script>
 <style scoped>
 .home {
-  min-height: 100vh;
+  min-height: 100%;
+  flex: 1;
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;

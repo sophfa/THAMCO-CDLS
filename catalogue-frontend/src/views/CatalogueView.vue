@@ -92,6 +92,21 @@ async function retryCatalogue() {
   await refreshProductCatalogue(true);
 }
 
+function availabilityStatus(product: Product) {
+  return (
+    product.availabilityStatus ?? (product.inStock ? "available" : "loaned")
+  );
+}
+
+function availabilityLabel(product: Product) {
+  const status = availabilityStatus(product);
+  return status === "available" ? "AVAILABLE" : "LOANED";
+}
+
+function availabilityClass(product: Product) {
+  return `status-banner-${availabilityStatus(product)}`;
+}
+
 // Function to refresh product catalogue
 async function refreshProductCatalogue(showIndicator = true) {
   if (showIndicator) {
@@ -117,15 +132,21 @@ async function withInventoryStock(items: Product[]): Promise<Product[]> {
     items.map(async (p) => {
       try {
         const availability = await getAvailabilityForProduct(p.id);
+        const hasAvailableCount =
+          typeof availability.available === "number" &&
+          !Number.isNaN(availability.available);
+        const availabilityStatus = hasAvailableCount
+          ? availability.available > 0
+            ? "available"
+            : "loaned"
+          : "unavailable";
         return {
           ...p,
           stock: availability.stock ?? null,
-          availableStock: availability.available,
+          availableStock: hasAvailableCount ? availability.available : null,
           activeLoans: availability.activeLoans,
-          inStock:
-            typeof availability.available === "number"
-              ? availability.available > 0
-              : false,
+          inStock: availabilityStatus === "available",
+          availabilityStatus,
         };
       } catch (err) {
         stockFailures += 1;
@@ -136,6 +157,7 @@ async function withInventoryStock(items: Product[]): Promise<Product[]> {
           availableStock: null,
           activeLoans: undefined,
           inStock: false,
+          availabilityStatus: "unavailable",
         };
       }
     })
@@ -624,21 +646,24 @@ const viewDetails = (product: Product) => {
             </button>
           </div>
           <div v-if="isCatalogueFetching" class="catalogue-loading-overlay">
-            <div class="spinner"></div>
-            <p>Updating catalogue…</p>
+            <div class="catalogue-loading-panel">
+              <div class="spinner"></div>
+              <p>Updating catalogue…</p>
+            </div>
           </div>
           <div class="grid">
             <div v-for="p in filteredProducts" :key="p.id" class="card">
               <!-- Status Corner Banner -->
-              <div
-                v-if="!hasActiveLoanForProduct(p.id)"
-                class="absolute top-0 right-0 z-20"
-                :class="
-                  p.inStock ? 'status-banner-available' : 'status-banner-loaned'
-                "
-              >
+            <div
+              v-if="
+                !hasActiveLoanForProduct(p.id) &&
+                p.availabilityStatus !== 'unavailable'
+              "
+              class="absolute top-0 right-0 z-20"
+              :class="availabilityClass(p)"
+            >
                 <div class="status-banner-text">
-                  {{ p.inStock ? "AVAILABLE" : "LOANED" }}
+                  {{ availabilityLabel(p) }}
                 </div>
               </div>
 
@@ -1357,11 +1382,22 @@ const viewDetails = (product: Product) => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
+  padding-top: 1.5rem;
   z-index: 5;
-  gap: 0.5rem;
   font-weight: 600;
   color: #374151;
+}
+.catalogue-loading-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1.25rem 1.75rem;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
 }
 .spinner {
   width: 48px;
@@ -1556,6 +1592,10 @@ const viewDetails = (product: Product) => {
 
 .status-banner-loaned::before {
   background: linear-gradient(135deg, #a6383e 0%, #8a2f34 100%);
+}
+
+.status-banner-available > .status-banner-text {
+  font-size: 0.6rem !important;
 }
 
 .status-banner-text {

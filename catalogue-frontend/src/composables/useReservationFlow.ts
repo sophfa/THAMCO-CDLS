@@ -223,8 +223,18 @@ export function useReservationFlow(options: ReservationFlowOptions = {}) {
 
       dialog.state = "success";
     } catch (e: any) {
+      const rawMessage =
+        typeof e?.message === "string" ? e.message.trim() : "";
+      const isGenericFetch =
+        !rawMessage || rawMessage.toLowerCase().includes("failed to fetch");
+      const fallbackMessage =
+        dialog.kind === "reserve"
+          ? "We couldn't create your loan right now. Please try again."
+          : dialog.kind === "waitlist"
+          ? "We couldn't add you to the waitlist right now. Please try again."
+          : "We couldn't cancel your reservation right now. Please try again.";
       dialog.state = "error";
-      dialog.error = e?.message || "Operation failed";
+      dialog.error = isGenericFetch ? fallbackMessage : rawMessage;
     } finally {
       dialog.loading = false;
     }
