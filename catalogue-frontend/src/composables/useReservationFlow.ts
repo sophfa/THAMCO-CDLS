@@ -17,6 +17,18 @@ const ACTIVE_LOAN_STATUSES = new Set([
   "Collected",
   "Overdue",
 ]);
+const LOAN_DURATION_DAYS = 2;
+const LOAN_DURATION_MS = LOAN_DURATION_DAYS * 24 * 60 * 60 * 1000;
+
+function toDateString(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function computeEndDate(startDate: string): string {
+  const start = new Date(startDate);
+  if (Number.isNaN(start.getTime())) return "";
+  return toDateString(new Date(start.getTime() + LOAN_DURATION_MS));
+}
 
 type DialogKind = "reserve" | "waitlist" | "cancel";
 
@@ -94,6 +106,17 @@ export function useReservationFlow(options: ReservationFlowOptions = {}) {
     { immediate: true }
   );
 
+  watch(
+    () => dialog.startDate,
+    (nextStart) => {
+      if (!nextStart) return;
+      const nextEnd = computeEndDate(nextStart);
+      if (nextEnd && nextEnd !== dialog.endDate) {
+        dialog.endDate = nextEnd;
+      }
+    }
+  );
+
   function hasActiveLoanForProduct(productId: string) {
     return userActiveLoans.value.has(productId);
   }
@@ -126,9 +149,9 @@ export function useReservationFlow(options: ReservationFlowOptions = {}) {
     dialog.loanId = null;
     if (product.inStock) {
       const today = new Date();
-      const tomorrow = new Date(Date.now() + 86400000);
-      dialog.startDate = today.toISOString().slice(0, 10);
-      dialog.endDate = tomorrow.toISOString().slice(0, 10);
+      const startDate = toDateString(today);
+      dialog.startDate = startDate;
+      dialog.endDate = computeEndDate(startDate);
     }
   };
 
@@ -138,10 +161,10 @@ export function useReservationFlow(options: ReservationFlowOptions = {}) {
     dialog.error = "";
     try {
       if (dialog.kind === "reserve") {
-        const start = dialog.startDate || new Date().toISOString().slice(0, 10);
-        const end =
-          dialog.endDate ||
-          new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+        const start = dialog.startDate || toDateString(new Date());
+        const end = computeEndDate(start);
+        dialog.startDate = start;
+        dialog.endDate = end;
         await createLoan(dialog.product.id, start, end, "Requested");
         await loadUserLoans();
       } else if (dialog.kind === "waitlist") {

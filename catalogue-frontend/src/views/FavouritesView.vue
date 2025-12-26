@@ -186,7 +186,7 @@ const viewDetails = (product: Product) => {
               <input
                 type="date"
                 v-model="dialog.endDate"
-                :min="dialog.startDate"
+                disabled
               />
             </div>
           </div>

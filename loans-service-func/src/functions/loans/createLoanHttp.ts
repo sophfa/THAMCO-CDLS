@@ -26,6 +26,7 @@ export async function createLoanHttp(
     const body = (await req.json()) as {
       deviceId?: string;
       userId?: string;
+      from?: string;
     };
 
     const deviceId = (body?.deviceId ?? "").trim();
@@ -50,9 +51,20 @@ export async function createLoanHttp(
     }
 
     const now = new Date();
-    const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
-    const from = now;
-    const till = new Date(now.getTime() + oneWeekMs);
+    const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
+    const requestedFrom = (body?.from ?? "").trim();
+    let from = now;
+    if (requestedFrom) {
+      const parsed = new Date(requestedFrom);
+      if (Number.isNaN(parsed.getTime())) {
+        return {
+          status: 400,
+          jsonBody: { message: "from must be a valid date" },
+        };
+      }
+      from = parsed;
+    }
+    const till = new Date(from.getTime() + twoDaysMs);
 
     const newLoan = {
       id: `LOAN-${Date.now()}`,
