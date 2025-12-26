@@ -615,6 +615,13 @@ const viewDetails = (product: Product) => {
           </div>
           <div v-if="stockWarning" class="warning-banner">
             <span>{{ stockWarning }}</span>
+            <button
+              class="retry-link"
+              @click="retryCatalogue"
+              :disabled="isCatalogueFetching"
+            >
+              {{ isCatalogueFetching ? "Refreshing…" : "Refresh" }}
+            </button>
           </div>
           <div v-if="isCatalogueFetching" class="catalogue-loading-overlay">
             <div class="spinner"></div>
