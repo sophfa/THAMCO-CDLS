@@ -20,7 +20,14 @@ const ACTIVE_LOAN_STATUSES = new Set([
 
 type DialogKind = "reserve" | "waitlist" | "cancel";
 
-export function useReservationFlow() {
+type ReservationFlowOptions = {
+  onReservationChange?: (args: {
+    kind: "reserve" | "cancel";
+    product: Product;
+  }) => void | Promise<void>;
+};
+
+export function useReservationFlow(options: ReservationFlowOptions = {}) {
   const userActiveLoans = ref<Map<string, string>>(new Map());
   const userWaitlistDeviceIds = ref<Set<string>>(new Set());
   const dialog = reactive({
@@ -146,6 +153,17 @@ export function useReservationFlow() {
         if (!loanId) throw new Error("Missing reservation to cancel");
         await cancelLoan(loanId);
         await loadUserLoans();
+      }
+
+      if (dialog.kind === "reserve" || dialog.kind === "cancel") {
+        try {
+          await options.onReservationChange?.({
+            kind: dialog.kind,
+            product: dialog.product,
+          });
+        } catch (e) {
+          console.warn("[Reservation] Refresh after action failed:", e);
+        }
       }
 
       if (dialog.kind === "reserve" || dialog.kind === "waitlist") {

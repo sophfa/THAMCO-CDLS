@@ -84,7 +84,7 @@ export async function getWaitlistForProductHttp(
 }
 
 app.http('getWaitlistForProduct', {
-  methods: ['GET'],
+  methods: ['GET', 'OPTIONS'],
   route: 'loans/device/{deviceId}/waitlist',
   authLevel: 'anonymous',
   handler: getWaitlistForProductHttp,

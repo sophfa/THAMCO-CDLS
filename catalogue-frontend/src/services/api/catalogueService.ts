@@ -17,9 +17,13 @@ const BASE_URL = import.meta.env.PROD
 console.log("[CatalogueApi] Base URL:", BASE_URL);
 
 export async function getAllProducts(): Promise<CategoryProduct[]> {
+  console.log("[CatalogueApi] getAllProducts start", { url: `${BASE_URL}/products` });
   const res = await apiGet<ApiResponse<CategoryProduct[]>>(
     `${BASE_URL}/products`
   );
+  console.log("[CatalogueApi] getAllProducts response", {
+    count: (res as any)?.data?.length ?? (Array.isArray(res) ? res.length : 0),
+  });
   return (res as any).data ?? res;
 }
 

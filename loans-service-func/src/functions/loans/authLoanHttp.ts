@@ -76,7 +76,7 @@ export async function authLoanHttp(
 }
 
 app.http('authLoan', {
-  methods: ['PUT', 'PATCH'],
+  methods: ['PUT', 'PATCH', 'OPTIONS'],
   route: 'loans/{loanId}/authorize',
   authLevel: 'anonymous',
   handler: authLoanHttp,

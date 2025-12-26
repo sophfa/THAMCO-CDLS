@@ -148,7 +148,7 @@ export async function getNotificationByIdHttp(
 
 // Register the function with Azure Functions runtime
 app.http('getNotificationById', {
-  methods: ['GET'],
+  methods: ['GET', 'OPTIONS'],
   authLevel: 'anonymous',
   route: 'notifications/{id}',
   handler: getNotificationByIdHttp,

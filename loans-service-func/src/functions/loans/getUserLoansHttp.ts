@@ -52,7 +52,7 @@ export async function getUserLoansHttp(
 }
 
 app.http("getUserLoansHttp", {
-  methods: ["GET"],
+  methods: ["GET", "OPTIONS"],
   route: "loans/user/{userId}",
   authLevel: "anonymous",
   handler: getUserLoansHttp,

@@ -33,7 +33,11 @@ const {
   handleReserveOrWaitlist,
   confirmDialog,
   closeDialog,
-} = useReservationFlow();
+} = useReservationFlow({
+  onReservationChange: async () => {
+    await refreshProductCatalogue(false);
+  },
+});
 const isCatalogueFetching = ref(false);
 
 // Confirmation / result dialog state
@@ -117,8 +121,10 @@ const {
 
 onMounted(async () => {
   try {
-    // Initialize favorites from API
-    await initializeFavorites();
+    // Initialize favorites from API without blocking catalogue load
+    initializeFavorites().catch((err) => {
+      console.warn("[Catalogue] Favorites init failed", err);
+    });
 
     await refreshProductCatalogue(false);
 

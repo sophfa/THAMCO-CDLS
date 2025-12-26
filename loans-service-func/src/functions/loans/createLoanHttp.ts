@@ -74,7 +74,7 @@ export async function createLoanHttp(
 
 app.http("createLoanHttp", {
   route: "loans",
-  methods: ["POST"],
+  methods: ["POST", "OPTIONS"],
   authLevel: "anonymous",
   handler: createLoanHttp,
 });

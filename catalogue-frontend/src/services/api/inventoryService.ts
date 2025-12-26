@@ -1,8 +1,14 @@
-const BASE_URL = (import.meta.env.VITE_INVENTORY_API_URL || "").replace(
-  /\/$/,
-  ""
-);
+const RAW_BASE_URL = import.meta.env.PROD
+  ? import.meta.env.VITE_INVENTORY_API_URL_PROD ||
+    import.meta.env.VITE_INVENTORY_API_URL
+  : import.meta.env.VITE_INVENTORY_API_URL;
+const BASE_URL = RAW_BASE_URL ? RAW_BASE_URL.replace(/\/$/, "") : "";
 console.log("[InventoryService] Base URL:", BASE_URL);
+if (!BASE_URL) {
+  console.error(
+    "[InventoryService] Missing VITE_INVENTORY_API_URL(_PROD); requests will fail."
+  );
+}
 
 export interface InventoryRecord {
   id: string;

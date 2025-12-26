@@ -120,7 +120,7 @@ export async function collectLoanHttp(
 }
 
 app.http("collectLoanHttp", {
-  methods: ["PUT"],
+  methods: ["PUT", "OPTIONS"],
   route: "loans/{id}/collect",
   authLevel: "anonymous",
   handler: collectLoanHttp,

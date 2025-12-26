@@ -25,3 +25,14 @@ notifications-service-func/package-lock.json
 # System / OS
 .DS_Store
 Thumbs.db
+
+# Azurite
+__azurite*
+AzuriteConfig
+.azurite/
+
+# dev storage
+__blobstorage__/
+__queuestorage__/
+__tablestorage__/
+

@@ -16,9 +16,13 @@ const BASE_URL = import.meta.env.PROD
 console.log("[CatalogueService] Base URL:", BASE_URL);
 
 export async function fetchCatalogue(): Promise<CategoryProduct[]> {
+  console.log("[CatalogueService] fetchCatalogue start", { url: BASE_URL });
   const response = await fetch(BASE_URL);
   if (!response.ok) throw new Error("Failed to fetch catalogue");
   const body = await response.json();
+  console.log("[CatalogueService] fetchCatalogue response", {
+    count: body?.data?.length ?? 0,
+  });
   return body.data ?? [];
 }
 

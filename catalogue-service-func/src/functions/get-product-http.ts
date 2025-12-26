@@ -152,7 +152,7 @@ export async function getProductByIdHttp(
 
 // Register the function with Azure Functions runtime
 app.http("getProductById", {
-  methods: ["GET"],
+  methods: ["GET", "OPTIONS"],
   authLevel: "anonymous",
   route: "products/{id}",
   handler: getProductByIdHttp,

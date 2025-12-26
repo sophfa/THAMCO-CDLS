@@ -21,7 +21,7 @@ export async function listFavouritesHttp(
 }
 
 app.http("listFavouritesHttp", {
-  methods: ["GET"],
+  methods: ["GET", "OPTIONS"],
   route: "loans/user/{userId}/favorites",
   authLevel: "anonymous",
   handler: listFavouritesHttp,

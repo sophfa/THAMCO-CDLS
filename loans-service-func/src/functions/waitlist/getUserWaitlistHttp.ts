@@ -66,7 +66,7 @@ export async function getUserWaitlistPositionsHttp(
 }
 
 app.http("getUserWaitlistPositionsHttp", {
-  methods: ["GET"],
+  methods: ["GET", "OPTIONS"],
   route: "loans/waitlist/{userId}",
   authLevel: "anonymous",
   handler: getUserWaitlistPositionsHttp,

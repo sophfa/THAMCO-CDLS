@@ -63,7 +63,7 @@ export async function markNotificationReadHttp(
 }
 
 app.http("markNotificationRead", {
-  methods: ["PATCH"],
+  methods: ["PATCH", "OPTIONS"],
   authLevel: "anonymous",
   route: "notifications/{id}/read",
   handler: markNotificationReadHttp,
