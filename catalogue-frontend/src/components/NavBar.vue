@@ -50,6 +50,14 @@
 
             <div class="notifications-list">
               <div
+                v-if="notificationsError"
+                class="notifications-error"
+                role="status"
+              >
+                <i class="fas fa-circle-exclamation"></i>
+                <p>{{ notificationsError }}</p>
+              </div>
+              <div
                 v-for="notification in notifications"
                 :key="notification.id"
                 class="notification-item"
@@ -70,7 +78,10 @@
                 <div v-if="!notification.read" class="unread-dot"></div>
               </div>
 
-              <div v-if="notifications.length === 0" class="no-notifications">
+              <div
+                v-if="!notificationsError && notifications.length === 0"
+                class="no-notifications"
+              >
                 <i class="fas fa-bell-slash"></i>
                 <p>No notifications yet</p>
               </div>
@@ -132,25 +143,29 @@ async function handleAuth() {
   await login();
 }
 
+// Notifications demo data
+const showNotifications = ref(false);
+const notifications = ref<any[]>([]);
+const notificationsError = ref("");
+
 watch(loggedIn, async (isLoggedIn) => {
   if (isLoggedIn) {
     const userId = await getUserId();
     const userRole = await getUserRole();
     user.value.role = userRole;
     try {
+      notificationsError.value = "";
       notifications.value = await getNotificationsForUser(userId as string);
     } catch (err) {
       console.error("Failed to load notifications:", err);
-      notifications.value = [];
+      notificationsError.value =
+        "We couldn't load notifications right now. Please try again.";
     }
   } else {
     notifications.value = [];
+    notificationsError.value = "";
   }
 });
-
-// Notifications demo data
-const showNotifications = ref(false);
-const notifications = ref<any[]>([]);
 
 const unreadCount = computed(
   () => notifications.value.filter((n) => !n.read).length
@@ -209,9 +224,12 @@ onMounted(async () => {
   if (loggedIn.value) {
     const userId = await getUserId();
     try {
+      notificationsError.value = "";
       notifications.value = await getNotificationsForUser(userId as string);
     } catch (err) {
       console.error("Failed to load notifications:", err);
+      notificationsError.value =
+        "We couldn't load notifications right now. Please try again.";
     }
   }
   document.addEventListener("click", handleClickOutside);
@@ -454,6 +472,26 @@ onUnmounted(() => document.removeEventListener("click", handleClickOutside));
   height: 8px;
   background: #3b82f6;
   border-radius: 50%;
+}
+
+.notifications-error {
+  padding: 1rem 1.25rem;
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  color: #b91c1c;
+  background: #fef2f2;
+  border-bottom: 1px solid #fee2e2;
+}
+
+.notifications-error i {
+  margin-top: 0.15rem;
+}
+
+.notifications-error p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
 }
 
 .no-notifications {

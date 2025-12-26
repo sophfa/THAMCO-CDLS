@@ -5,7 +5,7 @@
     <div v-if="!loggedIn" class="info">Please log in to view your loans.</div>
 
     <div v-else>
-      <div v-if="loading" class="info">Loading your account…</div>
+      <div v-if="loading" class="info">Loading your loans...</div>
       <div v-if="error" class="error">{{ error }}</div>
 
       <div v-if="!loading && !error">
@@ -185,7 +185,9 @@
                         @click="handleReturn(loan.id)"
                       >
                         {{
-                          returningId === loan.id ? "Returning…" : "Return Device"
+                          returningId === loan.id
+                            ? "Returning…"
+                            : "Return Device"
                         }}
                       </button>
                     </div>
@@ -229,7 +231,9 @@
                   <div class="reservation-card-header">
                     <div class="reservation-title">
                       <div>
-                        <strong>{{ entry.deviceName || entry.deviceId }}</strong>
+                        <strong>{{
+                          entry.deviceName || entry.deviceId
+                        }}</strong>
                         <div class="reservation-subtitle">#{{ entry.id }}</div>
                       </div>
                     </div>
@@ -247,7 +251,9 @@
                         <label>Est. Available</label>
                         <span>
                           {{
-                            new Date(entry.estimatedAvailability).toLocaleDateString()
+                            new Date(
+                              entry.estimatedAvailability
+                            ).toLocaleDateString()
                           }}
                         </span>
                       </div>
@@ -348,7 +354,8 @@ const loadData = async () => {
     // Load waitlist data
     await loadWaitlistData(userId);
   } catch (e: any) {
-    error.value = e?.message || "Failed to load data";
+    error.value =
+      "We couldn't load your loans right now. Please try again in a moment.";
   } finally {
     loading.value = false;
   }
@@ -410,7 +417,7 @@ const handleReturn = async (loanId: string) => {
     );
   } catch (e) {
     // Surface a simple error; could be enhanced with a toast
-    error.value = "Failed to return loan";
+    error.value = "We couldn't return that device right now. Please try again.";
   } finally {
     returningId.value = null;
   }
@@ -422,7 +429,8 @@ const handleCancelReservation = async (loanId: string) => {
     await cancelLoan(loanId);
     await loadData();
   } catch (e: any) {
-    error.value = e?.message || "Failed to cancel reservation";
+    error.value =
+      "We couldn't cancel that reservation right now. Please try again.";
   } finally {
     cancelingId.value = null;
   }
@@ -439,10 +447,10 @@ const handleLeaveWaitlist = async (id: string) => {
     waitlistEntries.value = waitlistEntries.value.filter(
       (entry) => entry.id !== id
     );
-
   } catch (e: any) {
     console.error("Failed to leave waitlist:", e);
-    error.value = "Failed to leave waitlist";
+    error.value =
+      "We couldn't update your waitlist right now. Please try again.";
   } finally {
     leavingWaitlistId.value = null;
   }

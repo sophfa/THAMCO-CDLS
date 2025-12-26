@@ -24,6 +24,8 @@ const selectedPorts = ref<string[]>([]);
 const selectedConnectivity = ref<string[]>([]);
 const loading = ref(true);
 const error = ref("");
+const recoveryNotice = ref("");
+const stockWarning = ref("");
 const router = useRouter();
 const route = useRoute();
 const {
@@ -62,6 +64,34 @@ watch(
   { immediate: true }
 );
 
+function setCatalogueError(err: unknown, context: string) {
+  recoveryNotice.value = "";
+  error.value =
+    "We couldn't load the catalogue right now. Please try again in a moment.";
+  stockWarning.value = "";
+  console.error(`[Catalogue] ${context} failed`, err);
+}
+
+function clearCatalogueError() {
+  if (error.value) {
+    recoveryNotice.value =
+      "Catalogue connection restored. You can continue browsing.";
+    window.setTimeout(() => {
+      recoveryNotice.value = "";
+    }, 4000);
+    console.info("[Catalogue] Catalogue service recovered.");
+  }
+  error.value = "";
+}
+
+async function retryCatalogue() {
+  if (isCatalogueFetching.value) return;
+  console.info("[Catalogue] Retry fetch attempt", {
+    at: new Date().toISOString(),
+  });
+  await refreshProductCatalogue(true);
+}
+
 // Function to refresh product catalogue
 async function refreshProductCatalogue(showIndicator = true) {
   if (showIndicator) {
@@ -70,8 +100,9 @@ async function refreshProductCatalogue(showIndicator = true) {
   try {
     const data = await fetchCatalogue();
     products.value = await withInventoryStock(data);
+    clearCatalogueError();
   } catch (e: any) {
-    console.error("[Catalogue] Failed to refresh products:", e);
+    setCatalogueError(e, "Catalogue refresh");
   } finally {
     if (showIndicator) {
       isCatalogueFetching.value = false;
@@ -81,6 +112,7 @@ async function refreshProductCatalogue(showIndicator = true) {
 
 // Function to load user's waitlist entries
 async function withInventoryStock(items: Product[]): Promise<Product[]> {
+  let stockFailures = 0;
   const enriched = await Promise.all(
     items.map(async (p) => {
       try {
@@ -96,6 +128,7 @@ async function withInventoryStock(items: Product[]): Promise<Product[]> {
               : false,
         };
       } catch (err) {
+        stockFailures += 1;
         console.warn("[Catalogue] Failed to load stock for", p.id, err);
         return {
           ...p,
@@ -107,6 +140,14 @@ async function withInventoryStock(items: Product[]): Promise<Product[]> {
       }
     })
   );
+  if (stockFailures > 0) {
+    stockWarning.value = "Some stock details are unavailable right now.";
+    console.warn(
+      `[Catalogue] Stock lookup failed for ${stockFailures} item(s).`
+    );
+  } else {
+    stockWarning.value = "";
+  }
   return enriched;
 }
 
@@ -155,7 +196,7 @@ onMounted(async () => {
     selectedPorts.value = parseCsv(route.query.ports);
     selectedConnectivity.value = parseCsv(route.query.connectivity);
   } catch (e: any) {
-    error.value = e.message;
+    setCatalogueError(e, "Initial load");
   } finally {
     loading.value = false;
   }
@@ -312,6 +353,7 @@ const filteredProducts = computed(() => {
     );
   });
 });
+const hasCatalogueData = computed(() => products.value.length > 0);
 const viewDetails = (product: Product) => {
   // Navigate to product details page
   router.push(`/product/${product.id}`);
@@ -538,111 +580,146 @@ const viewDetails = (product: Product) => {
         <div class="spinner"></div>
         <p>Loading catalogue…</p>
       </div>
-      <div class="content" v-else-if="!error">
-        <div v-if="isCatalogueFetching" class="catalogue-loading-overlay">
-          <div class="spinner"></div>
-          <p>Updating catalogue…</p>
+      <div v-else class="content">
+        <div v-if="recoveryNotice" class="recovery-banner">
+          {{ recoveryNotice }}
         </div>
-        <div class="grid">
-          <div v-for="p in filteredProducts" :key="p.id" class="card">
-            <!-- Status Corner Banner -->
-            <div
-              v-if="!hasActiveLoanForProduct(p.id)"
-              class="absolute top-0 right-0 z-20"
-              :class="
-                p.inStock ? 'status-banner-available' : 'status-banner-loaned'
-              "
+
+        <div v-if="error && !hasCatalogueData" class="error">
+          <h2 class="error-title">We can't reach the catalogue right now.</h2>
+          <p>{{ error }}</p>
+          <div class="error-actions">
+            <button
+              class="retry-btn"
+              @click="retryCatalogue"
+              :disabled="isCatalogueFetching"
             >
-              <div class="status-banner-text">
-                {{ p.inStock ? "AVAILABLE" : "LOANED" }}
-              </div>
-            </div>
-
-            <div class="card-content">
-              <div class="image-container">
-                <img
-                  class="image-class"
-                  :src="getCloudinaryUrl(p.imageUrl)"
-                  :alt="p.name"
-                  style="max-width: 100%; height: auto"
-                />
-              </div>
-              <h2>{{ p.name }}</h2>
-              <p><strong>Category:</strong> {{ p.category }}</p>
-              <p v-if="p.availableStock !== undefined">
-                <strong>Available:</strong>
-                {{ p.availableStock ?? "Unknown" }}
-                <span v-if="p.stock !== undefined">/ {{ p.stock ?? "?" }}</span>
-              </p>
-              <p v-else-if="p.stock !== undefined">
-                <strong>Stock:</strong> {{ p.stock }}
-              </p>
-              <p v-if="p.activeLoans !== undefined">
-                <strong>On Loan:</strong> {{ p.activeLoans }}
-              </p>
-              <p v-if="p.description">{{ p.description }}</p>
-              <p v-if="p.availableStock === 0">
-                <em>All units are currently loaned out.</em>
-              </p>
-            </div>
-
-            <div
-              class="button-group"
-              v-if="(userRole || '').toLowerCase() !== 'admin'"
-            >
-              <button @click="viewDetails(p)" class="details-btn">
-                See Details
-              </button>
-
-              <div
-                v-if="loggedIn && (userRole || '').toLowerCase() !== 'admin'"
-                class="action-buttons"
-              >
-                <button
-                  @click="handleReserveOrWaitlist(p)"
-                  :disabled="!p.inStock && isOnWaitlist(p.id)"
-                  :class="[
-                    'action-btn',
-                    hasActiveLoanForProduct(p.id)
-                      ? 'cancel-btn'
-                      : p.inStock
-                      ? 'reserve-btn'
-                      : 'waitlist-btn',
-                  ]"
-                >
-                  <span v-if="hasActiveLoanForProduct(p.id)"
-                    >Cancel Reservation</span
-                  >
-                  <span v-else-if="p.inStock">Reserve</span>
-                  <span v-else-if="isOnWaitlist(p.id)">On Waitlist</span>
-                  <span v-else>Join Waitlist</span>
-                </button>
-
-                <div class="favorite">
-                  <button
-                    @click="toggleFavorite(p.id)"
-                    :class="{ 'is-favorite': isFavorite(p.id) }"
-                    class="favorite-btn"
-                  >
-                    <span v-if="isFavorite(p.id)">★</span>
-                    <span v-else>☆</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div class="button-group" v-else>
-              <button @click="viewDetails(p)" class="details-btn">
-                See Details
-              </button>
-              <button @click="viewWaitlist(p)" class="waitlist-btn">
-                View Waitlist
-              </button>
-            </div>
+              {{ isCatalogueFetching ? "Retrying…" : "Try again" }}
+            </button>
           </div>
         </div>
-      </div>
-      <div v-else class="error">
-        <p>{{ error || "Unable to load the catalogue." }}</p>
+
+        <template v-else>
+          <div v-if="error" class="warning-banner">
+            <span>
+              <strong>We couldn't refresh the catalogue.</strong>
+              Showing last available results.
+            </span>
+            <button
+              class="retry-link"
+              @click="retryCatalogue"
+              :disabled="isCatalogueFetching"
+            >
+              {{ isCatalogueFetching ? "Retrying…" : "Retry" }}
+            </button>
+          </div>
+          <div v-if="stockWarning" class="warning-banner">
+            <span>{{ stockWarning }}</span>
+          </div>
+          <div v-if="isCatalogueFetching" class="catalogue-loading-overlay">
+            <div class="spinner"></div>
+            <p>Updating catalogue…</p>
+          </div>
+          <div class="grid">
+            <div v-for="p in filteredProducts" :key="p.id" class="card">
+              <!-- Status Corner Banner -->
+              <div
+                v-if="!hasActiveLoanForProduct(p.id)"
+                class="absolute top-0 right-0 z-20"
+                :class="
+                  p.inStock ? 'status-banner-available' : 'status-banner-loaned'
+                "
+              >
+                <div class="status-banner-text">
+                  {{ p.inStock ? "AVAILABLE" : "LOANED" }}
+                </div>
+              </div>
+
+              <div class="card-content">
+                <div class="image-container">
+                  <img
+                    class="image-class"
+                    :src="getCloudinaryUrl(p.imageUrl)"
+                    :alt="p.name"
+                    style="max-width: 100%; height: auto"
+                  />
+                </div>
+                <h2>{{ p.name }}</h2>
+                <p><strong>Category:</strong> {{ p.category }}</p>
+                <p v-if="p.availableStock !== undefined">
+                  <strong>Available:</strong>
+                  {{ p.availableStock ?? "Unknown" }}
+                  <span v-if="p.stock !== undefined"
+                    >/ {{ p.stock ?? "?" }}</span
+                  >
+                </p>
+                <p v-else-if="p.stock !== undefined">
+                  <strong>Stock:</strong> {{ p.stock }}
+                </p>
+                <p v-if="p.activeLoans !== undefined">
+                  <strong>On Loan:</strong> {{ p.activeLoans }}
+                </p>
+                <p v-if="p.description">{{ p.description }}</p>
+                <p v-if="p.availableStock === 0">
+                  <em>All units are currently loaned out.</em>
+                </p>
+              </div>
+
+              <div
+                class="button-group"
+                v-if="(userRole || '').toLowerCase() !== 'admin'"
+              >
+                <button @click="viewDetails(p)" class="details-btn">
+                  See Details
+                </button>
+
+                <div
+                  v-if="loggedIn && (userRole || '').toLowerCase() !== 'admin'"
+                  class="action-buttons"
+                >
+                  <button
+                    @click="handleReserveOrWaitlist(p)"
+                    :disabled="!p.inStock && isOnWaitlist(p.id)"
+                    :class="[
+                      'action-btn',
+                      hasActiveLoanForProduct(p.id)
+                        ? 'cancel-btn'
+                        : p.inStock
+                        ? 'reserve-btn'
+                        : 'waitlist-btn',
+                    ]"
+                  >
+                    <span v-if="hasActiveLoanForProduct(p.id)"
+                      >Cancel Reservation</span
+                    >
+                    <span v-else-if="p.inStock">Reserve</span>
+                    <span v-else-if="isOnWaitlist(p.id)">On Waitlist</span>
+                    <span v-else>Join Waitlist</span>
+                  </button>
+
+                  <div class="favorite">
+                    <button
+                      @click="toggleFavorite(p.id)"
+                      :class="{ 'is-favorite': isFavorite(p.id) }"
+                      class="favorite-btn"
+                    >
+                      <span v-if="isFavorite(p.id)">★</span>
+                      <span v-else>☆</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="button-group" v-else>
+                <button @click="viewDetails(p)" class="details-btn">
+                  See Details
+                </button>
+                <button @click="viewWaitlist(p)" class="waitlist-btn">
+                  View Waitlist
+                </button>
+              </div>
+            </div>
+          </div>
+        </template>
       </div>
     </div>
   </section>
@@ -690,11 +767,7 @@ const viewDetails = (product: Product) => {
             </div>
             <div class="date-field">
               <label>Until</label>
-              <input
-                type="date"
-                v-model="dialog.endDate"
-                disabled
-              />
+              <input type="date" v-model="dialog.endDate" disabled />
             </div>
           </div>
         </template>
@@ -706,9 +779,7 @@ const viewDetails = (product: Product) => {
           <p v-else-if="dialog.kind === 'waitlist'">
             You have joined the waitlist. We'll notify you when it's available.
           </p>
-          <p v-else>
-            Your reservation has been cancelled.
-          </p>
+          <p v-else>Your reservation has been cancelled.</p>
         </template>
 
         <template v-else>
@@ -1166,6 +1237,11 @@ const viewDetails = (product: Product) => {
   .checkbox-group {
     max-height: 120px;
   }
+
+  .warning-banner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 .image-class {
   width: 100%;
@@ -1304,6 +1380,55 @@ const viewDetails = (product: Product) => {
   background-color: #fef2f2;
   border-radius: 4px;
   margin: 1rem 0;
+}
+.error-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+}
+.error-actions {
+  margin-top: 0.75rem;
+}
+.retry-btn,
+.retry-link {
+  background: #6c7c69;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 0.9rem;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.retry-btn:disabled,
+.retry-link:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+.warning-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: #fffbeb;
+  border: 1px solid #f5d0a0;
+  color: #92400e;
+  border-radius: 6px;
+  text-align: left;
+}
+.warning-banner span {
+  flex: 1 1 240px;
+}
+.recovery-banner {
+  margin-bottom: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: #ecfdf3;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+  border-radius: 6px;
+  text-align: left;
 }
 
 .favorites-error {
