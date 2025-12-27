@@ -52,6 +52,9 @@ export async function listLoansHttp(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
+  if (request.method === "OPTIONS") {
+    return { status: 204 };
+  }
   context.log("HTTP trigger function processed a request to list loans");
 
   try {
@@ -103,7 +106,7 @@ export async function listLoansHttp(
 
 // Register the function with Azure Functions runtime
 app.http("listLoans", {
-  methods: ["GET", "OPTIONS"],
+  methods: ["GET"],
   authLevel: "anonymous",
   route: "loans",
   handler: listLoansHttp,

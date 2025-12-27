@@ -45,7 +45,7 @@ async function authenticatedFetch(url: string, options: RequestInit = {}) {
   });
 
   if (!response.ok) {
-    const errorMessage = `API call failed: ${response.status} ${response.statusText}, try logging out, and logging back in again (your token is expired)`;
+    const errorMessage = `API call failed: ${response.status} ${response.statusText}`;
     console.error(`[LoansService] ${errorMessage}`, {
       url,
       status: response.status,

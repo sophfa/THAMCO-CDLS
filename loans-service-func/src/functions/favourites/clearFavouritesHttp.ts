@@ -57,7 +57,7 @@ export async function clearFavouritesHttp(
 }
 
 app.http("clearFavouritesHttp", {
-  methods: ["DELETE", "OPTIONS"],
+  methods: ["DELETE"],
   route: "loans/user/{userId}/favorites",
   authLevel: "anonymous",
   handler: clearFavouritesHttp,

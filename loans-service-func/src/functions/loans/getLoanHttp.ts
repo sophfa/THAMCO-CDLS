@@ -48,6 +48,9 @@ export async function getLoanByIdHttp(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
+  if (request.method === "OPTIONS") {
+    return { status: 204 };
+  }
   const loanId = request.params.id;
 
   context.log(
@@ -135,7 +138,7 @@ export async function getLoanByIdHttp(
 
 // Register the function with Azure Functions runtime
 app.http("getLoanById", {
-  methods: ["GET", "OPTIONS"],
+  methods: ["GET"],
   authLevel: "anonymous",
   route: "loans/{id}",
   handler: getLoanByIdHttp,

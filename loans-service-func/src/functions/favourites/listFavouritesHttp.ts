@@ -10,6 +10,9 @@ export async function listFavouritesHttp(
   req: HttpRequest,
   ctx: InvocationContext
 ): Promise<HttpResponseInit> {
+  if (req.method === "OPTIONS") {
+    return { status: 204 };
+  }
   const userId = req.params.userId;
   const { resources } = await favouritesContainer.items
     .query({
@@ -21,7 +24,7 @@ export async function listFavouritesHttp(
 }
 
 app.http("listFavouritesHttp", {
-  methods: ["GET", "OPTIONS"],
+  methods: ["GET"],
   route: "loans/user/{userId}/favorites",
   authLevel: "anonymous",
   handler: listFavouritesHttp,

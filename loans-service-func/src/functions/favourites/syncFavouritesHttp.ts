@@ -66,7 +66,7 @@ export async function syncFavouritesHttp(
 }
 
 app.http("syncFavouritesHttp", {
-  methods: ["PUT", "OPTIONS"],
+  methods: ["PUT"],
   route: "loans/user/{userId}/favorites",
   authLevel: "anonymous",
   handler: syncFavouritesHttp,

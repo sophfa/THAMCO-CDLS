@@ -11,6 +11,9 @@ export async function addToWaitlistHttp(
   context: InvocationContext
 ): Promise<HttpResponseInit> {
   try {
+    if (req.method === "OPTIONS") {
+      return { status: 204 };
+    }
     const { userId } = (await req.json()) as {
       userId: string;
     };
@@ -103,7 +106,7 @@ export async function addToWaitlistHttp(
 
 app.http("addToWaitlistHttp", {
   route: "loans/{id}/waitlist",
-  methods: ["POST", "OPTIONS"],
+  methods: ["POST"],
   authLevel: "anonymous",
   handler: addToWaitlistHttp,
 });

@@ -12,6 +12,9 @@ export async function addToWaitlistByDeviceHttp(
   ctx: InvocationContext
 ): Promise<HttpResponseInit> {
   try {
+    if (req.method === "OPTIONS") {
+      return { status: 204 };
+    }
     // Validate authentication token
     const authResult = await validateToken(req, ctx);
     if (!authResult.isValid) {
@@ -82,7 +85,7 @@ export async function addToWaitlistByDeviceHttp(
 
 app.http("addToWaitlistByDeviceHttp", {
   route: "loans/device/{deviceId}/waitlist",
-  methods: ["POST", "OPTIONS"],
+  methods: ["POST"],
   authLevel: "anonymous",
   handler: addToWaitlistByDeviceHttp,
 });
