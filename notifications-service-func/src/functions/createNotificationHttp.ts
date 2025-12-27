@@ -5,6 +5,7 @@ import {
   HttpRequest,
   HttpResponseInit,
   InvocationContext,
+  output,
 } from "@azure/functions";
 import { Resend } from "resend";
 import {
@@ -28,6 +29,13 @@ import { getUserEmailById } from "../auth0/userDirectory";
 // Initialize Resend with API key from environment variables
 const resendApiKey = process.env.RESEND_API_KEY;
 const resend = resendApiKey ? new Resend(resendApiKey) : null;
+
+const signalROutput = output.generic({
+  type: "signalR",
+  name: "signalRMessages",
+  hubName: "notifications",
+  connectionStringSetting: "AzureSignalRConnectionString",
+});
 
 /**
  * Request format for creating notifications
@@ -889,6 +897,24 @@ export async function createNotificationHttp(
       data: saveResult.data,
     };
 
+    if (process.env.AzureSignalRConnectionString) {
+      context.extraOutputs.set(signalROutput, [
+        {
+          userId: notificationRequest.userId,
+          target: "notificationCreated",
+          arguments: [saveResult.data],
+        },
+      ]);
+      context.log("SignalR notification published", {
+        notificationId: saveResult.data.id,
+        userId: notificationRequest.userId,
+      });
+    } else {
+      context.log(
+        "SignalR connection string missing; skipping realtime notify."
+      );
+    }
+
     let resolvedUserEmail = notificationRequest.userEmail;
 
     if (!resolvedUserEmail) {
@@ -988,8 +1014,9 @@ export async function createNotificationHttp(
 
 // Register the function with Azure Functions runtime
 app.http("createNotification", {
-  methods: ["POST", "OPTIONS"],
+  methods: ["POST"],
   authLevel: "anonymous",
   route: "notifications",
   handler: createNotificationHttp,
+  extraOutputs: [signalROutput],
 });

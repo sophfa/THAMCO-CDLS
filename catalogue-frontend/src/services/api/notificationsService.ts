@@ -8,6 +8,35 @@ const BASE_URL = import.meta.env.PROD
 
 console.log("[NotificationsService] Base URL:", BASE_URL);
 
+export type UiNotification = {
+  id: string;
+  title: string;
+  message: string;
+  type: string;
+  read: boolean;
+  timestamp: Date;
+};
+
+export function normalizeNotification(raw: any): UiNotification | null {
+  if (!raw) return null;
+  const id = raw?.id || raw?.notificationId || raw?._id;
+  if (!id) return null;
+  const ts = raw?.createdAt || raw?.timestamp;
+  const date = ts
+    ? new Date(ts)
+    : raw?._ts
+    ? new Date(raw._ts * 1000)
+    : new Date();
+  return {
+    id,
+    title: raw?.title || raw?.type || "Notification",
+    message: raw?.message || raw?.content || raw?.payload?.message || "",
+    type: String(raw?.type || "system").toLowerCase(),
+    read: Boolean(raw?.read),
+    timestamp: date,
+  };
+}
+
 async function fetchWithAuth(
   url: string,
   options: RequestInit = {}
@@ -26,30 +55,17 @@ async function fetchWithAuth(
 
 export async function getNotificationsForUser(userId: string) {
   const response = await fetchWithAuth(
-    `${BASE_URL}/notifications/user/${encodeURIComponent(userId)}`
+    `${BASE_URL}/notifications/user/${encodeURIComponent(userId)}`,
+    { cache: "no-store" }
   );
   if (!response.ok)
     throw new Error(`Failed to fetch notifications for ${userId}`);
   const body = await response.json();
   // Backend returns { success, data } or an array; normalize to UI-friendly array
   const raw = Array.isArray(body) ? body : body?.data || [];
-  const mapped = raw.map((n: any) => {
-    const ts = n?.createdAt || n?.timestamp;
-    const date = ts
-      ? new Date(ts)
-      : n?._ts
-      ? new Date(n._ts * 1000)
-      : new Date();
-    return {
-      id: n?.id || n?.notificationId || n?._id,
-      title: n?.title || n?.type || "Notification",
-      message: n?.message || n?.content || n?.payload?.message || "",
-      type: String(n?.type || "system").toLowerCase(),
-      read: Boolean(n?.read),
-      timestamp: date,
-    };
-  });
-  return mapped;
+  return raw
+    .map((n: any) => normalizeNotification(n))
+    .filter((n: UiNotification | null): n is UiNotification => Boolean(n));
 }
 
 export async function markNotificationRead(id: string, read: boolean = true) {
@@ -122,6 +138,12 @@ export async function createNotification(
   deviceId?: string,
   extras?: CreateNotificationExtras
 ) {
+  if (!BASE_URL) {
+    console.warn(
+      "[Notifications] Missing VITE_NOTIFICATIONS_API_URL(_PROD); skipping create."
+    );
+    return { skipped: true };
+  }
   const payload: Record<string, any> = { userId, type };
 
   if (deviceId) {
@@ -133,6 +155,9 @@ export async function createNotification(
       // Optionally attach raw deviceId for traceability
       payload.deviceId = deviceId;
     }
+  }
+  if (!payload.deviceName && deviceId) {
+    payload.deviceName = deviceId;
   }
 
   if (extras) {
@@ -152,5 +177,18 @@ export async function createNotification(
     if (userEmail) payload.userEmail = userEmail;
   }
 
-  return Promise.resolve({ skipped: true });
+  console.info("[Notifications] createNotification payload", payload);
+  const res = await fetchWithAuth(`${BASE_URL}/notifications`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(
+      `Failed to create notification: ${res.status} ${res.statusText} ${text}`.trim()
+    );
+  }
+  const data = await res.json().catch(() => ({}));
+  console.info("[Notifications] createNotification success", data);
+  return data;
 }

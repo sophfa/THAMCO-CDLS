@@ -402,8 +402,21 @@ const handleReturn = async (loanId: string) => {
       const uid = await getUserId();
       const email = await getUserEmail();
       const returnedLoan = loans.value.find((l) => l.id === loanId);
+      const toIsoString = (value?: string | Date) => {
+        if (!value) return "";
+        const date = value instanceof Date ? value : new Date(value);
+        return Number.isNaN(date.getTime()) ? "" : date.toISOString();
+      };
       if (uid && returnedLoan) {
+        const collectionDate = toIsoString(returnedLoan.from);
+        const returnDate = toIsoString(returnedLoan.till);
+        if (!collectionDate || !returnDate) {
+          throw new Error("Missing loan dates for return notification");
+        }
         await createNotification(uid, "Returned", returnedLoan.deviceId, {
+          collectionDate,
+          returnDate,
+          content: { returnedAt: new Date().toISOString() },
           userEmail: email || undefined,
         });
       }

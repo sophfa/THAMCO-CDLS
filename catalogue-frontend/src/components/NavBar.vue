@@ -88,7 +88,9 @@
             </div>
 
             <div class="notifications-footer">
-              <button class="view-all-btn">View All Notifications</button>
+              <button class="view-all-btn" @click="viewAllNotifications">
+                View All Notifications
+              </button>
             </div>
           </div>
         </li>
@@ -128,15 +130,19 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
+import { useRouter } from "vue-router";
 import { useAuth } from "../composables/useAuth";
 import { getUserId, getUserRole, login } from "../services/authService";
 import {
   getNotificationsForUser,
   markNotificationRead,
+  normalizeNotification,
 } from "../services/api/notificationsService";
+import { subscribeToNotifications } from "../services/notificationsHub";
 import { cloudinaryAssets } from "../assets/cloudinary";
 
 const { user, loggedIn, logout } = useAuth();
+const router = useRouter();
 
 // Replaces old Login/Signup with Auth0 login redirect
 async function handleAuth() {
@@ -147,23 +153,58 @@ async function handleAuth() {
 const showNotifications = ref(false);
 const notifications = ref<any[]>([]);
 const notificationsError = ref("");
+let unsubscribeNotifications: (() => Promise<void>) | null = null;
+
+const loadNotifications = async () => {
+  if (!loggedIn.value) {
+    notifications.value = [];
+    notificationsError.value = "";
+    return;
+  }
+  const userId = await getUserId();
+  if (!userId) {
+    notifications.value = [];
+    return;
+  }
+  try {
+    notificationsError.value = "";
+    notifications.value = await getNotificationsForUser(userId as string);
+  } catch (err) {
+    console.error("Failed to load notifications:", err);
+    notificationsError.value =
+      "We couldn't load notifications right now. Please try again.";
+  }
+};
+
+const handleRealtimeNotification = (payload: unknown) => {
+  const next = normalizeNotification(payload as any);
+  if (next && !notifications.value.some((n) => n.id === next.id)) {
+    notifications.value = [next, ...notifications.value];
+  }
+  void loadNotifications();
+};
 
 watch(loggedIn, async (isLoggedIn) => {
   if (isLoggedIn) {
-    const userId = await getUserId();
     const userRole = await getUserRole();
     user.value.role = userRole;
-    try {
-      notificationsError.value = "";
-      notifications.value = await getNotificationsForUser(userId as string);
-    } catch (err) {
-      console.error("Failed to load notifications:", err);
-      notificationsError.value =
-        "We couldn't load notifications right now. Please try again.";
+    await loadNotifications();
+    if (!unsubscribeNotifications) {
+      try {
+        unsubscribeNotifications = await subscribeToNotifications(
+          handleRealtimeNotification
+        );
+      } catch (err) {
+        console.warn("[Notifications] Live updates unavailable", err);
+      }
     }
   } else {
     notifications.value = [];
     notificationsError.value = "";
+    if (unsubscribeNotifications) {
+      await unsubscribeNotifications();
+      unsubscribeNotifications = null;
+    }
   }
 });
 
@@ -195,6 +236,10 @@ const markAllAsRead = async () => {
     console.error("Failed to persist read status for some notifications", e);
   }
 };
+const viewAllNotifications = () => {
+  showNotifications.value = false;
+  router.push({ name: "notifications" });
+};
 const getNotificationIcon = (type: string) => {
   const icons: Record<string, string> = {
     reservation: "fas fa-calendar-check",
@@ -221,20 +266,25 @@ const handleClickOutside = (e: Event) => {
 };
 
 onMounted(async () => {
-  if (loggedIn.value) {
-    const userId = await getUserId();
+  await loadNotifications();
+  if (loggedIn.value && !unsubscribeNotifications) {
     try {
-      notificationsError.value = "";
-      notifications.value = await getNotificationsForUser(userId as string);
+      unsubscribeNotifications = await subscribeToNotifications(
+        handleRealtimeNotification
+      );
     } catch (err) {
-      console.error("Failed to load notifications:", err);
-      notificationsError.value =
-        "We couldn't load notifications right now. Please try again.";
+      console.warn("[Notifications] Live updates unavailable", err);
     }
   }
   document.addEventListener("click", handleClickOutside);
 });
-onUnmounted(() => document.removeEventListener("click", handleClickOutside));
+onUnmounted(async () => {
+  document.removeEventListener("click", handleClickOutside);
+  if (unsubscribeNotifications) {
+    await unsubscribeNotifications();
+    unsubscribeNotifications = null;
+  }
+});
 </script>
 
 <style scoped>

@@ -15,6 +15,7 @@ import ProductPage from "../views/ProductPage.vue";
 import FAQsView from "../views/FAQsView.vue";
 import AdminDashboard from "../views/AdminDashboard.vue";
 import LoanHistoryView from "../views/LoanHistoryView.vue";
+import NotificationsView from "../views/NotificationsView.vue";
 
 const routes = [
   { path: "/", name: "home", component: HomeView },
@@ -42,6 +43,12 @@ const routes = [
     path: "/profile",
     name: "profile",
     component: ProfileView,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/notifications",
+    name: "notifications",
+    component: NotificationsView,
     meta: { requiresAuth: true },
   },
   {

@@ -33,6 +33,7 @@ const {
   hasActiveLoanForProduct,
   isOnWaitlist,
   handleReserveOrWaitlist,
+  getActiveLoanStatus,
   confirmDialog,
   closeDialog,
 } = useReservationFlow({
@@ -376,6 +377,39 @@ const filteredProducts = computed(() => {
   });
 });
 const hasCatalogueData = computed(() => products.value.length > 0);
+function loanStatusLabel(status?: string) {
+  switch (status) {
+    case "Requested":
+      return "Cancel Request";
+    case "Approved":
+      return "Cancel Reservation";
+    case "Collected":
+      return "On Loan";
+    case "Overdue":
+      return "Overdue";
+    default:
+      return "Manage Loan";
+  }
+}
+
+function loanStatusClass(status?: string) {
+  if (status === "Collected") return "loaned-btn";
+  if (status === "Overdue") return "overdue-btn";
+  return "cancel-btn";
+}
+
+function isLoanCancellable(status?: string) {
+  return status === "Requested" || status === "Approved";
+}
+
+function handleLoanAction(product: Product) {
+  const status = getActiveLoanStatus(product.id);
+  if (isLoanCancellable(status)) {
+    handleReserveOrWaitlist(product);
+    return;
+  }
+  router.push({ path: "/reservations" });
+}
 const viewDetails = (product: Product) => {
   // Navigate to product details page
   router.push(`/product/${product.id}`);
@@ -710,20 +744,24 @@ const viewDetails = (product: Product) => {
                   class="action-buttons"
                 >
                   <button
-                    @click="handleReserveOrWaitlist(p)"
-                    :disabled="!p.inStock && isOnWaitlist(p.id)"
+                    @click="
+                      hasActiveLoanForProduct(p.id)
+                        ? handleLoanAction(p)
+                        : handleReserveOrWaitlist(p)
+                    "
+                    :disabled="!hasActiveLoanForProduct(p.id) && !p.inStock && isOnWaitlist(p.id)"
                     :class="[
                       'action-btn',
                       hasActiveLoanForProduct(p.id)
-                        ? 'cancel-btn'
+                        ? loanStatusClass(getActiveLoanStatus(p.id))
                         : p.inStock
                         ? 'reserve-btn'
                         : 'waitlist-btn',
                     ]"
                   >
-                    <span v-if="hasActiveLoanForProduct(p.id)"
-                      >Cancel Reservation</span
-                    >
+                    <span v-if="hasActiveLoanForProduct(p.id)">{{
+                      loanStatusLabel(getActiveLoanStatus(p.id))
+                    }}</span>
                     <span v-else-if="p.inStock">Reserve</span>
                     <span v-else-if="isOnWaitlist(p.id)">On Waitlist</span>
                     <span v-else>Join Waitlist</span>
@@ -1346,6 +1384,20 @@ const viewDetails = (product: Product) => {
 }
 .cancel-btn:hover {
   background-color: #a6211f;
+}
+.loaned-btn {
+  background-color: #6b7280;
+  color: white;
+}
+.loaned-btn:hover {
+  background-color: #4b5563;
+}
+.overdue-btn {
+  background-color: #a6383e;
+  color: white;
+}
+.overdue-btn:hover {
+  background-color: #8a2f34;
 }
 .favorite-btn {
   background: none;

@@ -22,7 +22,6 @@ export interface AvailabilityResult {
 export async function getAvailabilityForProduct(
   productId: string
 ): Promise<AvailabilityResult> {
-  console.log("[AvailabilityService] Fetching availability", { productId });
   let stock: number | null;
   let loanStats: { activeLoans: number; byStatus?: Record<string, number> };
   try {
@@ -40,17 +39,7 @@ export async function getAvailabilityForProduct(
 
   const activeLoans = loanStats.activeLoans;
   const available =
-    typeof stock === "number"
-      ? Math.max(stock - activeLoans, 0)
-      : null;
-
-  console.log("[AvailabilityService] Computed availability", {
-    productId,
-    stock,
-    activeLoans,
-    available,
-    byStatus: loanStats.byStatus,
-  });
+    typeof stock === "number" ? Math.max(stock - activeLoans, 0) : null;
 
   return {
     stock,

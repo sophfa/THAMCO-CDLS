@@ -9,7 +9,7 @@ import {
 } from "../services/api/loansService";
 import { getUserId, getUserEmail } from "../services/authService";
 import { createNotification } from "../services/api/notificationsService";
-import type { Product } from "../types/models";
+import type { Product, Loan } from "../types/models";
 
 const ACTIVE_LOAN_STATUSES = new Set([
   "Requested",
@@ -40,7 +40,9 @@ type ReservationFlowOptions = {
 };
 
 export function useReservationFlow(options: ReservationFlowOptions = {}) {
-  const userActiveLoans = ref<Map<string, string>>(new Map());
+  const userActiveLoans = ref<
+    Map<string, { id: string; status: Loan["status"] }>
+  >(new Map());
   const userWaitlistDeviceIds = ref<Set<string>>(new Set());
   const dialog = reactive({
     open: false as boolean,
@@ -64,10 +66,15 @@ export function useReservationFlow(options: ReservationFlowOptions = {}) {
         return;
       }
       const loans = await getUserLoans(userId);
-      const activeMap = new Map<string, string>();
+      const activeMap = new Map<string, { id: string; status: Loan["status"] }>();
       loans
         .filter((loan) => ACTIVE_LOAN_STATUSES.has(loan.status))
-        .forEach((loan) => activeMap.set(loan.deviceId, loan.id));
+        .forEach((loan) =>
+          activeMap.set(loan.deviceId, {
+            id: loan.id,
+            status: loan.status as Loan["status"],
+          })
+        );
       userActiveLoans.value = activeMap;
     } catch (e) {
       console.warn("[Reservation] Failed to load user loans:", e);
@@ -122,7 +129,11 @@ export function useReservationFlow(options: ReservationFlowOptions = {}) {
   }
 
   function getActiveLoanId(productId: string) {
-    return userActiveLoans.value.get(productId);
+    return userActiveLoans.value.get(productId)?.id;
+  }
+
+  function getActiveLoanStatus(productId: string) {
+    return userActiveLoans.value.get(productId)?.status;
   }
 
   function isOnWaitlist(deviceId: string) {
@@ -199,6 +210,7 @@ export function useReservationFlow(options: ReservationFlowOptions = {}) {
                 dialog.startDate || new Date().toISOString().slice(0, 10);
               await createNotification(uid, "Reservation", dialog.product.id, {
                 collectionDate: start,
+                returnDate: dialog.endDate || computeEndDate(start),
                 userEmail: email || undefined,
               });
             } else {
@@ -258,6 +270,7 @@ export function useReservationFlow(options: ReservationFlowOptions = {}) {
     hasActiveLoanForProduct,
     isOnWaitlist,
     handleReserveOrWaitlist,
+    getActiveLoanStatus,
     confirmDialog,
     closeDialog,
   };

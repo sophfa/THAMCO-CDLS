@@ -10,6 +10,7 @@ import './functions/list-notification-http';
 import './functions/createNotificationHttp';
 import './functions/markNotificationReadHttp';
 import './functions/handle-loan-status-event';
+import './functions/notificationsNegotiateHttp';
 
 // Export the shared app instance so the Azure Functions runtime can discover registered handlers
 export { app };

@@ -689,9 +689,9 @@ watch(activeTab, async (tab) => {
 }
 
 .tabs {
-  display: inline-flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  display: flex;
+  justify-content: space-between;
   margin-bottom: 1.5rem;
   padding: 0.5rem;
   background: linear-gradient(135deg, #f9fafb, #eef2ff);

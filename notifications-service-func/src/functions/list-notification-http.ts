@@ -113,7 +113,7 @@ export async function listNotificationsHttp(
 
 // Register the function with Azure Functions runtime
 app.http('listNotifications', {
-  methods: ['GET', 'OPTIONS'],
+  methods: ['GET'],
   authLevel: 'anonymous',
   route: 'notifications',
   handler: listNotificationsHttp,
