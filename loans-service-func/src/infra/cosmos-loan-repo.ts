@@ -27,6 +27,7 @@ interface LoanDocument {
   readonly deviceId: string;
   readonly userId: string;
   readonly createdAt: string; // ISO string in storage
+  readonly statusChangedAt?: string; // ISO string in storage
   readonly from: string; // ISO string in storage
   readonly till: string; // ISO string in storage
   readonly status: 'Requested' | 'Approved' | 'Rejected' | 'Collected' | 'Returned' | 'Cancelled' | 'Overdue';
@@ -80,6 +81,9 @@ export class CosmosLoanRepo implements LoanRepo {
       deviceId: loan.deviceId,
       userId: loan.userId,
       createdAt: loan.createdAt.toISOString(),
+      statusChangedAt: loan.statusChangedAt
+        ? loan.statusChangedAt.toISOString()
+        : undefined,
       from: loan.from.toISOString(),
       till: loan.till.toISOString(),
       status: loan.status,
@@ -95,6 +99,9 @@ export class CosmosLoanRepo implements LoanRepo {
       deviceId: document.deviceId,
       userId: document.userId,
       createdAt: new Date(document.createdAt),
+      statusChangedAt: document.statusChangedAt
+        ? new Date(document.statusChangedAt)
+        : undefined,
       from: new Date(document.from),
       till: new Date(document.till),
       status: document.status,

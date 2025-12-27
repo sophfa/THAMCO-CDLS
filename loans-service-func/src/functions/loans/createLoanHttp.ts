@@ -71,6 +71,7 @@ export async function createLoanHttp(
       deviceId,
       userId,
       createdAt: now.toISOString(),
+      statusChangedAt: now.toISOString(),
       from: from.toISOString(),
       till: till.toISOString(),
       status: "Requested" as const,

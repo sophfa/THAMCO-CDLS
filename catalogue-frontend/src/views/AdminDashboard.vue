@@ -69,8 +69,8 @@
                 <div class="reservation-footer">
                   <div class="reservation-dates">
                     <div>
-                      <label>Requested</label>
-                      <span>{{ formatDate(loan.createdAt) }}</span>
+                      <label>{{ statusTimestampLabel(loan.status) }}</label>
+                      <span>{{ formatDate(statusTimestampValue(loan)) }}</span>
                     </div>
                     <div>
                       <label>Collect</label>
@@ -134,6 +134,10 @@
                 </div>
                 <div class="reservation-footer">
                   <div class="reservation-dates">
+                    <div>
+                      <label>{{ statusTimestampLabel(loan.status) }}</label>
+                      <span>{{ formatDate(statusTimestampValue(loan)) }}</span>
+                    </div>
                     <div>
                       <label>Collect</label>
                       <span>{{ formatDate(loan.from) }}</span>
@@ -199,6 +203,10 @@
                 <div class="reservation-footer">
                   <div class="reservation-dates">
                     <div>
+                      <label>{{ statusTimestampLabel(loan.status) }}</label>
+                      <span>{{ formatDate(statusTimestampValue(loan)) }}</span>
+                    </div>
+                    <div>
                       <label>Due</label>
                       <span>{{ formatDate(loan.till) }}</span>
                     </div>
@@ -260,8 +268,8 @@
                 <div class="reservation-footer">
                   <div class="reservation-dates">
                     <div>
-                      <label>Updated</label>
-                      <span>{{ formatDate(loan.createdAt) }}</span>
+                      <label>{{ statusTimestampLabel(loan.status) }}</label>
+                      <span>{{ formatDate(statusTimestampValue(loan)) }}</span>
                     </div>
                   </div>
                 </div>
@@ -309,8 +317,8 @@
                 <div class="reservation-footer">
                   <div class="reservation-dates">
                     <div>
-                      <label>Returned</label>
-                      <span>{{ formatDate(loan.createdAt) }}</span>
+                      <label>{{ statusTimestampLabel(loan.status) }}</label>
+                      <span>{{ formatDate(statusTimestampValue(loan)) }}</span>
                     </div>
                   </div>
                 </div>
@@ -429,6 +437,35 @@ function formatDate(d: string | Date) {
   }
 }
 
+function statusTimestampValue(loan: Loan) {
+  return loan.statusChangedAt || loan.createdAt;
+}
+
+function statusTimestampMs(loan: Loan) {
+  return new Date(statusTimestampValue(loan)).getTime();
+}
+
+function statusTimestampLabel(status?: Loan["status"]) {
+  switch (status) {
+    case "Approved":
+      return "Approved";
+    case "Collected":
+      return "Collected";
+    case "Returned":
+      return "Returned";
+    case "Rejected":
+      return "Rejected";
+    case "Cancelled":
+      return "Cancelled";
+    case "Overdue":
+      return "Overdue";
+    case "Requested":
+      return "Requested";
+    default:
+      return "Updated";
+  }
+}
+
 function statusClass(status?: string) {
   return (status || "unknown").toLowerCase();
 }
@@ -436,10 +473,7 @@ function statusClass(status?: string) {
 const requestedLoans = computed(() =>
   loans.value
     .filter((l) => l.status === "Requested")
-    .sort(
-      (a, b) =>
-        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-    )
+    .sort((a, b) => statusTimestampMs(a) - statusTimestampMs(b))
 );
 
 const approvedLoans = computed(() =>
@@ -457,19 +491,13 @@ const collectedLoans = computed(() =>
 const rejectedLoans = computed(() =>
   loans.value
     .filter((l) => l.status === "Rejected")
-    .sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    )
+    .sort((a, b) => statusTimestampMs(b) - statusTimestampMs(a))
 );
 
 const returnedLoans = computed(() =>
   loans.value
     .filter((l) => l.status === "Returned")
-    .sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    )
+    .sort((a, b) => statusTimestampMs(b) - statusTimestampMs(a))
 );
 
 async function loadLoans() {

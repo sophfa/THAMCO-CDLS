@@ -67,6 +67,7 @@ export async function collectLoanHttp(
     // Update loan status to 'Collected'
     loan.status = "Collected";
     loan.collectedAt = new Date().toISOString();
+    loan.statusChangedAt = loan.collectedAt;
 
     await loansContainer.items.upsert(loan);
 

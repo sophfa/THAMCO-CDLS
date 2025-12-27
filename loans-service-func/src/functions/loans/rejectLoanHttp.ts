@@ -64,6 +64,7 @@ export async function rejectLoanHttp(
     // Update loan status to 'Rejected'
     loan.status = "Rejected";
     loan.rejectedAt = new Date().toISOString();
+    loan.statusChangedAt = loan.rejectedAt;
     loan.rejectedBy = authResult.userId;
     loan.rejectionReason = reason;
 

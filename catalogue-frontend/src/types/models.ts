@@ -5,6 +5,7 @@ export interface Loan {
   readonly deviceId: string;
   readonly userId: string;
   readonly createdAt: Date | string;
+  readonly statusChangedAt?: Date | string;
   readonly from: Date | string;
   readonly till: Date | string;
   readonly status:

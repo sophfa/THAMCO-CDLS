@@ -23,6 +23,8 @@ export async function returnLoanHttp(
 
     // Update the loan status to fit the new model
     loan.status = "Returned";
+    loan.returnedAt = new Date().toISOString();
+    loan.statusChangedAt = loan.returnedAt;
 
     await loansContainer.items.upsert(loan);
 

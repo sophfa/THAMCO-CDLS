@@ -74,6 +74,7 @@ export async function cancelLoanHttp(
     // Update loan status to 'Cancelled'
     loan.status = "Cancelled";
     loan.cancelledAt = new Date().toISOString();
+    loan.statusChangedAt = loan.cancelledAt;
 
     await loansContainer.items.upsert(loan);
 

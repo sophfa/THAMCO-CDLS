@@ -46,6 +46,7 @@ export async function authLoanHttp(
     // Update loan status to 'Approved'
     loan.status = 'Approved';
     loan.approvedAt = new Date().toISOString();
+    loan.statusChangedAt = loan.approvedAt;
 
     await loansContainer.items.upsert(loan);
 

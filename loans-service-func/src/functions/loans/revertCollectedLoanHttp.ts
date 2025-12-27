@@ -66,6 +66,7 @@ export async function revertCollectedLoanHttp(
     delete loan.collectedAt;
     loan.collectionRevertedAt = revertedAt;
     loan.collectionRevertedBy = authResult.userId;
+    loan.statusChangedAt = revertedAt;
 
     await loansContainer.items.upsert(loan);
 
