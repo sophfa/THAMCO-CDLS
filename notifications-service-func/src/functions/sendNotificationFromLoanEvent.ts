@@ -165,9 +165,9 @@ export async function sendNotificationFromLoanEvent(
             deviceName,
             requestedFrom: data.from,
             requestedTill: data.till,
-            position: index + 1,
+            position: 1,
           },
-          message: `Good news! ${messageBase} (Position #${index + 1})`,
+          message: `Good news! ${messageBase}`,
         });
 
         if (waitlistCreation.success === false) {

@@ -489,7 +489,7 @@ const buildMessage = <T extends NotificationType>(
     }
     case 'Waitlist': {
       const data = payload as WaitlistPayload;
-      return `You joined the waitlist for ${data.deviceName}. Current position: ${data.position}.`;
+      return `You joined the waitlist for ${data.deviceName}. We'll notify you when it's available.`;
     }
     case 'Custom': {
       const data = payload as CustomPayload;

@@ -183,8 +183,6 @@ function generateEmailContent(notification: Notification): {
 
   switch (notificationType) {
     case "Waitlist": {
-      const waitlistNotification = notification as Notification<"Waitlist">;
-      const position = waitlistNotification.payload.position;
       template = {
         subject: "ThAmCo Device Loan - Waitlist Update",
         title: "You're on the waitlist",
@@ -192,9 +190,7 @@ function generateEmailContent(notification: Notification): {
           "We're keeping an eye on the device you requested and will keep you up to date.",
         detailHeading: "Request overview",
         accent: "#7c3aed",
-        highlight: Number.isFinite(position)
-          ? `You're currently <strong>#${position}</strong> in the queue. We'll notify you as soon as the device is available.`
-          : "We'll notify you the moment the device becomes available.",
+        highlight: "We'll notify you the moment the device becomes available.",
       };
       break;
     }
@@ -372,6 +368,9 @@ const formatPayloadForEmail = (notification: Notification): string => {
 
   if (isRecord(notification.payload)) {
     Object.entries(notification.payload).forEach(([key, value]) => {
+      if (notification.type === "Waitlist" && key === "position") {
+        return;
+      }
       if (value === undefined || value === null || value === "") {
         return;
       }

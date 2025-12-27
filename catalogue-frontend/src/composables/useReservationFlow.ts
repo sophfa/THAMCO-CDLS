@@ -214,16 +214,7 @@ export function useReservationFlow(options: ReservationFlowOptions = {}) {
                 userEmail: email || undefined,
               });
             } else {
-              const wl = ((dialog as any)._waitlistResult as any)?.waitlist as
-                | string[]
-                | undefined;
-              let position: number | undefined;
-              if (Array.isArray(wl)) {
-                const idx = wl.indexOf(uid);
-                position = idx >= 0 ? idx + 1 : wl.length;
-              }
               await createNotification(uid, "Waitlist", dialog.product.id, {
-                numInQueue: position,
                 userEmail: email || undefined,
               });
             }

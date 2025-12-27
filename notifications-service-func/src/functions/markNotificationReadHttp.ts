@@ -29,10 +29,19 @@ export async function markNotificationReadHttp(
   }
 
   try {
-    const body = (await request.json().catch(() => ({}))) as { read?: boolean };
+    const body = (await request.json().catch(() => ({}))) as {
+      read?: boolean;
+    };
     const read = body.read !== undefined ? Boolean(body.read) : true;
 
-    const { resource: doc } = await container.item(id, id).read<any>();
+    const { resources } = await container.items
+      .query({
+        query: "SELECT * FROM c WHERE c.id = @id",
+        parameters: [{ name: "@id", value: id }],
+      })
+      .fetchAll();
+
+    const doc = resources?.[0];
     if (!doc) {
       return {
         status: 404,
