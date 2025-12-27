@@ -4,7 +4,9 @@ import {
   HttpResponseInit,
   InvocationContext,
 } from "@azure/functions";
+import { randomUUID } from "crypto";
 import { loansContainer } from "../../config/cosmosClient";
+import { publishLoanStatusChangedEvent } from "../../events/eventGridPublisher";
 import { validateToken } from "../../utils/auth";
 
 export async function rejectLoanHttp(
@@ -61,6 +63,9 @@ export async function rejectLoanHttp(
       };
     }
 
+    const correlationId = req.headers.get("x-correlation-id") ?? randomUUID();
+    const previousStatus = loan.status;
+
     // Update loan status to 'Rejected'
     loan.status = "Rejected";
     loan.rejectedAt = new Date().toISOString();
@@ -69,6 +74,25 @@ export async function rejectLoanHttp(
     loan.rejectionReason = reason;
 
     await loansContainer.items.upsert(loan);
+
+    const waitlist = Array.isArray(loan.waitlist) ? loan.waitlist : undefined;
+    await publishLoanStatusChangedEvent(
+      {
+        loanId: loan.id,
+        deviceId: loan.deviceId,
+        userId: loan.userId,
+        from: loan.from,
+        till: loan.till,
+        correlationId,
+        previousStatus,
+        newStatus: loan.status,
+        statusChangedAt: loan.rejectedAt,
+        returnedAt: loan.returnedAt,
+        reason,
+        waitlist,
+      },
+      context
+    );
 
     context.log(
       `Loan ${loanId} rejected by ${authResult.userId}. Reason: ${reason}`

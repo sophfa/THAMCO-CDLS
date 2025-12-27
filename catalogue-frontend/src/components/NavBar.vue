@@ -126,6 +126,21 @@
       <router-link to="/favourites">My Favourites</router-link>
     </template>
   </div>
+
+  <div v-if="toastItems.length > 0" class="toast-container" aria-live="polite">
+    <div v-for="toast in toastItems" :key="toast.id" class="toast-card">
+      <div class="toast-icon">
+        <i :class="getNotificationIcon(toast.type)"></i>
+      </div>
+      <div class="toast-body">
+        <p class="toast-title">{{ toast.title }}</p>
+        <p class="toast-message">{{ toast.message }}</p>
+      </div>
+      <button class="toast-dismiss" @click="dismissToast(toast.id)">
+        <i class="fas fa-xmark"></i>
+      </button>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -154,6 +169,11 @@ const showNotifications = ref(false);
 const notifications = ref<any[]>([]);
 const notificationsError = ref("");
 let unsubscribeNotifications: (() => Promise<void>) | null = null;
+const toastItems = ref<
+  Array<{ id: string; title: string; message: string; type: string }>
+>([]);
+const toastTimers = new Map<string, number>();
+const toastTimeoutMs = 4500;
 
 const loadNotifications = async () => {
   if (!loggedIn.value) {
@@ -180,8 +200,35 @@ const handleRealtimeNotification = (payload: unknown) => {
   const next = normalizeNotification(payload as any);
   if (next && !notifications.value.some((n) => n.id === next.id)) {
     notifications.value = [next, ...notifications.value];
+    if (!toastItems.value.some((t) => t.id === next.id)) {
+      addToast(next);
+    }
   }
   void loadNotifications();
+};
+
+const addToast = (notification: {
+  id: string;
+  title: string;
+  message: string;
+  type: string;
+}) => {
+  toastItems.value = [notification, ...toastItems.value].slice(0, 3);
+  if (toastTimers.has(notification.id)) return;
+  const timer = window.setTimeout(
+    () => dismissToast(notification.id),
+    toastTimeoutMs
+  );
+  toastTimers.set(notification.id, timer);
+};
+
+const dismissToast = (id: string) => {
+  const timer = toastTimers.get(id);
+  if (timer) {
+    clearTimeout(timer);
+    toastTimers.delete(id);
+  }
+  toastItems.value = toastItems.value.filter((t) => t.id !== id);
 };
 
 watch(loggedIn, async (isLoggedIn) => {
@@ -201,6 +248,9 @@ watch(loggedIn, async (isLoggedIn) => {
   } else {
     notifications.value = [];
     notificationsError.value = "";
+    toastItems.value = [];
+    toastTimers.forEach((timer) => clearTimeout(timer));
+    toastTimers.clear();
     if (unsubscribeNotifications) {
       await unsubscribeNotifications();
       unsubscribeNotifications = null;
@@ -243,7 +293,13 @@ const viewAllNotifications = () => {
 const getNotificationIcon = (type: string) => {
   const icons: Record<string, string> = {
     reservation: "fas fa-calendar-check",
+    waitlist: "fas fa-user-clock",
     availability: "fas fa-check-circle",
+    accepted: "fas fa-check",
+    rejected: "fas fa-xmark",
+    cancelled: "fas fa-ban",
+    collected: "fas fa-box",
+    returned: "fas fa-rotate-left",
     reminder: "fas fa-clock",
     system: "fas fa-info-circle",
   };
@@ -280,6 +336,8 @@ onMounted(async () => {
 });
 onUnmounted(async () => {
   document.removeEventListener("click", handleClickOutside);
+  toastTimers.forEach((timer) => clearTimeout(timer));
+  toastTimers.clear();
   if (unsubscribeNotifications) {
     await unsubscribeNotifications();
     unsubscribeNotifications = null;
@@ -336,6 +394,92 @@ onUnmounted(async () => {
   width: auto;
   max-width: 250px;
   object-fit: contain;
+}
+
+.toast-container {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 2000;
+  width: min(360px, 90vw);
+}
+
+.toast-card {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 16px 30px rgba(15, 23, 42, 0.18);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  animation: toastIn 0.2s ease-out;
+}
+
+.toast-icon {
+  height: 34px;
+  width: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: rgba(37, 99, 235, 0.1);
+  color: #2563eb;
+  font-size: 0.95rem;
+  flex: 0 0 auto;
+}
+
+.toast-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.toast-title {
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #0f172a;
+}
+
+.toast-message {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.toast-dismiss {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  padding: 0;
+}
+
+.toast-dismiss:hover {
+  color: #0f172a;
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 600px) {
+  .toast-container {
+    right: 16px;
+    left: 16px;
+  }
 }
 
 .profile {

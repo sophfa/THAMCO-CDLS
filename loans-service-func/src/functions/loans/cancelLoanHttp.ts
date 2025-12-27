@@ -4,7 +4,9 @@ import {
   HttpResponseInit,
   InvocationContext,
 } from "@azure/functions";
+import { randomUUID } from "crypto";
 import { loansContainer } from "../../config/cosmosClient";
+import { publishLoanStatusChangedEvent } from "../../events/eventGridPublisher";
 import { validateToken } from "../../utils/auth";
 
 export async function cancelLoanHttp(
@@ -71,12 +73,33 @@ export async function cancelLoanHttp(
       };
     }
 
+    const correlationId = req.headers.get("x-correlation-id") ?? randomUUID();
+    const previousStatus = loan.status;
+
     // Update loan status to 'Cancelled'
     loan.status = "Cancelled";
     loan.cancelledAt = new Date().toISOString();
     loan.statusChangedAt = loan.cancelledAt;
 
     await loansContainer.items.upsert(loan);
+
+    const waitlist = Array.isArray(loan.waitlist) ? loan.waitlist : undefined;
+    await publishLoanStatusChangedEvent(
+      {
+        loanId: loan.id,
+        deviceId: loan.deviceId,
+        userId: loan.userId,
+        from: loan.from,
+        till: loan.till,
+        correlationId,
+        previousStatus,
+        newStatus: loan.status,
+        statusChangedAt: loan.cancelledAt,
+        returnedAt: loan.returnedAt,
+        waitlist,
+      },
+      context
+    );
 
     context.log(`Loan ${loanId} cancelled by user ${authResult.userId}`);
 

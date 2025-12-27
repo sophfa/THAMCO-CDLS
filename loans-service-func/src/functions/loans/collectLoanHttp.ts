@@ -71,6 +71,8 @@ export async function collectLoanHttp(
 
     await loansContainer.items.upsert(loan);
 
+    const waitlist = Array.isArray(loan.waitlist) ? loan.waitlist : undefined;
+
     await publishLoanStatusChangedEvent(
       {
         loanId: loan.id,
@@ -84,6 +86,7 @@ export async function collectLoanHttp(
         statusChangedAt: loan.collectedAt,
         collectedAt: loan.collectedAt,
         returnedAt: loan.returnedAt,
+        waitlist,
       },
       context
     );

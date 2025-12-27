@@ -20,6 +20,7 @@ export interface LoanStatusEventPayload {
   returnedAt?: string;
   reason?: string;
   correlationId?: string;
+  waitlist?: string[];
 }
 
 export async function publishLoanStatusChangedEvent(
@@ -64,6 +65,7 @@ export async function publishLoanStatusChangedEvent(
         returnedAt: payload.returnedAt,
         reason: payload.reason,
         correlationId: payload.correlationId,
+        waitlist: payload.waitlist,
       },
     },
   ];

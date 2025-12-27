@@ -27,6 +27,7 @@ interface LoanStatusChangedEventData {
   collectedAt?: string;
   returnedAt?: string;
   reason?: string;
+  waitlist?: string[];
 }
 
 const STATUS_TO_NOTIFICATION: Partial<
@@ -38,6 +39,26 @@ const STATUS_TO_NOTIFICATION: Partial<
   Cancelled: "Cancelled",
   Collected: "Collected",
   Returned: "Returned",
+};
+
+const WAITLIST_AVAILABLE_STATUSES = new Set<LoanStatus>([
+  "Returned",
+  "Cancelled",
+  "Rejected",
+]);
+
+const toUniqueUserIds = (waitlist: unknown): string[] => {
+  if (!Array.isArray(waitlist)) return [];
+  const seen = new Set<string>();
+  const unique: string[] = [];
+  for (const entry of waitlist) {
+    if (typeof entry !== "string") continue;
+    const trimmed = entry.trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    unique.push(trimmed);
+  }
+  return unique;
 };
 
 function buildPayload(
@@ -124,6 +145,63 @@ export async function sendNotificationFromLoanEvent(
     } else {
       const err = (result as { success: false; error: unknown }).error;
       context.error("Failed to persist notification:", err);
+    }
+
+    const waitlistUsers = toUniqueUserIds(data.waitlist);
+    if (
+      WAITLIST_AVAILABLE_STATUSES.has(data.newStatus) &&
+      waitlistUsers.length > 0
+    ) {
+      const deviceName = data.deviceId;
+      const messageBase = `${deviceName} is now available to reserve.`;
+
+      for (const [index, waitlistUserId] of waitlistUsers.entries()) {
+        if (waitlistUserId === data.userId) continue;
+
+        const waitlistCreation = createNotification({
+          userId: waitlistUserId,
+          type: "Waitlist",
+          payload: {
+            deviceName,
+            requestedFrom: data.from,
+            requestedTill: data.till,
+            position: index + 1,
+          },
+          message: `Good news! ${messageBase} (Position #${index + 1})`,
+        });
+
+        if (waitlistCreation.success === false) {
+          context.error(
+            "Failed to create waitlist availability notification:",
+            waitlistCreation.errors
+          );
+          continue;
+        }
+
+        try {
+          const waitlistResult = await repo.create(
+            waitlistCreation.notification
+          );
+          if (waitlistResult.success) {
+            context.log(
+              `Waitlist availability notification stored for ${waitlistUserId} (${data.deviceId})`
+            );
+          } else {
+            const waitlistError = (
+              waitlistResult as { success: false; error: unknown }
+            ).error;
+            context.error(
+              "Failed to persist waitlist availability notification:",
+              waitlistError
+            );
+          }
+        } catch (waitlistError) {
+          context.error(
+            "Error saving waitlist availability notification:",
+            waitlistError
+          );
+        }
+      }
     }
   } catch (err) {
     context.error("Error saving notification for loan event:", err);
