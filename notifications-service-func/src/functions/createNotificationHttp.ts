@@ -34,7 +34,7 @@ const signalROutput = output.generic({
   type: "signalR",
   name: "signalRMessages",
   hubName: "notifications",
-  connectionStringSetting: "AzureSignalRConnectionString",
+  connectionStringSetting: "AZURE_SIGNALR_CONNECTION_STRING",
 });
 
 /**
@@ -896,7 +896,7 @@ export async function createNotificationHttp(
       data: saveResult.data,
     };
 
-    if (process.env.AzureSignalRConnectionString) {
+    if (process.env.AZURE_SIGNALR_CONNECTION_STRING) {
       context.extraOutputs.set(signalROutput, [
         {
           userId: notificationRequest.userId,

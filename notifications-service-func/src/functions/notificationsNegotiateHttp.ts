@@ -11,7 +11,7 @@ const signalRConnectionInfo = input.generic({
   type: "signalRConnectionInfo",
   name: "connectionInfo",
   hubName: "notifications",
-  connectionStringSetting: "AzureSignalRConnectionString",
+  connectionStringSetting: "AZURE_SIGNALR_CONNECTION_STRING",
   userId: "{headers.x-user-id}",
 });
 
