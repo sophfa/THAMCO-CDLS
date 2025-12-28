@@ -122,9 +122,61 @@ jobs:
           package: ${{ env.PACKAGE_PATH }}
           publish-profile: ${{ env.PUBLISH_PROFILE }}
 
+  deploy-to-prod:
+    name: Deploy to Prod (${{ matrix.name }})
+    needs: [build-and-publish, deploy-to-test]
+    runs-on: ubuntu-latest
+    environment: prod
+    strategy:
+      matrix:
+        include:
+          - name: catalogue
+            app-name: catalogue-service-func-prod
+            artifact: package-catalogue
+            secret: AZURE_PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC_PROD
+          - name: inventory
+            app-name: inventory-service-func-prod
+            artifact: package-inventory
+            secret: AZURE_PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC_PROD
+          - name: loans
+            app-name: loans-service-func-prod
+            artifact: package-loans
+            secret: AZURE_PUBLISH_PROFILE_LOANS_SERVICE_FUNC_PROD
+          - name: notifications
+            app-name: notifications-service-func-prod
+            artifact: package-notifications
+            secret: AZURE_PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC_PROD
+    steps:
+      - name: Download package artefact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: artifacts
+
+      - name: Locate package file
+        run: |
+          echo "Downloaded files:" && ls -lR artifacts || true
+          PKG=$(find artifacts -maxdepth 2 -type f -name '*.zip' | head -n1)
+          if [ -z "$PKG" ]; then
+            echo "Package not found" >&2
+            exit 1
+          fi
+          echo "PACKAGE_PATH=$PKG" >> "$GITHUB_ENV"
+
+      - name: Deploy to Azure Function App
+        env:
+          PUBLISH_PROFILE: ${{ secrets[matrix.secret] }}
+        if: ${{ env.PUBLISH_PROFILE != '' }}
+        uses: azure/functions-action@v1
+        with:
+          app-name: ${{ matrix.app-name }}
+          package: ${{ env.PACKAGE_PATH }}
+          publish-profile: ${{ env.PUBLISH_PROFILE }}
+
   deploy-frontend:
     name: Build & Deploy Frontend
     runs-on: ubuntu-latest
+    environment: prod
     env:
       NODE_VERSION: "22"
       VITE_AUTH0_PROD_CALLBACK_URL: ${{ secrets.VITE_AUTH0_PROD_CALLBACK_URL }}
