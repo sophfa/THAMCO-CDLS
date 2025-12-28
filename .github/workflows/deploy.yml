@@ -145,8 +145,8 @@ jobs:
       VITE_CATALOGUE_API_URL: ${{ secrets.VITE_CATALOGUE_API_URL_TEST }}
       VITE_USER_SERVICE_API_URL: ${{ secrets.VITE_USER_SERVICE_API_URL_TEST }}
       VITE_DEPLOY_ENV: test
-      AZ_STORAGE_ACCOUNT: ${{ secrets.AZ_STORAGE_ACCOUNT_FRONTEND_TEST }}
-      AZ_STORAGE_KEY: ${{ secrets.AZ_STORAGE_KEY_FRONTEND_TEST }}
+      AZ_STORAGE_ACCOUNT: ${{ secrets.AZ_STORAGE_ACCOUNT }}
+      AZ_STORAGE_KEY: ${{ secrets.AZ_STORAGE_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
