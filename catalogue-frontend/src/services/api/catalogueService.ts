@@ -1,5 +1,6 @@
 // src/services/api/catalogueService.ts
 import { apiGet } from "./httpClient";
+import { resolveApiUrl } from "../env";
 import type {
   ApiResponse,
   Product,
@@ -11,9 +12,11 @@ import type {
 type CategoryProduct = LaptopProduct | TabletProduct | CameraProduct;
 
 // Use the correct catalogue service URL from env
-const BASE_URL = import.meta.env.PROD
-  ? import.meta.env.VITE_CATALOGUE_API_URL_PROD
-  : import.meta.env.VITE_CATALOGUE_API_URL;
+const BASE_URL = resolveApiUrl({
+  dev: import.meta.env.VITE_CATALOGUE_API_URL,
+  test: import.meta.env.VITE_CATALOGUE_API_URL_TEST,
+  prod: import.meta.env.VITE_CATALOGUE_API_URL_PROD,
+});
 console.log("[CatalogueApi] Base URL:", BASE_URL);
 
 export async function getAllProducts(): Promise<CategoryProduct[]> {

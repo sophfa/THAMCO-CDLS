@@ -1,9 +1,12 @@
 import * as signalR from "@microsoft/signalr";
 import { getToken, getUserId } from "./authService";
+import { resolveApiUrl } from "./env";
 
-const BASE_URL = import.meta.env.PROD
-  ? import.meta.env.VITE_NOTIFICATIONS_API_URL_PROD
-  : import.meta.env.VITE_NOTIFICATIONS_API_URL;
+const BASE_URL = resolveApiUrl({
+  dev: import.meta.env.VITE_NOTIFICATIONS_API_URL,
+  test: import.meta.env.VITE_NOTIFICATIONS_API_URL_TEST,
+  prod: import.meta.env.VITE_NOTIFICATIONS_API_URL_PROD,
+});
 
 type NotificationHandler = (payload: unknown) => void;
 

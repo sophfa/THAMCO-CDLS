@@ -1,14 +1,16 @@
 import { getToken, getUserId } from "../authService";
+import { resolveApiUrl } from "../env";
 
-const RAW_BASE_URL = import.meta.env.PROD
-  ? import.meta.env.VITE_INVENTORY_API_URL_PROD ||
-    import.meta.env.VITE_INVENTORY_API_URL
-  : import.meta.env.VITE_INVENTORY_API_URL;
+const RAW_BASE_URL = resolveApiUrl({
+  dev: import.meta.env.VITE_INVENTORY_API_URL,
+  test: import.meta.env.VITE_INVENTORY_API_URL_TEST,
+  prod: import.meta.env.VITE_INVENTORY_API_URL_PROD,
+});
 const BASE_URL = RAW_BASE_URL ? RAW_BASE_URL.replace(/\/$/, "") : "";
 console.log("[InventoryService] Base URL:", BASE_URL);
 if (!BASE_URL) {
   console.error(
-    "[InventoryService] Missing VITE_INVENTORY_API_URL(_PROD); requests will fail."
+    "[InventoryService] Missing VITE_INVENTORY_API_URL(_TEST/_PROD); requests will fail."
   );
 }
 

@@ -6,6 +6,10 @@ interface ImportMetaEnv {
   readonly VITE_CATALOGUE_API_URL: string;
   readonly VITE_NOTIFICATIONS_API_URL: string;
   readonly VITE_INVENTORY_API_URL: string;
+  readonly VITE_LOANS_API_URL_TEST: string;
+  readonly VITE_CATALOGUE_API_URL_TEST: string;
+  readonly VITE_NOTIFICATIONS_API_URL_TEST: string;
+  readonly VITE_INVENTORY_API_URL_TEST: string;
   readonly VITE_LOANS_API_URL_PROD: string;
   readonly VITE_CATALOGUE_API_URL_PROD: string;
   readonly VITE_NOTIFICATIONS_API_URL_PROD: string;
@@ -13,7 +17,9 @@ interface ImportMetaEnv {
   readonly VITE_AUTH0_DOMAIN: string;
   readonly VITE_AUTH0_CLIENT_ID: string;
   readonly VITE_AUTH0_DEV_CALLBACK_URL: string;
+  readonly VITE_AUTH0_TEST_CALLBACK_URL: string;
   readonly VITE_AUTH0_PROD_CALLBACK_URL: string;
+  readonly VITE_DEPLOY_ENV?: string;
   readonly VITE_USE_SEED_DATA?: string;
 }
 

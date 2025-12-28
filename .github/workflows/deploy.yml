@@ -130,22 +130,23 @@ jobs:
       - deploy-to-test
     env:
       NODE_VERSION: "22"
-      VITE_AUTH0_PROD_CALLBACK_URL: ${{ secrets.VITE_AUTH0_PROD_CALLBACK_URL }}
+      VITE_AUTH0_TEST_CALLBACK_URL: ${{ secrets.VITE_AUTH0_TEST_CALLBACK_URL }}
       VITE_AUTH0_DOMAIN: ${{ secrets.VITE_AUTH0_DOMAIN }}
       VITE_AUTH0_CLIENT_ID: ${{ secrets.VITE_AUTH0_CLIENT_ID }}
       VITE_AUTH0_AUDIENCE: ${{ secrets.VITE_AUTH0_AUDIENCE }}
-      VITE_LOANS_API_URL_PROD: ${{ secrets.VITE_LOANS_API_URL_PROD }}
-      VITE_NOTIFICATIONS_API_URL_PROD: ${{ secrets.VITE_NOTIFICATIONS_API_URL_PROD }}
-      VITE_INVENTORY_API_URL_PROD: ${{ secrets.VITE_INVENTORY_API_URL_PROD }}
-      VITE_CATALOGUE_API_URL_PROD: ${{ secrets.VITE_CATALOGUE_API_URL_PROD }}
-      VITE_USER_SERVICE_API_URL_PROD: ${{ secrets.VITE_USER_SERVICE_API_URL_PROD }}
-      VITE_LOANS_API_URL: ${{ secrets.VITE_LOANS_API_URL_PROD }}
-      VITE_NOTIFICATIONS_API_URL: ${{ secrets.VITE_NOTIFICATIONS_API_URL_PROD }}
-      VITE_INVENTORY_API_URL: ${{ secrets.VITE_INVENTORY_API_URL_PROD }}
-      VITE_CATALOGUE_API_URL: ${{ secrets.VITE_CATALOGUE_API_URL_PROD }}
-      VITE_USER_SERVICE_API_URL: ${{ secrets.VITE_USER_SERVICE_API_URL_PROD }}
-      AZ_STORAGE_ACCOUNT: ${{ secrets.AZ_STORAGE_ACCOUNT }}
-      AZ_STORAGE_KEY: ${{ secrets.AZ_STORAGE_KEY }}
+      VITE_LOANS_API_URL_TEST: ${{ secrets.VITE_LOANS_API_URL_TEST }}
+      VITE_NOTIFICATIONS_API_URL_TEST: ${{ secrets.VITE_NOTIFICATIONS_API_URL_TEST }}
+      VITE_INVENTORY_API_URL_TEST: ${{ secrets.VITE_INVENTORY_API_URL_TEST }}
+      VITE_CATALOGUE_API_URL_TEST: ${{ secrets.VITE_CATALOGUE_API_URL_TEST }}
+      VITE_USER_SERVICE_API_URL_TEST: ${{ secrets.VITE_USER_SERVICE_API_URL_TEST }}
+      VITE_LOANS_API_URL: ${{ secrets.VITE_LOANS_API_URL_TEST }}
+      VITE_NOTIFICATIONS_API_URL: ${{ secrets.VITE_NOTIFICATIONS_API_URL_TEST }}
+      VITE_INVENTORY_API_URL: ${{ secrets.VITE_INVENTORY_API_URL_TEST }}
+      VITE_CATALOGUE_API_URL: ${{ secrets.VITE_CATALOGUE_API_URL_TEST }}
+      VITE_USER_SERVICE_API_URL: ${{ secrets.VITE_USER_SERVICE_API_URL_TEST }}
+      VITE_DEPLOY_ENV: test
+      AZ_STORAGE_ACCOUNT: ${{ secrets.AZ_STORAGE_ACCOUNT_FRONTEND_TEST }}
+      AZ_STORAGE_KEY: ${{ secrets.AZ_STORAGE_KEY_FRONTEND_TEST }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -169,7 +170,7 @@ jobs:
       - name: Build frontend
         run: |
           cd catalogue-frontend
-          echo "Using prod callback ${VITE_AUTH0_PROD_CALLBACK_URL}"
+          echo "Using auth0 callback env ${VITE_DEPLOY_ENV}"
           npm run build
 
       - name: Install Azure CLI
@@ -258,6 +259,7 @@ jobs:
       VITE_INVENTORY_API_URL: ${{ secrets.VITE_INVENTORY_API_URL_PROD }}
       VITE_CATALOGUE_API_URL: ${{ secrets.VITE_CATALOGUE_API_URL_PROD }}
       VITE_USER_SERVICE_API_URL: ${{ secrets.VITE_USER_SERVICE_API_URL_PROD }}
+      VITE_DEPLOY_ENV: prod
       AZ_STORAGE_ACCOUNT: ${{ secrets.AZ_STORAGE_ACCOUNT_FRONTEND_PROD }}
       AZ_STORAGE_KEY: ${{ secrets.AZ_STORAGE_KEY_FRONTEND_PROD }}
     steps:
@@ -283,7 +285,7 @@ jobs:
       - name: Build frontend
         run: |
           cd catalogue-frontend
-          echo "Using prod callback ${VITE_AUTH0_PROD_CALLBACK_URL}"
+          echo "Using auth0 callback env ${VITE_DEPLOY_ENV}"
           npm run build
 
       - name: Install Azure CLI

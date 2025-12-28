@@ -1,11 +1,15 @@
 import { InvocationContext } from "@azure/functions";
 import { randomUUID } from "crypto";
 
-const topicEndpoint = process.env.EVENT_GRID_TOPIC_ENDPOINT;
-const topicKey = process.env.EVENT_GRID_TOPIC_KEY;
-
 let missingConfigLogged = false;
 const DEFAULT_RETRIES = 2;
+
+function getTopicConfig() {
+  return {
+    endpoint: process.env.EVENT_GRID_TOPIC_ENDPOINT,
+    key: process.env.EVENT_GRID_TOPIC_KEY,
+  };
+}
 
 export interface LoanStatusEventPayload {
   loanId: string;
@@ -27,7 +31,8 @@ export async function publishLoanStatusChangedEvent(
   payload: LoanStatusEventPayload,
   context: InvocationContext
 ): Promise<void> {
-  if (!topicEndpoint || !topicKey) {
+  const { endpoint, key } = getTopicConfig();
+  if (!endpoint || !key) {
     if (!missingConfigLogged) {
       context.log(
         "Event Grid configuration missing (EVENT_GRID_TOPIC_ENDPOINT / EVENT_GRID_TOPIC_KEY); skipping publish."
@@ -70,12 +75,14 @@ export async function publishLoanStatusChangedEvent(
     },
   ];
 
-  await sendWithRetry(events, context);
+  await sendWithRetry(events, context, endpoint, key);
 }
 
 async function sendWithRetry(
   events: any[],
   context: InvocationContext,
+  endpoint: string,
+  key: string,
   retries: number = DEFAULT_RETRIES
 ): Promise<void> {
   let attempt = 0;
@@ -83,11 +90,11 @@ async function sendWithRetry(
 
   while (attempt <= retries) {
     try {
-      const response = await fetch(topicEndpoint as string, {
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "aeg-sas-key": topicKey as string,
+          "aeg-sas-key": key,
         },
         body: JSON.stringify(events),
       });

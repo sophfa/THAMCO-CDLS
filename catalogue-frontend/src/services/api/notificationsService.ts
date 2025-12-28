@@ -1,10 +1,13 @@
 import { apiPost } from "./httpClient";
 import { getProductById } from "./catalogueService";
 import { getToken } from "../authService";
+import { resolveApiUrl } from "../env";
 
-const BASE_URL = import.meta.env.PROD
-  ? import.meta.env.VITE_NOTIFICATIONS_API_URL_PROD
-  : import.meta.env.VITE_NOTIFICATIONS_API_URL;
+const BASE_URL = resolveApiUrl({
+  dev: import.meta.env.VITE_NOTIFICATIONS_API_URL,
+  test: import.meta.env.VITE_NOTIFICATIONS_API_URL_TEST,
+  prod: import.meta.env.VITE_NOTIFICATIONS_API_URL_PROD,
+});
 
 console.log("[NotificationsService] Base URL:", BASE_URL);
 
@@ -140,7 +143,7 @@ export async function createNotification(
 ) {
   if (!BASE_URL) {
     console.warn(
-      "[Notifications] Missing VITE_NOTIFICATIONS_API_URL(_PROD); skipping create."
+      "[Notifications] Missing VITE_NOTIFICATIONS_API_URL(_TEST/_PROD); skipping create."
     );
     return { skipped: true };
   }

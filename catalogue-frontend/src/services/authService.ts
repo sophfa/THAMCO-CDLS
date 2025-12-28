@@ -4,13 +4,24 @@ import { computed } from "vue";
 let auth0: Auth0Client | null = null;
 
 const DEV_CALLBACK_URL = import.meta.env.VITE_AUTH0_DEV_CALLBACK_URL;
+const TEST_CALLBACK_URL = import.meta.env.VITE_AUTH0_TEST_CALLBACK_URL;
 const PROD_CALLBACK_URL = import.meta.env.VITE_AUTH0_PROD_CALLBACK_URL;
+const DEPLOY_ENV = import.meta.env.VITE_DEPLOY_ENV;
 
 function getRedirectUri(): string | undefined {
-  if (import.meta.env.PROD && PROD_CALLBACK_URL) {
+  if (!import.meta.env.PROD) {
+    return DEV_CALLBACK_URL;
+  }
+
+  if (DEPLOY_ENV === "prod" && PROD_CALLBACK_URL) {
     return PROD_CALLBACK_URL;
   }
-  return DEV_CALLBACK_URL;
+
+  if (DEPLOY_ENV === "test" && TEST_CALLBACK_URL) {
+    return TEST_CALLBACK_URL;
+  }
+
+  return PROD_CALLBACK_URL || TEST_CALLBACK_URL || DEV_CALLBACK_URL;
 }
 
 // Secure storage keys

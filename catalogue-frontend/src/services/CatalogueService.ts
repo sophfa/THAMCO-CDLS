@@ -1,4 +1,5 @@
 import { CategoryProduct } from "../types/models";
+import { resolveApiUrl } from "./env";
 
 export type {
   Product as Product,
@@ -10,9 +11,12 @@ export type {
 
 export { isTablet, isCamera, isLaptop } from "../types/models";
 
-const BASE_URL = import.meta.env.PROD
-  ? import.meta.env.VITE_CATALOGUE_API_URL_PROD + "/products"
-  : import.meta.env.VITE_CATALOGUE_API_URL + "/products";
+const BASE_ROOT = resolveApiUrl({
+  dev: import.meta.env.VITE_CATALOGUE_API_URL,
+  test: import.meta.env.VITE_CATALOGUE_API_URL_TEST,
+  prod: import.meta.env.VITE_CATALOGUE_API_URL_PROD,
+}).replace(/\/$/, "");
+const BASE_URL = BASE_ROOT ? `${BASE_ROOT}/products` : "";
 console.log("[CatalogueService] Base URL:", BASE_URL);
 
 export async function fetchCatalogue(): Promise<CategoryProduct[]> {
