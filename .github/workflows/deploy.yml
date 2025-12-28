@@ -122,6 +122,69 @@ jobs:
           package: ${{ env.PACKAGE_PATH }}
           publish-profile: ${{ env.PUBLISH_PROFILE }}
 
+  deploy-frontend-test:
+    name: Build & Deploy Frontend (Test)
+    runs-on: ubuntu-latest
+    environment: test
+    needs:
+      - deploy-to-test
+    env:
+      NODE_VERSION: "22"
+      VITE_AUTH0_PROD_CALLBACK_URL: ${{ secrets.VITE_AUTH0_PROD_CALLBACK_URL }}
+      VITE_AUTH0_DOMAIN: ${{ secrets.VITE_AUTH0_DOMAIN }}
+      VITE_AUTH0_CLIENT_ID: ${{ secrets.VITE_AUTH0_CLIENT_ID }}
+      VITE_AUTH0_AUDIENCE: ${{ secrets.VITE_AUTH0_AUDIENCE }}
+      VITE_LOANS_API_URL_PROD: ${{ secrets.VITE_LOANS_API_URL_PROD }}
+      VITE_NOTIFICATIONS_API_URL_PROD: ${{ secrets.VITE_NOTIFICATIONS_API_URL_PROD }}
+      VITE_INVENTORY_API_URL_PROD: ${{ secrets.VITE_INVENTORY_API_URL_PROD }}
+      VITE_CATALOGUE_API_URL_PROD: ${{ secrets.VITE_CATALOGUE_API_URL_PROD }}
+      VITE_USER_SERVICE_API_URL_PROD: ${{ secrets.VITE_USER_SERVICE_API_URL_PROD }}
+      VITE_LOANS_API_URL: ${{ secrets.VITE_LOANS_API_URL_PROD }}
+      VITE_NOTIFICATIONS_API_URL: ${{ secrets.VITE_NOTIFICATIONS_API_URL_PROD }}
+      VITE_INVENTORY_API_URL: ${{ secrets.VITE_INVENTORY_API_URL_PROD }}
+      VITE_CATALOGUE_API_URL: ${{ secrets.VITE_CATALOGUE_API_URL_PROD }}
+      VITE_USER_SERVICE_API_URL: ${{ secrets.VITE_USER_SERVICE_API_URL_PROD }}
+      AZ_STORAGE_ACCOUNT: ${{ secrets.AZ_STORAGE_ACCOUNT_FRONTEND_TEST }}
+      AZ_STORAGE_KEY: ${{ secrets.AZ_STORAGE_KEY_FRONTEND_TEST }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: "catalogue-frontend/package-lock.json"
+
+      - name: Install dependencies
+        run: |
+          cd catalogue-frontend
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Build frontend
+        run: |
+          cd catalogue-frontend
+          echo "Using prod callback ${VITE_AUTH0_PROD_CALLBACK_URL}"
+          npm run build
+
+      - name: Install Azure CLI
+        run: |
+          curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+
+      - name: Upload dist to $web
+        run: |
+          az storage blob upload-batch \
+            --account-name "${{ env.AZ_STORAGE_ACCOUNT }}" \
+            --account-key "${{ env.AZ_STORAGE_KEY }}" \
+            --source catalogue-frontend/dist \
+            --destination '$web' \
+            --overwrite
+
   deploy-to-prod:
     name: Deploy to Prod (${{ matrix.name }})
     needs: [build-and-publish, deploy-to-test]
@@ -174,9 +237,11 @@ jobs:
           publish-profile: ${{ env.PUBLISH_PROFILE }}
 
   deploy-frontend:
-    name: Build & Deploy Frontend
+    name: Build & Deploy Frontend (Prod)
     runs-on: ubuntu-latest
     environment: prod
+    needs:
+      - deploy-to-prod
     env:
       NODE_VERSION: "22"
       VITE_AUTH0_PROD_CALLBACK_URL: ${{ secrets.VITE_AUTH0_PROD_CALLBACK_URL }}
@@ -193,8 +258,8 @@ jobs:
       VITE_INVENTORY_API_URL: ${{ secrets.VITE_INVENTORY_API_URL_PROD }}
       VITE_CATALOGUE_API_URL: ${{ secrets.VITE_CATALOGUE_API_URL_PROD }}
       VITE_USER_SERVICE_API_URL: ${{ secrets.VITE_USER_SERVICE_API_URL_PROD }}
-      AZ_STORAGE_ACCOUNT: ${{ secrets.AZ_STORAGE_ACCOUNT }}
-      AZ_STORAGE_KEY: ${{ secrets.AZ_STORAGE_KEY }}
+      AZ_STORAGE_ACCOUNT: ${{ secrets.AZ_STORAGE_ACCOUNT_FRONTEND_PROD }}
+      AZ_STORAGE_KEY: ${{ secrets.AZ_STORAGE_KEY_FRONTEND_PROD }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
