@@ -1,3 +1,5 @@
+import { getToken, getUserId } from "../authService";
+
 const RAW_BASE_URL = import.meta.env.PROD
   ? import.meta.env.VITE_INVENTORY_API_URL_PROD ||
     import.meta.env.VITE_INVENTORY_API_URL
@@ -71,4 +73,56 @@ export async function getStockForProduct(
   const record = await getInventoryByProductId(productId);
   const stock = record?.stock;
   return typeof stock === "number" && !Number.isNaN(stock) ? stock : null;
+}
+
+export async function adjustInventoryStock(
+  productId: string,
+  delta: number,
+  reason?: string,
+  ref?: string
+): Promise<InventoryRecord> {
+  if (!productId) {
+    throw new Error("Inventory ID is required");
+  }
+  if (!Number.isInteger(delta)) {
+    throw new Error("Stock adjustment must be an integer");
+  }
+
+  const token = await getToken();
+  if (!token) {
+    throw new Error("User not authenticated");
+  }
+  const userId = await getUserId();
+
+  const url = resolveUrl(
+    `/inventory/${encodeURIComponent(productId)}/stock-adjustment`
+  );
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      delta,
+      lastAdjustedBy: userId ?? "admin",
+      lastAdjustmentReason: reason,
+      lastAdjustmentRef: ref,
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(
+      `Inventory adjustment failed: ${response.status} ${response.statusText} ${text}`.trim()
+    );
+  }
+
+  const body = await response.json().catch(() => ({}));
+  const record: InventoryRecord | null = (body && (body.data ?? body)) || null;
+  if (!record?.id) {
+    throw new Error("Inventory adjustment returned an invalid response");
+  }
+  stockCache.set(record.id, record);
+  return record;
 }

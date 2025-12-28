@@ -202,9 +202,10 @@
         <section class="waitlist-section">
           <div class="section-header">
             <div>
-              <h2>Waitlist Status</h2>
+              <h2>Waitlists</h2>
               <p class="section-subtitle">
-                Track your position and leave the queue when needed.
+                See the devices you asked to be notified about when they become
+                available.
               </p>
             </div>
           </div>
@@ -237,15 +238,12 @@
                         <div class="reservation-subtitle">#{{ entry.id }}</div>
                       </div>
                     </div>
-                    <span class="chip position-chip">
-                      Position #{{ entry.position }}
-                    </span>
                   </div>
                   <div class="reservation-footer">
                     <div class="reservation-dates">
                       <div>
-                        <label>Joined</label>
-                        <span>{{ new Date(entry.id).toLocaleString() }}</span>
+                        <label>Status</label>
+                        <span>Waiting for availability</span>
                       </div>
                       <div v-if="entry.estimatedAvailability">
                         <label>Est. Available</label>

@@ -110,8 +110,15 @@ export async function validateToken(
 }
 
 export function isAdmin(token: any): boolean {
-  const roles = token?.["https://thamco.com/roles"] || token?.roles || [];
-  return Array.isArray(roles) && roles.includes("Admin");
+  const roles =
+    token?.["https://thamco.com/roles"] ||
+    token?.["https://thamco-clds.app/roles"] ||
+    token?.roles ||
+    [];
+  if (!Array.isArray(roles)) return false;
+  return roles
+    .filter((role) => typeof role === "string")
+    .some((role) => role.toLowerCase() === "admin");
 }
 
 export function isAdminOrOwner(auth: AuthResult, resourceUserId: string): boolean {

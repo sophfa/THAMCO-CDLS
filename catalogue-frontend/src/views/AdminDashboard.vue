@@ -328,6 +328,124 @@
         </div>
       </section>
     </div>
+    <div v-if="activeTab === 'inventory'" class="inventory-panel">
+      <div class="section-header">
+        <div>
+          <h2>Stock & Availability</h2>
+          <p class="section-subtitle">
+            Adjust inventory stock. Availability updates automatically based on
+            active loans.
+          </p>
+        </div>
+        <button class="secondary-btn" @click="refreshInventory">
+          Refresh
+        </button>
+      </div>
+
+      <div class="inventory-controls">
+        <label class="inventory-label">
+          Device
+          <select v-model="selectedInventoryId" class="inventory-select">
+            <option disabled value="">Select a device</option>
+            <option
+              v-for="item in inventoryProducts"
+              :key="item.id"
+              :value="item.id"
+            >
+              {{ item.name ? `${item.name} (${item.id})` : item.id }}
+            </option>
+          </select>
+          <span class="inventory-hint">Inventory IDs use the PROD-### format.</span>
+        </label>
+      </div>
+
+      <div v-if="inventoryLoading" class="info">
+        Loading inventory details...
+      </div>
+      <div v-else-if="inventoryError" class="error">{{ inventoryError }}</div>
+      <div v-else-if="inventoryRecord" class="inventory-card">
+        <div class="inventory-summary">
+          <div>
+            <p class="inventory-label">Stock</p>
+            <p class="inventory-value">{{ inventoryRecord.stock ?? "Unknown" }}</p>
+          </div>
+          <div>
+            <p class="inventory-label">Available</p>
+            <p class="inventory-value">
+              {{
+                typeof inventoryAvailability?.available === "number"
+                  ? inventoryAvailability.available
+                  : "Unknown"
+              }}
+            </p>
+          </div>
+          <div>
+            <p class="inventory-label">Active Loans</p>
+            <p class="inventory-value">
+              {{ inventoryAvailability?.activeLoans ?? "Unknown" }}
+            </p>
+          </div>
+        </div>
+
+        <div v-if="inventoryRecord.deviceIds?.length" class="inventory-meta">
+          <p class="inventory-label">Device IDs</p>
+          <p class="inventory-meta-value">
+            {{ inventoryRecord.deviceIds.join(", ") }}
+          </p>
+        </div>
+
+        <form class="inventory-form" @submit.prevent="applyStockAdjustment">
+          <label class="inventory-label">
+            Adjustment
+            <input
+              v-model.number="stockDelta"
+              type="number"
+              step="1"
+              class="inventory-input"
+              placeholder="e.g. -1 or 2"
+            />
+          </label>
+          <label class="inventory-label">
+            Reason
+            <input
+              v-model.trim="stockReason"
+              type="text"
+              class="inventory-input"
+              placeholder="e.g. Damaged, New stock"
+            />
+          </label>
+          <label class="inventory-label">
+            Reference
+            <input
+              v-model.trim="stockRef"
+              type="text"
+              class="inventory-input"
+              placeholder="Optional ticket or note"
+            />
+          </label>
+          <div class="inventory-actions">
+            <button
+              class="secondary-btn"
+              type="button"
+              @click="setStockDelta(1)"
+            >
+              +1
+            </button>
+            <button
+              class="secondary-btn"
+              type="button"
+              @click="setStockDelta(-1)"
+            >
+              -1
+            </button>
+            <button class="primary-btn" type="submit" :disabled="adjustingStock">
+              {{ adjustingStock ? "Applying..." : "Apply Adjustment" }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <div v-if="activeTab === 'waitlist'">
       <table class="admin-table">
         <thead>
@@ -404,11 +522,18 @@ import {
   revertLoanCollection,
   rejectLoan,
 } from "../services/api/loansService";
-import { getProductById } from "../services/api/catalogueService";
+import { getAllProducts, getProductById } from "../services/api/catalogueService";
+import {
+  adjustInventoryStock,
+  getInventoryByProductId,
+  type InventoryRecord,
+} from "../services/api/inventoryService";
+import { getAvailabilityForProduct } from "../services/api/availabilityService";
 import LoanHistoryView from "./LoanHistoryView.vue";
 
 type AdminTab =
   | "overview"
+  | "inventory"
   | "history"
   | "waitlist"
   | "reports"
@@ -416,6 +541,7 @@ type AdminTab =
   | "settings";
 const tabs: { key: AdminTab; label: string }[] = [
   { key: "overview", label: "Overview" },
+  { key: "inventory", label: "Inventory" },
   { key: "history", label: "Loan History" },
   { key: "waitlist", label: "Waitlists" },
   { key: "reports", label: "Reports" },
@@ -427,6 +553,19 @@ const activeTab = ref<AdminTab>("overview");
 const loans = ref<Loan[]>([]);
 const loading = ref(false);
 const error = ref("");
+const inventoryProducts = ref<Array<{ id: string; name?: string }>>([]);
+const selectedInventoryId = ref("");
+const inventoryRecord = ref<InventoryRecord | null>(null);
+const inventoryAvailability = ref<{
+  available: number | null;
+  activeLoans: number;
+} | null>(null);
+const inventoryLoading = ref(false);
+const inventoryError = ref("");
+const stockDelta = ref(0);
+const stockReason = ref("");
+const stockRef = ref("");
+const adjustingStock = ref(false);
 
 function formatDate(d: string | Date) {
   try {
@@ -599,6 +738,100 @@ async function loadLoans() {
   }
 }
 
+async function loadInventoryProducts() {
+  inventoryError.value = "";
+  try {
+    const products = await getAllProducts();
+    inventoryProducts.value = products.map((product) => ({
+      id: product.id,
+      name: product.name,
+    }));
+    if (!selectedInventoryId.value && inventoryProducts.value.length > 0) {
+      selectedInventoryId.value = inventoryProducts.value[0].id;
+    }
+  } catch (err: any) {
+    inventoryError.value =
+      err?.message || "Failed to load inventory products.";
+  }
+}
+
+async function loadInventoryDetails() {
+  if (!selectedInventoryId.value) {
+    inventoryRecord.value = null;
+    inventoryAvailability.value = null;
+    return;
+  }
+  inventoryLoading.value = true;
+  inventoryError.value = "";
+  try {
+    inventoryRecord.value = await getInventoryByProductId(
+      selectedInventoryId.value
+    );
+    if (!inventoryRecord.value) {
+      inventoryAvailability.value = null;
+      inventoryError.value = "No inventory record found for this device.";
+      return;
+    }
+    const availability = await getAvailabilityForProduct(
+      selectedInventoryId.value
+    );
+    inventoryAvailability.value = {
+      available: availability.available,
+      activeLoans: availability.activeLoans,
+    };
+  } catch (err: any) {
+    inventoryError.value =
+      err?.message || "Failed to load inventory details.";
+  } finally {
+    inventoryLoading.value = false;
+  }
+}
+
+function setStockDelta(delta: number) {
+  stockDelta.value = delta;
+}
+
+async function applyStockAdjustment() {
+  if (!selectedInventoryId.value) {
+    inventoryError.value = "Select a device first.";
+    return;
+  }
+  if (!Number.isInteger(stockDelta.value) || stockDelta.value === 0) {
+    inventoryError.value = "Enter a non-zero adjustment amount.";
+    return;
+  }
+  adjustingStock.value = true;
+  inventoryError.value = "";
+  try {
+    const updated = await adjustInventoryStock(
+      selectedInventoryId.value,
+      stockDelta.value,
+      stockReason.value || undefined,
+      stockRef.value || undefined
+    );
+    inventoryRecord.value = updated;
+    const availability = await getAvailabilityForProduct(
+      selectedInventoryId.value
+    );
+    inventoryAvailability.value = {
+      available: availability.available,
+      activeLoans: availability.activeLoans,
+    };
+    stockDelta.value = 0;
+    stockReason.value = "";
+    stockRef.value = "";
+  } catch (err: any) {
+    inventoryError.value =
+      err?.message || "Failed to adjust inventory stock.";
+  } finally {
+    adjustingStock.value = false;
+  }
+}
+
+async function refreshInventory() {
+  await loadInventoryDetails();
+}
+
 async function approve(loan: Loan) {
   try {
     const res = await authorizeLoan(loan.id);
@@ -680,6 +913,13 @@ watch(activeTab, async (tab) => {
   ) {
     await loadWaitlistSummaries();
   }
+  if (tab === "inventory" && inventoryProducts.value.length === 0) {
+    await loadInventoryProducts();
+  }
+});
+
+watch(selectedInventoryId, async () => {
+  await loadInventoryDetails();
 });
 </script>
 
@@ -925,6 +1165,85 @@ watch(activeTab, async (tab) => {
   background: #f3f4f6;
   border-color: #d1d5db;
   color: #374151;
+}
+
+.inventory-panel {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 12px 22px -18px rgba(15, 23, 42, 0.4);
+}
+
+.inventory-controls {
+  margin-bottom: 1rem;
+}
+
+.inventory-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.inventory-select,
+.inventory-input {
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.95rem;
+}
+
+.inventory-hint {
+  font-weight: 400;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.inventory-card {
+  margin-top: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 1rem;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.inventory-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 1rem;
+}
+
+.inventory-value {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+
+.inventory-meta {
+  font-size: 0.9rem;
+  color: #374151;
+}
+
+.inventory-meta-value {
+  margin: 0.2rem 0 0;
+  color: #4b5563;
+}
+
+.inventory-form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.inventory-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 @media (max-width: 768px) {

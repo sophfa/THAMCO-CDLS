@@ -414,11 +414,7 @@
             </div>
             <div class="date-field">
               <label>Until</label>
-              <input
-                type="date"
-                v-model="dialog.endDate"
-                disabled
-              />
+              <input type="date" v-model="dialog.endDate" disabled />
             </div>
           </div>
         </template>
@@ -430,9 +426,7 @@
           <p v-else-if="dialog.kind === 'waitlist'">
             You have joined the waitlist. We'll notify you when it's available.
           </p>
-          <p v-else>
-            Your reservation has been cancelled.
-          </p>
+          <p v-else>Your reservation has been cancelled.</p>
         </template>
 
         <template v-else>
@@ -475,7 +469,7 @@ import type { Product } from "../types/models";
 import { fetchProductById } from "../services/CatalogueService";
 import { useFavorites } from "../services/favouritesService";
 import { useAuth } from "../composables/useAuth";
-import { getStockForProduct } from "../services/api/inventoryService";
+import { getAvailabilityForProduct } from "../services/api/availabilityService";
 import { useReservationFlow } from "../composables/useReservationFlow";
 
 export default {
@@ -536,37 +530,32 @@ export default {
         const productId = route.params.id as string | undefined;
         if (productId) {
           const fetched = await fetchProductById(productId);
-          let stock: number | null = null;
+          let availability: {
+            stock: number | null;
+            activeLoans: number;
+            available: number | null;
+          } | null = null;
           try {
-            stock = await getStockForProduct(productId);
+            availability = await getAvailabilityForProduct(productId);
           } catch (err) {
-            console.warn("[ProductPage] Failed to load stock", err);
+            console.warn("[ProductPage] Failed to load availability", err);
           }
-          const hasStockFromFetch = typeof fetched.stock === "number";
-          const hasInStockFromFetch = typeof fetched.inStock === "boolean";
-          const resolvedStock =
-            typeof stock === "number"
-              ? stock
-              : hasStockFromFetch
-              ? fetched.stock
-              : hasInStockFromFetch
-              ? fetched.inStock
-                ? 1
-                : 0
-              : null;
-          const hasKnownAvailability =
-            typeof stock === "number" || hasStockFromFetch || hasInStockFromFetch;
-          const isInStock =
-            typeof resolvedStock === "number" ? resolvedStock > 0 : false;
-          const availabilityStatus = hasKnownAvailability
-            ? isInStock
+          const hasAvailableCount =
+            typeof availability?.available === "number" &&
+            !Number.isNaN(availability.available);
+          const availabilityStatus = hasAvailableCount
+            ? availability.available > 0
               ? "available"
               : "loaned"
             : "unavailable";
           const imageUrl = fetched.imageUrl;
           product.value = {
             ...fetched,
-            stock: hasKnownAvailability ? resolvedStock : null,
+            stock: availability?.stock ?? null,
+            availableStock: hasAvailableCount
+              ? availability?.available ?? null
+              : null,
+            activeLoans: availability?.activeLoans,
             inStock: availabilityStatus === "available",
             availabilityStatus,
             mainImage: imageUrl,
@@ -1134,7 +1123,7 @@ button:focus-visible {
   flex: 1;
   padding: 0.85rem 1.5rem;
   border: none;
-  border-radius: 999px;
+  border-radius: 6px;
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.2s ease, transform 0.2s ease;
