@@ -11,6 +11,7 @@ import './functions/createNotificationHttp';
 import './functions/markNotificationReadHttp';
 import './functions/handle-loan-status-event';
 import './functions/notificationsNegotiateHttp';
+import './functions/health-http';
 
 // Export the shared app instance so the Azure Functions runtime can discover registered handlers
 export { app };

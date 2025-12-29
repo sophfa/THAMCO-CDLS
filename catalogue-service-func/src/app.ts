@@ -3,3 +3,4 @@
 
 import './functions/list-products-http';
 import './functions/get-product-http';
+import './functions/health-http';

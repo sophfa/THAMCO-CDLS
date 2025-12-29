@@ -11,6 +11,7 @@ import './functions/loans/cancelLoanHttp';
 import './functions/loans/collectLoanHttp';
 import './functions/loans/rejectLoanHttp';
 import './functions/loans/getDeviceLoanHistoryHttp';
+import './functions/healthHttp';
 
 import './functions/favourites/addFavouriteHttp';
 import './functions/favourites/clearFavouritesHttp';
