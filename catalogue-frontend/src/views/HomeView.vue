@@ -3,7 +3,6 @@
     class="home"
     :style="{ backgroundImage: `url(${cloudinaryAssets.ui.paperBackground})` }"
   >
-    <span>hello world!</span>
     <div class="hero-section">
       <img
         :src="cloudinaryAssets.ui.browseWriting"
