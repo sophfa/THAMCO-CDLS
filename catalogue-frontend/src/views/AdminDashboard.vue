@@ -531,6 +531,11 @@ import {
 import { getAvailabilityForProduct } from "../services/api/availabilityService";
 import LoanHistoryView from "./LoanHistoryView.vue";
 
+type AdminLoan = Loan & {
+  deviceName?: string;
+  deviceImage?: string;
+};
+
 type AdminTab =
   | "overview"
   | "inventory"
@@ -550,7 +555,7 @@ const tabs: { key: AdminTab; label: string }[] = [
 ];
 
 const activeTab = ref<AdminTab>("overview");
-const loans = ref<Loan[]>([]);
+const loans = ref<AdminLoan[]>([]);
 const loading = ref(false);
 const error = ref("");
 const inventoryProducts = ref<Array<{ id: string; name?: string }>>([]);
@@ -566,6 +571,18 @@ const stockDelta = ref(0);
 const stockReason = ref("");
 const stockRef = ref("");
 const adjustingStock = ref(false);
+type WaitlistEntrySummary = {
+  userId: string;
+  position: number;
+};
+type WaitlistSummary = {
+  deviceId: string;
+  deviceName?: string;
+  waitlist: WaitlistEntrySummary[];
+};
+const waitlistSummaries = ref<WaitlistSummary[]>([]);
+const waitlistLoading = ref(false);
+const waitlistError = ref("");
 
 function formatDate(d: string | Date) {
   try {
@@ -664,78 +681,78 @@ async function loadLoans() {
   } finally {
     loading.value = false;
   }
+}
 
-  async function loadWaitlistSummaries(force = false) {
-    if (!force && waitlistSummaries.value.length > 0) {
-      return;
+async function loadWaitlistSummaries(force = false) {
+  if (!force && waitlistSummaries.value.length > 0) {
+    return;
+  }
+
+  waitlistLoading.value = true;
+  waitlistError.value = "";
+
+  try {
+    if (loans.value.length === 0) {
+      await loadLoans();
     }
 
-    waitlistLoading.value = true;
-    waitlistError.value = "";
+    const deviceIds = Array.from(
+      new Set(loans.value.map((loan) => loan.deviceId))
+    );
+    const summaries: WaitlistSummary[] = [];
 
-    try {
-      if (loans.value.length === 0) {
-        await loadLoans();
-      }
+    for (const deviceId of deviceIds) {
+      try {
+        const waitlistData = await getWaitlistForDevice(deviceId);
+        const waitlistEntries = Array.isArray(waitlistData?.waitlist)
+          ? waitlistData.waitlist
+          : [];
 
-      const deviceIds = Array.from(
-        new Set(loans.value.map((loan) => loan.deviceId))
-      );
-      const summaries: WaitlistSummary[] = [];
-
-      for (const deviceId of deviceIds) {
-        try {
-          const waitlistData = await getWaitlistForDevice(deviceId);
-          const waitlistEntries = Array.isArray(waitlistData?.waitlist)
-            ? waitlistData.waitlist
-            : [];
-
-          if (waitlistEntries.length === 0) {
-            continue;
-          }
-
-          let deviceName: string | undefined;
-          try {
-            const product = await getProductById(deviceId);
-            deviceName = product?.name ?? deviceId;
-          } catch (productError) {
-            console.warn(
-              `Failed to fetch product info for ${deviceId}`,
-              productError
-            );
-          }
-
-          const mappedEntries: WaitlistEntrySummary[] = waitlistEntries.map(
-            (entry: any, index: number) => ({
-              userId:
-                typeof entry === "string"
-                  ? entry
-                  : entry?.userId ?? entry?.id ?? `User-${index + 1}`,
-              position: entry?.position ?? index + 1,
-            })
-          );
-
-          summaries.push({
-            deviceId,
-            deviceName,
-            waitlist: mappedEntries,
-          });
-        } catch (waitlistErr) {
-          console.warn(`Failed to load waitlist for ${deviceId}`, waitlistErr);
+        if (waitlistEntries.length === 0) {
+          continue;
         }
+
+        let deviceName: string | undefined;
+        try {
+          const product = await getProductById(deviceId);
+          deviceName = product?.name ?? deviceId;
+        } catch (productError) {
+          console.warn(
+            `Failed to fetch product info for ${deviceId}`,
+            productError
+          );
+        }
+
+        const mappedEntries: WaitlistEntrySummary[] = waitlistEntries.map(
+          (entry: any, index: number) => ({
+            userId:
+              typeof entry === "string"
+                ? entry
+                : entry?.userId ?? entry?.id ?? `User-${index + 1}`,
+            position: entry?.position ?? index + 1,
+          })
+        );
+
+        summaries.push({
+          deviceId,
+          deviceName,
+          waitlist: mappedEntries,
+        });
+      } catch (waitlistErr) {
+        console.warn(`Failed to load waitlist for ${deviceId}`, waitlistErr);
       }
-
-      waitlistSummaries.value = summaries;
-    } catch (err: any) {
-      waitlistError.value = err?.message || "Failed to load waitlists";
-    } finally {
-      waitlistLoading.value = false;
     }
-  }
 
-  async function refreshWaitlists() {
-    await loadWaitlistSummaries(true);
+    waitlistSummaries.value = summaries;
+  } catch (err: any) {
+    waitlistError.value = err?.message || "Failed to load waitlists";
+  } finally {
+    waitlistLoading.value = false;
   }
+}
+
+async function refreshWaitlists() {
+  await loadWaitlistSummaries(true);
 }
 
 async function loadInventoryProducts() {
@@ -836,8 +853,18 @@ async function approve(loan: Loan) {
   try {
     const res = await authorizeLoan(loan.id);
     const newStatus = (res?.status || "Approved").toString();
-    loan.status = (newStatus.charAt(0).toUpperCase() +
+    const normalizedStatus = (newStatus.charAt(0).toUpperCase() +
       newStatus.slice(1).toLowerCase()) as Loan["status"];
+    loans.value = loans.value.map((existing) =>
+      existing.id === loan.id
+        ? {
+            ...existing,
+            status: normalizedStatus,
+            statusChangedAt:
+              res?.statusChangedAt ?? existing.statusChangedAt,
+          }
+        : existing
+    );
   } catch (e: any) {
     alert(e?.message || "Failed to approve loan");
   }
