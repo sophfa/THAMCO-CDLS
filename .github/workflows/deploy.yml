@@ -10,14 +10,11 @@ on:
 permissions:
   contents: read
 
-env:
-  NODE_VERSION: "22"
-
 jobs:
   build-and-publish:
     uses: ./.github/workflows/reusable-functions-build.yml
     with:
-      node-version: ${{ env.NODE_VERSION }}
+      node-version: "22"
       matrix: |
         [
           {"name":"catalogue","path":"catalogue-service-func","artifact":"package-catalogue"},
@@ -28,7 +25,6 @@ jobs:
 
   deploy-to-test:
     needs: build-and-publish
-    environment: test
     uses: ./.github/workflows/reusable-functions-deploy.yml
     with:
       environment: test
@@ -43,17 +39,15 @@ jobs:
 
   deploy-frontend-test:
     needs: deploy-to-test
-    environment: test
     uses: ./.github/workflows/reusable-frontend-deploy.yml
     with:
       environment: test
       deploy-env: test
-      node-version: ${{ env.NODE_VERSION }}
+      node-version: "22"
     secrets: inherit
 
   deploy-to-prod:
     needs: [build-and-publish, deploy-to-test]
-    environment: prod
     uses: ./.github/workflows/reusable-functions-deploy.yml
     with:
       environment: prod
@@ -68,10 +62,9 @@ jobs:
 
   deploy-frontend:
     needs: deploy-to-prod
-    environment: prod
     uses: ./.github/workflows/reusable-frontend-deploy.yml
     with:
       environment: prod
       deploy-env: prod
-      node-version: ${{ env.NODE_VERSION }}
+      node-version: "22"
     secrets: inherit
