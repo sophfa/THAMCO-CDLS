@@ -15,288 +15,63 @@ env:
 
 jobs:
   build-and-publish:
-    name: Build and Package (${{ matrix.name }})
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - name: catalogue
-            path: catalogue-service-func
-            artifact: package-catalogue
-          - name: inventory
-            path: inventory-service-func
-            artifact: package-inventory
-          - name: loans
-            path: loans-service-func
-            artifact: package-loans
-          - name: notifications
-            path: notifications-service-func
-            artifact: package-notifications
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: "**/package-lock.json"
-
-      - name: Install dependencies
-        working-directory: ${{ matrix.path }}
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
-
-      - name: Build (into ./dist)
-        working-directory: ${{ matrix.path }}
-        run: npm run build
-
-      - name: Package with Azure Functions Core Tools
-        working-directory: ${{ matrix.path }}
-        env:
-          FUNCTIONS_WORKER_RUNTIME: node
-        run: |
-          npm install -g azure-functions-core-tools@4 --unsafe-perm true
-          # Produce a single zip ready for run-from-package
-          npx func pack --build --worker-runtime node --output ../${{ matrix.artifact }}.zip
-
-      - name: Save package temporarily for deployment
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact }}
-          path: ${{ matrix.artifact }}.zip
-          retention-days: 1
+    uses: ./.github/workflows/reusable-functions-build.yml
+    with:
+      node-version: ${{ env.NODE_VERSION }}
+      matrix: |
+        [
+          {"name":"catalogue","path":"catalogue-service-func","artifact":"package-catalogue"},
+          {"name":"inventory","path":"inventory-service-func","artifact":"package-inventory"},
+          {"name":"loans","path":"loans-service-func","artifact":"package-loans"},
+          {"name":"notifications","path":"notifications-service-func","artifact":"package-notifications"}
+        ]
 
   deploy-to-test:
-    name: Deploy (${{ matrix.name }})
     needs: build-and-publish
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - name: catalogue
-            app-name: catalogue-service-func
-            artifact: package-catalogue
-            secret: AZURE_PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC
-          - name: inventory
-            app-name: inventory-service-func
-            artifact: package-inventory
-            secret: AZURE_PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC
-          - name: loans
-            app-name: loans-service-func
-            artifact: package-loans
-            secret: AZURE_PUBLISH_PROFILE_LOANS_SERVICE_FUNC
-          - name: notifications
-            app-name: notifications-service-func
-            artifact: package-notifications
-            secret: AZURE_PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC
-    steps:
-      - name: Download package artefact
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ matrix.artifact }}
-          path: artifacts
-
-      - name: Locate package file
-        run: |
-          echo "Downloaded files:" && ls -lR artifacts || true
-          PKG=$(find artifacts -maxdepth 2 -type f -name '*.zip' | head -n1)
-          if [ -z "$PKG" ]; then
-            echo "Package not found" >&2
-            exit 1
-          fi
-          echo "PACKAGE_PATH=$PKG" >> "$GITHUB_ENV"
-
-      - name: Deploy to Azure Function App
-        env:
-          PUBLISH_PROFILE: ${{ secrets[matrix.secret] }}
-        if: ${{ env.PUBLISH_PROFILE != '' }}
-        uses: azure/functions-action@v1
-        with:
-          app-name: ${{ matrix.app-name }}
-          package: ${{ env.PACKAGE_PATH }}
-          publish-profile: ${{ env.PUBLISH_PROFILE }}
+    environment: test
+    uses: ./.github/workflows/reusable-functions-deploy.yml
+    with:
+      environment: test
+      matrix: |
+        [
+          {"name":"catalogue","app-name":"catalogue-service-func","artifact":"package-catalogue","secret":"AZURE_PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC"},
+          {"name":"inventory","app-name":"inventory-service-func","artifact":"package-inventory","secret":"AZURE_PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC"},
+          {"name":"loans","app-name":"loans-service-func","artifact":"package-loans","secret":"AZURE_PUBLISH_PROFILE_LOANS_SERVICE_FUNC"},
+          {"name":"notifications","app-name":"notifications-service-func","artifact":"package-notifications","secret":"AZURE_PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC"}
+        ]
+    secrets: inherit
 
   deploy-frontend-test:
-    name: Build & Deploy Frontend (Test)
-    runs-on: ubuntu-latest
+    needs: deploy-to-test
     environment: test
-    needs:
-      - deploy-to-test
-    env:
-      NODE_VERSION: "22"
-      VITE_AUTH0_TEST_CALLBACK_URL: ${{ secrets.VITE_AUTH0_TEST_CALLBACK_URL }}
-      VITE_AUTH0_DOMAIN: ${{ secrets.VITE_AUTH0_DOMAIN }}
-      VITE_AUTH0_CLIENT_ID: ${{ secrets.VITE_AUTH0_CLIENT_ID }}
-      VITE_AUTH0_AUDIENCE: ${{ secrets.VITE_AUTH0_AUDIENCE }}
-      VITE_LOANS_API_URL_TEST: ${{ secrets.VITE_LOANS_API_URL_TEST }}
-      VITE_NOTIFICATIONS_API_URL_TEST: ${{ secrets.VITE_NOTIFICATIONS_API_URL_TEST }}
-      VITE_INVENTORY_API_URL_TEST: ${{ secrets.VITE_INVENTORY_API_URL_TEST }}
-      VITE_CATALOGUE_API_URL_TEST: ${{ secrets.VITE_CATALOGUE_API_URL_TEST }}
-      VITE_USER_SERVICE_API_URL_TEST: ${{ secrets.VITE_USER_SERVICE_API_URL_TEST }}
-      VITE_LOANS_API_URL: ${{ secrets.VITE_LOANS_API_URL_TEST }}
-      VITE_NOTIFICATIONS_API_URL: ${{ secrets.VITE_NOTIFICATIONS_API_URL_TEST }}
-      VITE_INVENTORY_API_URL: ${{ secrets.VITE_INVENTORY_API_URL_TEST }}
-      VITE_CATALOGUE_API_URL: ${{ secrets.VITE_CATALOGUE_API_URL_TEST }}
-      VITE_USER_SERVICE_API_URL: ${{ secrets.VITE_USER_SERVICE_API_URL_TEST }}
-      VITE_DEPLOY_ENV: test
-      AZ_STORAGE_ACCOUNT: ${{ secrets.AZ_STORAGE_ACCOUNT }}
-      AZ_STORAGE_KEY: ${{ secrets.AZ_STORAGE_KEY }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: "catalogue-frontend/package-lock.json"
-
-      - name: Install dependencies
-        run: |
-          cd catalogue-frontend
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
-
-      - name: Build frontend
-        run: |
-          cd catalogue-frontend
-          echo "Using auth0 callback env ${VITE_DEPLOY_ENV}"
-          npm run build
-
-      - name: Install Azure CLI
-        run: |
-          curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
-
-      - name: Upload dist to $web
-        run: |
-          az storage blob upload-batch \
-            --account-name "${{ env.AZ_STORAGE_ACCOUNT }}" \
-            --account-key "${{ env.AZ_STORAGE_KEY }}" \
-            --source catalogue-frontend/dist \
-            --destination '$web' \
-            --overwrite
+    uses: ./.github/workflows/reusable-frontend-deploy.yml
+    with:
+      environment: test
+      deploy-env: test
+      node-version: ${{ env.NODE_VERSION }}
+    secrets: inherit
 
   deploy-to-prod:
-    name: Deploy to Prod (${{ matrix.name }})
     needs: [build-and-publish, deploy-to-test]
-    runs-on: ubuntu-latest
     environment: prod
-    strategy:
-      matrix:
-        include:
-          - name: catalogue
-            app-name: catalogue-service-func-prod
-            artifact: package-catalogue
-            secret: AZURE_PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC_PROD
-          - name: inventory
-            app-name: inventory-service-func-prod
-            artifact: package-inventory
-            secret: AZURE_PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC_PROD
-          - name: loans
-            app-name: loans-service-func-prod
-            artifact: package-loans
-            secret: AZURE_PUBLISH_PROFILE_LOANS_SERVICE_FUNC_PROD
-          - name: notifications
-            app-name: notifications-service-func-prod
-            artifact: package-notifications
-            secret: AZURE_PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC_PROD
-    steps:
-      - name: Download package artefact
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ matrix.artifact }}
-          path: artifacts
-
-      - name: Locate package file
-        run: |
-          echo "Downloaded files:" && ls -lR artifacts || true
-          PKG=$(find artifacts -maxdepth 2 -type f -name '*.zip' | head -n1)
-          if [ -z "$PKG" ]; then
-            echo "Package not found" >&2
-            exit 1
-          fi
-          echo "PACKAGE_PATH=$PKG" >> "$GITHUB_ENV"
-
-      - name: Deploy to Azure Function App
-        env:
-          PUBLISH_PROFILE: ${{ secrets[matrix.secret] }}
-        if: ${{ env.PUBLISH_PROFILE != '' }}
-        uses: azure/functions-action@v1
-        with:
-          app-name: ${{ matrix.app-name }}
-          package: ${{ env.PACKAGE_PATH }}
-          publish-profile: ${{ env.PUBLISH_PROFILE }}
+    uses: ./.github/workflows/reusable-functions-deploy.yml
+    with:
+      environment: prod
+      matrix: |
+        [
+          {"name":"catalogue","app-name":"catalogue-service-func-prod","artifact":"package-catalogue","secret":"AZURE_PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC_PROD"},
+          {"name":"inventory","app-name":"inventory-service-func-prod","artifact":"package-inventory","secret":"AZURE_PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC_PROD"},
+          {"name":"loans","app-name":"loans-service-func-prod","artifact":"package-loans","secret":"AZURE_PUBLISH_PROFILE_LOANS_SERVICE_FUNC_PROD"},
+          {"name":"notifications","app-name":"notifications-service-func-prod","artifact":"package-notifications","secret":"AZURE_PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC_PROD"}
+        ]
+    secrets: inherit
 
   deploy-frontend:
-    name: Build & Deploy Frontend (Prod)
-    runs-on: ubuntu-latest
+    needs: deploy-to-prod
     environment: prod
-    needs:
-      - deploy-to-prod
-    env:
-      NODE_VERSION: "22"
-      VITE_AUTH0_PROD_CALLBACK_URL: ${{ secrets.VITE_AUTH0_PROD_CALLBACK_URL }}
-      VITE_AUTH0_DOMAIN: ${{ secrets.VITE_AUTH0_DOMAIN }}
-      VITE_AUTH0_CLIENT_ID: ${{ secrets.VITE_AUTH0_CLIENT_ID }}
-      VITE_AUTH0_AUDIENCE: ${{ secrets.VITE_AUTH0_AUDIENCE }}
-      VITE_LOANS_API_URL_PROD: ${{ secrets.VITE_LOANS_API_URL_PROD }}
-      VITE_NOTIFICATIONS_API_URL_PROD: ${{ secrets.VITE_NOTIFICATIONS_API_URL_PROD }}
-      VITE_INVENTORY_API_URL_PROD: ${{ secrets.VITE_INVENTORY_API_URL_PROD }}
-      VITE_CATALOGUE_API_URL_PROD: ${{ secrets.VITE_CATALOGUE_API_URL_PROD }}
-      VITE_USER_SERVICE_API_URL_PROD: ${{ secrets.VITE_USER_SERVICE_API_URL_PROD }}
-      VITE_LOANS_API_URL: ${{ secrets.VITE_LOANS_API_URL_PROD }}
-      VITE_NOTIFICATIONS_API_URL: ${{ secrets.VITE_NOTIFICATIONS_API_URL_PROD }}
-      VITE_INVENTORY_API_URL: ${{ secrets.VITE_INVENTORY_API_URL_PROD }}
-      VITE_CATALOGUE_API_URL: ${{ secrets.VITE_CATALOGUE_API_URL_PROD }}
-      VITE_USER_SERVICE_API_URL: ${{ secrets.VITE_USER_SERVICE_API_URL_PROD }}
-      VITE_DEPLOY_ENV: prod
-      AZ_STORAGE_ACCOUNT: ${{ secrets.AZ_STORAGE_ACCOUNT_FRONTEND_PROD }}
-      AZ_STORAGE_KEY: ${{ secrets.AZ_STORAGE_KEY_FRONTEND_PROD }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: "catalogue-frontend/package-lock.json"
-
-      - name: Install dependencies
-        run: |
-          cd catalogue-frontend
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
-
-      - name: Build frontend
-        run: |
-          cd catalogue-frontend
-          echo "Using auth0 callback env ${VITE_DEPLOY_ENV}"
-          npm run build
-
-      - name: Install Azure CLI
-        run: |
-          curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
-
-      - name: Upload dist to $web
-        run: |
-          az storage blob upload-batch \
-            --account-name "${{ env.AZ_STORAGE_ACCOUNT }}" \
-            --account-key "${{ env.AZ_STORAGE_KEY }}" \
-            --source catalogue-frontend/dist \
-            --destination '$web' \
-            --overwrite
+    uses: ./.github/workflows/reusable-frontend-deploy.yml
+    with:
+      environment: prod
+      deploy-env: prod
+      node-version: ${{ env.NODE_VERSION }}
+    secrets: inherit

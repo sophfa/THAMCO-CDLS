@@ -1,0 +1,49 @@
+name: Reusable - Deploy Infra
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: true
+      resource-group:
+        type: string
+        required: true
+      bicep-file:
+        type: string
+        default: infra/main.bicep
+      parameters-file:
+        type: string
+        required: true
+      deployment-name:
+        type: string
+        default: cdls-infra
+    secrets:
+      AZURE_CREDENTIALS:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy IaC (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy Bicep
+        run: |
+          DEPLOY_NAME="${{ inputs.deployment-name }}-${{ github.run_number }}"
+          az deployment group create \
+            --resource-group "${{ inputs.resource-group }}" \
+            --name "$DEPLOY_NAME" \
+            --template-file "${{ inputs.bicep-file }}" \
+            --parameters "@${{ inputs.parameters-file }}"

@@ -1,0 +1,49 @@
+name: Reusable - Deploy Functions
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: true
+      matrix:
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    strategy:
+      matrix: ${{ fromJSON(inputs.matrix) }}
+    steps:
+      - name: Download package artefact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: artifacts
+
+      - name: Locate package file
+        id: locate
+        run: |
+          echo "Downloaded files:" && ls -lR artifacts || true
+          PKG=$(find artifacts -maxdepth 2 -type f -name '*.zip' | head -n1)
+          if [ -z "$PKG" ]; then
+            echo "Package not found" >&2
+            exit 1
+          fi
+          echo "package=$PKG" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy to Azure Function App
+        env:
+          PUBLISH_PROFILE: ${{ secrets[matrix.secret] }}
+        if: ${{ env.PUBLISH_PROFILE != '' }}
+        uses: azure/functions-action@v1
+        with:
+          app-name: ${{ matrix.app-name }}
+          package: ${{ steps.locate.outputs.package }}
+          publish-profile: ${{ env.PUBLISH_PROFILE }}

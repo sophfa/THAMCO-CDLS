@@ -1,0 +1,29 @@
+name: Deploy Infrastructure (Manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        type: choice
+        options:
+          - test
+          - prod
+        default: test
+      resource_group:
+        description: "Azure resource group name"
+        type: string
+        default: campusdeviceloans
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/reusable-infra-deploy.yml
+    with:
+      environment: ${{ inputs.environment }}
+      resource-group: ${{ inputs.resource_group }}
+      parameters-file: infra/parameters/${{ inputs.environment }}.json
+    secrets:
+      AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}

@@ -1,0 +1,81 @@
+name: Reusable - Deploy Frontend
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: true
+      deploy-env:
+        type: string
+        required: true
+      node-version:
+        type: string
+        default: "22"
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-frontend:
+    name: Build & Deploy Frontend (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    env:
+      NODE_VERSION: ${{ inputs.node-version }}
+      VITE_DEPLOY_ENV: ${{ inputs.deploy-env }}
+      VITE_AUTH0_DOMAIN: ${{ secrets.VITE_AUTH0_DOMAIN }}
+      VITE_AUTH0_CLIENT_ID: ${{ secrets.VITE_AUTH0_CLIENT_ID }}
+      VITE_AUTH0_AUDIENCE: ${{ secrets.VITE_AUTH0_AUDIENCE }}
+      VITE_AUTH0_TEST_CALLBACK_URL: ${{ inputs.deploy-env == 'test' && secrets.VITE_AUTH0_TEST_CALLBACK_URL || '' }}
+      VITE_AUTH0_PROD_CALLBACK_URL: ${{ inputs.deploy-env == 'prod' && secrets.VITE_AUTH0_PROD_CALLBACK_URL || '' }}
+      VITE_LOANS_API_URL_TEST: ${{ inputs.deploy-env == 'test' && secrets.VITE_LOANS_API_URL_TEST || '' }}
+      VITE_NOTIFICATIONS_API_URL_TEST: ${{ inputs.deploy-env == 'test' && secrets.VITE_NOTIFICATIONS_API_URL_TEST || '' }}
+      VITE_INVENTORY_API_URL_TEST: ${{ inputs.deploy-env == 'test' && secrets.VITE_INVENTORY_API_URL_TEST || '' }}
+      VITE_CATALOGUE_API_URL_TEST: ${{ inputs.deploy-env == 'test' && secrets.VITE_CATALOGUE_API_URL_TEST || '' }}
+      VITE_USER_SERVICE_API_URL_TEST: ${{ inputs.deploy-env == 'test' && secrets.VITE_USER_SERVICE_API_URL_TEST || '' }}
+      VITE_LOANS_API_URL_PROD: ${{ inputs.deploy-env == 'prod' && secrets.VITE_LOANS_API_URL_PROD || '' }}
+      VITE_NOTIFICATIONS_API_URL_PROD: ${{ inputs.deploy-env == 'prod' && secrets.VITE_NOTIFICATIONS_API_URL_PROD || '' }}
+      VITE_INVENTORY_API_URL_PROD: ${{ inputs.deploy-env == 'prod' && secrets.VITE_INVENTORY_API_URL_PROD || '' }}
+      VITE_CATALOGUE_API_URL_PROD: ${{ inputs.deploy-env == 'prod' && secrets.VITE_CATALOGUE_API_URL_PROD || '' }}
+      VITE_USER_SERVICE_API_URL_PROD: ${{ inputs.deploy-env == 'prod' && secrets.VITE_USER_SERVICE_API_URL_PROD || '' }}
+      AZ_STORAGE_ACCOUNT: ${{ inputs.deploy-env == 'prod' && secrets.AZ_STORAGE_ACCOUNT_FRONTEND_PROD || secrets.AZ_STORAGE_ACCOUNT }}
+      AZ_STORAGE_KEY: ${{ inputs.deploy-env == 'prod' && secrets.AZ_STORAGE_KEY_FRONTEND_PROD || secrets.AZ_STORAGE_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: "catalogue-frontend/package-lock.json"
+
+      - name: Install dependencies
+        run: |
+          cd catalogue-frontend
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Build frontend
+        run: |
+          cd catalogue-frontend
+          echo "Using auth0 callback env ${VITE_DEPLOY_ENV}"
+          npm run build
+
+      - name: Install Azure CLI
+        run: |
+          curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+
+      - name: Upload dist to $web
+        run: |
+          az storage blob upload-batch \
+            --account-name "${{ env.AZ_STORAGE_ACCOUNT }}" \
+            --account-key "${{ env.AZ_STORAGE_KEY }}" \
+            --source catalogue-frontend/dist \
+            --destination '$web' \
+            --overwrite
