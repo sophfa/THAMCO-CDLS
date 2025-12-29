@@ -131,6 +131,7 @@ function getActiveLoanCount(stats) {
   }
 
   if (!candidate || !candidateInventoryId || activeLoansBefore === null) {
+    console.error("Insufficient active loans to carry out integration test.");
     console.error("No active loan with matching inventory record found.");
     process.exit(1);
   }
