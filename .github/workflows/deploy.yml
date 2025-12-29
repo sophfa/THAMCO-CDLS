@@ -16,12 +16,12 @@ jobs:
     with:
       node-version: "22"
       matrix: |
-        [
+        {"include":[
           {"name":"catalogue","path":"catalogue-service-func","artifact":"package-catalogue"},
           {"name":"inventory","path":"inventory-service-func","artifact":"package-inventory"},
           {"name":"loans","path":"loans-service-func","artifact":"package-loans"},
           {"name":"notifications","path":"notifications-service-func","artifact":"package-notifications"}
-        ]
+        ]}
 
   deploy-to-test:
     needs: build-and-publish
@@ -29,12 +29,12 @@ jobs:
     with:
       environment: test
       matrix: |
-        [
+        {"include":[
           {"name":"catalogue","app-name":"catalogue-service-func","artifact":"package-catalogue","secret":"AZURE_PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC"},
           {"name":"inventory","app-name":"inventory-service-func","artifact":"package-inventory","secret":"AZURE_PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC"},
           {"name":"loans","app-name":"loans-service-func","artifact":"package-loans","secret":"AZURE_PUBLISH_PROFILE_LOANS_SERVICE_FUNC"},
           {"name":"notifications","app-name":"notifications-service-func","artifact":"package-notifications","secret":"AZURE_PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC"}
-        ]
+        ]}
     secrets: inherit
 
   deploy-frontend-test:
@@ -52,12 +52,12 @@ jobs:
     with:
       environment: prod
       matrix: |
-        [
+        {"include":[
           {"name":"catalogue","app-name":"catalogue-service-func-prod","artifact":"package-catalogue","secret":"AZURE_PUBLISH_PROFILE_CATALOGUE_SERVICE_FUNC_PROD"},
           {"name":"inventory","app-name":"inventory-service-func-prod","artifact":"package-inventory","secret":"AZURE_PUBLISH_PROFILE_INVENTORY_SERVICE_FUNC_PROD"},
           {"name":"loans","app-name":"loans-service-func-prod","artifact":"package-loans","secret":"AZURE_PUBLISH_PROFILE_LOANS_SERVICE_FUNC_PROD"},
           {"name":"notifications","app-name":"notifications-service-func-prod","artifact":"package-notifications","secret":"AZURE_PUBLISH_PROFILE_NOTIFICATIONS_SERVICE_FUNC_PROD"}
-        ]
+        ]}
     secrets: inherit
 
   deploy-frontend:
