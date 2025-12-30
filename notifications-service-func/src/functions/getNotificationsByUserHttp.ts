@@ -36,8 +36,14 @@ export async function getNotificationsByUserHttp(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
+  const correlationHeader =
+    typeof request.headers?.get === "function"
+      ? request.headers.get("x-correlation-id")
+      : Object.entries(request.headers ?? {}).find(
+          ([key]) => key.toLowerCase() === "x-correlation-id"
+        )?.[1];
   const correlationId =
-    request.headers.get("x-correlation-id")?.trim() ||
+    correlationHeader?.trim() ||
     context.invocationId ||
     "unknown";
   const baseLog = { correlationId, service: "notifications-service-func" };
