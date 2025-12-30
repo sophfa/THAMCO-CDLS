@@ -30,7 +30,7 @@ import { getUserEmailById } from "../auth0/userDirectory";
 const resendApiKey = process.env.RESEND_API_KEY;
 const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
-const signalROutput = output.generic({
+export const signalROutput = output.generic({
   type: "signalR",
   name: "signalRMessages",
   hubName: "notifications",
@@ -121,7 +121,7 @@ interface CreateNotificationResponse {
 /**
  * Helper function to send email notification using Resend
  */
-async function sendEmailNotification(
+export async function sendEmailNotification(
   notification: Notification,
   userEmail: string,
   context: InvocationContext,

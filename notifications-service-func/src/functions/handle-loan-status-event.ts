@@ -1,13 +1,15 @@
-import {
-  app,
-  EventGridEvent,
-  InvocationContext,
-} from "@azure/functions";
+import { app, EventGridEvent, InvocationContext } from "@azure/functions";
 import {
   createNotification,
+  Notification,
   NotificationType,
 } from "../domain/notification";
+import { getUserEmailById } from "../auth0/userDirectory";
 import { getNotificationRepo } from "../infra/notificationRepoFactory";
+import {
+  sendEmailNotification,
+  signalROutput,
+} from "./createNotificationHttp";
 
 type LoanStatus =
   | "Requested"
@@ -120,6 +122,98 @@ export async function handleLoanStatusEvent(
   const correlationId =
     (data as any)?.correlationId || context.invocationId || "unknown";
   const baseLog = { correlationId, service: "notifications-service-func" };
+  const hasSignalR = Boolean(
+    process.env.AZURE_SIGNALR_CONNECTION_STRING?.trim()
+  );
+  const signalrMessages: Array<{
+    userId: string;
+    target: string;
+    arguments: [Notification];
+  }> = [];
+
+  const queueSignalRNotification = (
+    notification: Notification,
+    userId: string
+  ) => {
+    if (!hasSignalR) return;
+    signalrMessages.push({
+      userId,
+      target: "notificationCreated",
+      arguments: [notification],
+    });
+    context.log({
+      ...baseLog,
+      message: "SignalR notification queued",
+      notificationId: notification.id,
+      userId,
+    });
+  };
+
+  const resolveAndSendEmail = async (
+    notification: Notification,
+    userId: string
+  ) => {
+    let userEmail: string | undefined;
+    try {
+      userEmail = await getUserEmailById(userId, context);
+      if (userEmail) {
+        context.log({
+          ...baseLog,
+          message: "Resolved user email via Auth0",
+          userId,
+        });
+      } else {
+        context.log({
+          ...baseLog,
+          message: "Auth0 did not return an email for user",
+          userId,
+        });
+      }
+    } catch (lookupError) {
+      context.error({
+        ...baseLog,
+        message: "Failed to resolve email for user",
+        userId,
+        error:
+          lookupError instanceof Error
+            ? lookupError.message
+            : String(lookupError),
+      });
+    }
+
+    if (!userEmail) {
+      context.log({
+        ...baseLog,
+        message: "No email address provided, skipping email notification",
+      });
+      return;
+    }
+
+    context.log({
+      ...baseLog,
+      message: "Attempting to send email notification",
+      userEmail,
+    });
+    const emailSent = await sendEmailNotification(
+      notification,
+      userEmail,
+      context,
+      baseLog
+    );
+
+    if (!emailSent) {
+      context.log({
+        ...baseLog,
+        message:
+          "Warning: Failed to send email notification, but notification was created successfully",
+      });
+    } else {
+      context.log({
+        ...baseLog,
+        message: "Email notification sent successfully",
+      });
+    }
+  };
 
   if (!data?.userId) {
     context.warn({
@@ -160,6 +254,8 @@ export async function handleLoanStatusEvent(
         loanId: data.loanId,
         newStatus: data.newStatus,
       });
+      queueSignalRNotification(result.data, data.userId);
+      await resolveAndSendEmail(result.data, data.userId);
     } else {
       const errorDetails = (result as { success: false; error: unknown }).error;
       context.error({
@@ -215,6 +311,14 @@ export async function handleLoanStatusEvent(
               userId: waitlistUserId,
               deviceId: data.deviceId,
             });
+            queueSignalRNotification(
+              waitlistResult.data,
+              waitlistUserId
+            );
+            await resolveAndSendEmail(
+              waitlistResult.data,
+              waitlistUserId
+            );
           } else {
             const waitlistError = (
               waitlistResult as { success: false; error: unknown }
@@ -240,6 +344,15 @@ export async function handleLoanStatusEvent(
         }
       }
     }
+
+    if (hasSignalR && signalrMessages.length > 0) {
+      context.extraOutputs.set(signalROutput, signalrMessages);
+    } else if (!hasSignalR) {
+      context.log({
+        ...baseLog,
+        message: "SignalR connection string missing; skipping realtime notify.",
+      });
+    }
   } catch (err) {
     context.error({
       ...baseLog,
@@ -251,4 +364,5 @@ export async function handleLoanStatusEvent(
 
 app.eventGrid("handleLoanStatusEvent", {
   handler: handleLoanStatusEvent,
+  extraOutputs: [signalROutput],
 });
