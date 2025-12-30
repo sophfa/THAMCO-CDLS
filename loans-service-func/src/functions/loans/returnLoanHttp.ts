@@ -14,6 +14,11 @@ export async function returnLoanHttp(
   context: InvocationContext
 ): Promise<HttpResponseInit> {
   const loanId = req.params.id;
+  const correlationId =
+    req.headers.get("x-correlation-id")?.trim() ||
+    context.invocationId ||
+    "unknown";
+  const baseLog = { correlationId, service: "loans-service-func" };
 
   try {
     // Read the existing loan record
@@ -23,7 +28,6 @@ export async function returnLoanHttp(
       return { status: 404, jsonBody: { error: `Loan ${loanId} not found` } };
     }
 
-    const correlationId = req.headers.get("x-correlation-id") ?? randomUUID();
     const previousStatus = loan.status;
 
     // Update the loan status to fit the new model
@@ -51,10 +55,19 @@ export async function returnLoanHttp(
       context
     );
 
-    context.log(`Loan ${loanId} marked as returned.`);
+    context.log({
+      ...baseLog,
+      message: "Loan marked as returned",
+      loanId,
+    });
     return { status: 200, jsonBody: loan };
   } catch (error: any) {
-    context.log(`Error returning loan ${loanId}:`, error);
+    context.log({
+      ...baseLog,
+      message: "Error returning loan",
+      loanId,
+      error: error?.message ?? String(error),
+    });
     return { status: 500, jsonBody: { error: error.message } };
   }
 }

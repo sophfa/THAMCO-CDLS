@@ -34,14 +34,28 @@ export async function getInventoryByProductHttp(
   }
 
   const productId = req.params.productId;
-  context.log?.("[inventory] getInventoryByProductHttp", {
+  const correlationId =
+    req.headers.get("x-correlation-id")?.trim() ||
+    context.invocationId ||
+    "unknown";
+  const baseLog = {
+    correlationId,
+    service: "inventory-service-func",
+  };
+
+  context.log?.({
+    ...baseLog,
+    message: "getInventoryByProductHttp",
     productId,
     method: req.method,
     url: req.url,
   });
 
   if (!productId || productId.trim().length === 0) {
-    context.log?.("[inventory] missing productId");
+    context.log?.({
+      ...baseLog,
+      message: "missing productId",
+    });
     return {
       status: 400,
       jsonBody: { success: false, message: "A product ID is required" },
@@ -52,7 +66,11 @@ export async function getInventoryByProductHttp(
   try {
     inventoryContainer = getInventoryContainer();
   } catch (error) {
-    context.error("[inventory] cosmos container init failed", error);
+    context.error({
+      ...baseLog,
+      message: "cosmos container init failed",
+      error: error?.message ?? String(error),
+    });
     return {
       status: 500,
       jsonBody: {
@@ -68,14 +86,20 @@ export async function getInventoryByProductHttp(
     .query({ query, parameters: [{ name: "@productId", value: productId }] })
     .fetchAll();
 
-  context.log?.("[inventory] query result", {
+  context.log?.({
+    ...baseLog,
+    message: "query result",
     found: resources?.length ?? 0,
     id: resources?.[0]?.id,
     stock: resources?.[0]?.stock,
   });
 
   if (!resources || resources.length === 0) {
-    context.log?.("[inventory] no inventory for product", { productId });
+    context.log?.({
+      ...baseLog,
+      message: "no inventory for product",
+      productId,
+    });
     return {
       status: 404,
       jsonBody: {

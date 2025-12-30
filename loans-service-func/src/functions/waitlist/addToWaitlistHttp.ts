@@ -10,6 +10,12 @@ export async function addToWaitlistHttp(
   req: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
+  const correlationId =
+    req.headers.get("x-correlation-id")?.trim() ||
+    context.invocationId ||
+    "unknown";
+  const baseLog = { correlationId, service: "loans-service-func" };
+
   try {
     if (req.method === "OPTIONS") {
       return { status: 204 };
@@ -74,9 +80,12 @@ export async function addToWaitlistHttp(
     loan.waitlist.push(trimmedUserId);
     await loansContainer.items.upsert(loan);
 
-    context.log(
-      `User '${trimmedUserId}' added to waitlist for loan '${loanId}'`
-    );
+    context.log({
+      ...baseLog,
+      message: "User added to waitlist",
+      userId: trimmedUserId,
+      loanId,
+    });
 
     return {
       status: 200,
@@ -92,7 +101,11 @@ export async function addToWaitlistHttp(
       },
     };
   } catch (error: any) {
-    context.log("Error adding user to waitlist:", error);
+    context.log({
+      ...baseLog,
+      message: "Error adding user to waitlist",
+      error: error?.message ?? String(error),
+    });
 
     return {
       status: 500,

@@ -53,10 +53,17 @@ export async function getInventoryByIdHttp(
   }
 
   const productId = request.params.id;
+  const correlationId =
+    request.headers.get("x-correlation-id")?.trim() ||
+    context.invocationId ||
+    "unknown";
 
-  context.log(
-    `HTTP trigger function processed a request to get inventory for product: ${productId}`
-  );
+  context.log({
+    correlationId,
+    service: "inventory-service-func",
+    message: "HTTP trigger function processed a request to get inventory",
+    productId,
+  });
 
   // Validate product ID parameter
   if (!productId || productId.trim().length === 0) {
@@ -118,7 +125,12 @@ export async function getInventoryByIdHttp(
       body: JSON.stringify(errorResponse, null, 2),
     });
   } catch (error: any) {
-    context.log("Error getting inventory:", error);
+    context.log({
+      correlationId,
+      service: "inventory-service-func",
+      message: "Error getting inventory",
+      error: error?.message ?? String(error),
+    });
     const isConfigError =
       error instanceof Error &&
       error.message.includes("Missing required environment variable");

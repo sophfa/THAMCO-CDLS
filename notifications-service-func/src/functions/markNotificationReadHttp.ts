@@ -17,6 +17,12 @@ export async function markNotificationReadHttp(
 ): Promise<HttpResponseInit> {
   if (request.method === "OPTIONS") return { status: 204 };
 
+  const correlationId =
+    request.headers.get("x-correlation-id")?.trim() ||
+    context.invocationId ||
+    "unknown";
+  const baseLog = { correlationId, service: "notifications-service-func" };
+
   const auth = await validateToken(request, context);
   if (!auth.isValid || !auth.userId) {
     return { status: 401, jsonBody: { error: "Unauthorized" } };
@@ -63,7 +69,11 @@ export async function markNotificationReadHttp(
     const { resource: updated } = await container.items.upsert(doc);
     return { status: 200, jsonBody: updated };
   } catch (error: any) {
-    context.log("Failed to update read status", error);
+    context.log({
+      ...baseLog,
+      message: "Failed to update read status",
+      error: error?.message ?? String(error),
+    });
     return {
       status: 500,
       jsonBody: { error: error?.message || "Internal error" },

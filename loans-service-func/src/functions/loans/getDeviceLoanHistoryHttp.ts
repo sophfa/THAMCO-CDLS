@@ -10,6 +10,12 @@ export async function getDeviceLoanHistoryHttp(
   req: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
+  const correlationId =
+    req.headers.get("x-correlation-id")?.trim() ||
+    context.invocationId ||
+    "unknown";
+  const baseLog = { correlationId, service: "loans-service-func" };
+
   try {
     const deviceId = req.params.deviceId;
 
@@ -36,7 +42,12 @@ export async function getDeviceLoanHistoryHttp(
       .query(querySpec)
       .fetchAll();
 
-    context.log(`Found ${loans.length} loans for device ${decodedDeviceId}`);
+    context.log({
+      ...baseLog,
+      message: "Found loans for device",
+      deviceId: decodedDeviceId,
+      count: loans.length,
+    });
 
     // Get statistics
     const stats = {
@@ -75,7 +86,11 @@ export async function getDeviceLoanHistoryHttp(
       },
     };
   } catch (error: any) {
-    context.error("Error fetching device loan history:", error);
+    context.error({
+      ...baseLog,
+      message: "Error fetching device loan history",
+      error: error?.message ?? String(error),
+    });
     return {
       status: 500,
       jsonBody: {

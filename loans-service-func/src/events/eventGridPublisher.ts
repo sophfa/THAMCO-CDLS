@@ -31,19 +31,27 @@ export async function publishLoanStatusChangedEvent(
   payload: LoanStatusEventPayload,
   context: InvocationContext
 ): Promise<void> {
+  const correlationId = payload.correlationId || context.invocationId || "unknown";
+  const baseLog = { correlationId, service: "loans-service-func" };
   const { endpoint, key } = getTopicConfig();
   if (!endpoint || !key) {
     if (!missingConfigLogged) {
-      context.log(
-        "Event Grid configuration missing (EVENT_GRID_TOPIC_ENDPOINT / EVENT_GRID_TOPIC_KEY); skipping publish."
-      );
+      context.log({
+        ...baseLog,
+        message:
+          "Event Grid configuration missing (EVENT_GRID_TOPIC_ENDPOINT / EVENT_GRID_TOPIC_KEY); skipping publish.",
+      });
       missingConfigLogged = true;
     }
     return;
   }
 
   if (!payload.loanId || !payload.newStatus) {
-    context.warn("Event Grid publish skipped: invalid payload", payload);
+    context.warn({
+      ...baseLog,
+      message: "Event Grid publish skipped: invalid payload",
+      payload,
+    });
     return;
   }
 
@@ -75,7 +83,7 @@ export async function publishLoanStatusChangedEvent(
     },
   ];
 
-  await sendWithRetry(events, context, endpoint, key);
+  await sendWithRetry(events, context, endpoint, key, baseLog);
 }
 
 async function sendWithRetry(
@@ -83,6 +91,7 @@ async function sendWithRetry(
   context: InvocationContext,
   endpoint: string,
   key: string,
+  baseLog: { correlationId: string; service: string },
   retries: number = DEFAULT_RETRIES
 ): Promise<void> {
   let attempt = 0;
@@ -112,12 +121,20 @@ async function sendWithRetry(
     attempt += 1;
     if (attempt <= retries) {
       const backoff = 100 * attempt;
-      context.warn(
-        `Event Grid publish attempt ${attempt} failed, retrying in ${backoff}ms`
-      );
+      context.warn({
+        ...baseLog,
+        message: "Event Grid publish attempt failed, retrying",
+        attempt,
+        backoffMs: backoff,
+        error: lastError instanceof Error ? lastError.message : String(lastError),
+      });
       await new Promise((resolve) => setTimeout(resolve, backoff));
     }
   }
 
-  context.error("Event Grid publish failed after retries", lastError);
+  context.error({
+    ...baseLog,
+    message: "Event Grid publish failed after retries",
+    error: lastError instanceof Error ? lastError.message : String(lastError),
+  });
 }

@@ -58,13 +58,26 @@ export async function addFavouriteHttp(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
-  context.log("HTTP trigger function processed a request to add favourite");
+  const correlationId =
+    request.headers.get("x-correlation-id")?.trim() ||
+    context.invocationId ||
+    "unknown";
+  const baseLog = { correlationId, service: "loans-service-func" };
+
+  context.log({
+    ...baseLog,
+    message: "HTTP trigger function processed a request to add favourite",
+  });
 
   try {
     // Validate authentication token
     const authResult = await validateToken(request, context);
     if (!authResult.isValid) {
-      context.log("Authentication failed:", authResult.error);
+      context.log({
+        ...baseLog,
+        message: "Authentication failed",
+        error: authResult.error,
+      });
       return {
         status: 401,
         headers: { "Content-Type": "application/json" },
@@ -107,7 +120,12 @@ export async function addFavouriteHttp(
 
     // Verify the authenticated user matches the userId in the request
     if (authResult.userId !== userId) {
-      context.log("Access denied: User mismatch");
+      context.log({
+        ...baseLog,
+        message: "Access denied: User mismatch",
+        userId: authResult.userId,
+        requestedUserId: userId,
+      });
       return {
         status: 403,
         headers: { "Content-Type": "application/json" },
@@ -214,7 +232,11 @@ export async function addFavouriteHttp(
       body: JSON.stringify(errorResponse, null, 2),
     };
   } catch (error: any) {
-    context.log("Error adding favourite:", error);
+    context.log({
+      ...baseLog,
+      message: "Error adding favourite",
+      error: error?.message ?? String(error),
+    });
 
     const errorResponse: AddFavouriteResponse = {
       success: false,

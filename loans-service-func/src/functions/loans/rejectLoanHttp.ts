@@ -13,11 +13,19 @@ export async function rejectLoanHttp(
   req: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
+  const correlationId =
+    req.headers.get("x-correlation-id")?.trim() || randomUUID();
+  const baseLog = { correlationId, service: "loans-service-func" };
+
   try {
     // Validate authentication token
     const authResult = await validateToken(req, context);
     if (!authResult.isValid) {
-      context.log("Authentication failed:", authResult.error);
+      context.log({
+        ...baseLog,
+        message: "Authentication failed",
+        error: authResult.error,
+      });
       return {
         status: 401,
         jsonBody: { message: authResult.error || "Unauthorized" },
@@ -63,7 +71,6 @@ export async function rejectLoanHttp(
       };
     }
 
-    const correlationId = req.headers.get("x-correlation-id") ?? randomUUID();
     const previousStatus = loan.status;
 
     // Update loan status to 'Rejected'
@@ -94,9 +101,13 @@ export async function rejectLoanHttp(
       context
     );
 
-    context.log(
-      `Loan ${loanId} rejected by ${authResult.userId}. Reason: ${reason}`
-    );
+    context.log({
+      ...baseLog,
+      message: "Loan rejected",
+      loanId,
+      userId: authResult.userId,
+      reason,
+    });
 
     return {
       status: 200,
@@ -115,7 +126,11 @@ export async function rejectLoanHttp(
       },
     };
   } catch (error: any) {
-    context.error("Error rejecting loan:", error);
+    context.error({
+      ...baseLog,
+      message: "Error rejecting loan",
+      error: error?.message ?? String(error),
+    });
     return {
       status: 500,
       jsonBody: {

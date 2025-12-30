@@ -39,9 +39,16 @@ export async function listNotificationsHttp(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
-  context.log(
-    'HTTP trigger function processed a request to list notifications'
-  );
+  const correlationId =
+    request.headers.get("x-correlation-id")?.trim() ||
+    context.invocationId ||
+    "unknown";
+  const baseLog = { correlationId, service: "notifications-service-func" };
+
+  context.log({
+    ...baseLog,
+    message: "HTTP trigger function processed a request to list notifications",
+  });
 
   try {
     const repo = getNotificationRepo();
@@ -76,10 +83,11 @@ export async function listNotificationsHttp(
     };
   } catch (error: any) {
     if (error instanceof MissingCosmosConfigurationError) {
-      context.log(
-        'Missing Cosmos configuration settings:',
-        error.missingSettings.join(', ')
-      );
+      context.log({
+        ...baseLog,
+        message: "Missing Cosmos configuration settings",
+        missingSettings: error.missingSettings,
+      });
       const errorResponse: ListNotificationsResponse = {
         success: false,
         error: {
@@ -95,7 +103,11 @@ export async function listNotificationsHttp(
       };
     }
 
-    context.log('Error listing notifications:', error);
+    context.log({
+      ...baseLog,
+      message: "Error listing notifications",
+      error: error?.message ?? String(error),
+    });
     const errorResponse: ListNotificationsResponse = {
       success: false,
       error: {

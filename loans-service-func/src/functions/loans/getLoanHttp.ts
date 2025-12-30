@@ -52,10 +52,17 @@ export async function getLoanByIdHttp(
     return { status: 204 };
   }
   const loanId = request.params.id;
+  const correlationId =
+    request.headers.get("x-correlation-id")?.trim() ||
+    context.invocationId ||
+    "unknown";
+  const baseLog = { correlationId, service: "loans-service-func" };
 
-  context.log(
-    `HTTP trigger function processed a request to get loan: ${loanId}`
-  );
+  context.log({
+    ...baseLog,
+    message: "HTTP trigger function processed a request to get loan",
+    loanId,
+  });
 
   // Validate loan ID parameter
   if (!loanId || loanId.trim().length === 0) {
@@ -116,7 +123,11 @@ export async function getLoanByIdHttp(
       body: JSON.stringify(errorResponse, null, 2),
     };
   } catch (error: any) {
-    context.log("Error getting loan:", error);
+    context.log({
+      ...baseLog,
+      message: "Error getting loan",
+      error: error?.message ?? String(error),
+    });
 
     const errorResponse: GetLoanResponse = {
       success: false,

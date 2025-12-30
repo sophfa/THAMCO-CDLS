@@ -49,6 +49,7 @@ jobs:
   integration-flow-test:
     name: Loan -> Inventory Integration (Test)
     runs-on: ubuntu-latest
+    environment: test
     needs: deploy-to-test
     env:
       LOANS_API_URL: ${{ secrets.VITE_LOANS_API_URL_TEST }}

@@ -11,11 +11,21 @@ export async function removeUserFromWaitlistHttp(
   req: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
+  const correlationId =
+    req.headers.get("x-correlation-id")?.trim() ||
+    context.invocationId ||
+    "unknown";
+  const baseLog = { correlationId, service: "loans-service-func" };
+
   try {
     // Validate authentication token
     const authResult = await validateToken(req, context);
     if (!authResult.isValid) {
-      context.log("Authentication failed:", authResult.error);
+      context.log({
+        ...baseLog,
+        message: "Authentication failed",
+        error: authResult.error,
+      });
       return {
         status: 401,
         jsonBody: { message: authResult.error || "Unauthorized" },
@@ -50,7 +60,12 @@ export async function removeUserFromWaitlistHttp(
 
     // Verify the authenticated user matches the userId in the request
     if (authResult.userId !== trimmedUserId) {
-      context.log("Access denied: User mismatch");
+      context.log({
+        ...baseLog,
+        message: "Access denied: User mismatch",
+        userId: authResult.userId,
+        requestedUserId: trimmedUserId,
+      });
       return {
         status: 403,
         jsonBody: {
@@ -98,9 +113,12 @@ export async function removeUserFromWaitlistHttp(
     loan.waitlist.splice(userIndex, 1);
     await loansContainer.items.upsert(loan);
 
-    context.log(
-      `User '${trimmedUserId}' removed from waitlist for loan '${loanId}'`
-    );
+    context.log({
+      ...baseLog,
+      message: "User removed from waitlist",
+      userId: trimmedUserId,
+      loanId,
+    });
 
     return {
       status: 200,
@@ -115,7 +133,11 @@ export async function removeUserFromWaitlistHttp(
       },
     };
   } catch (error: any) {
-    context.error("Error removing user from waitlist:", error);
+    context.error({
+      ...baseLog,
+      message: "Error removing user from waitlist",
+      error: error?.message ?? String(error),
+    });
     return {
       status: 500,
       jsonBody: {

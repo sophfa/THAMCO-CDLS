@@ -50,9 +50,17 @@ export async function getProductByIdHttp(
 ): Promise<HttpResponseInit> {
   const productId = request.params.id;
 
-  context.log(
-    `HTTP trigger function processed a request to get product: ${productId}`
-  );
+  const correlationId =
+    request.headers.get("x-correlation-id")?.trim() ||
+    context.invocationId ||
+    "unknown";
+
+  context.log({
+    correlationId,
+    service: "catalogue-service-func",
+    message: "HTTP trigger function processed a request to get product",
+    productId,
+  });
 
   // Validate product ID parameter
   if (!productId || productId.trim().length === 0) {
@@ -79,9 +87,12 @@ export async function getProductByIdHttp(
     let lastError: { code: string; message: string } | null = null;
 
     for (const candidateId of lookupIds) {
-      context.log(
-        `Attempting to find product using identifier '${candidateId}'`
-      );
+      context.log({
+        correlationId,
+        service: "catalogue-service-func",
+        message: "Attempting to find product using identifier",
+        candidateId,
+      });
 
       const result = await productRepo.get(candidateId);
 
@@ -130,7 +141,12 @@ export async function getProductByIdHttp(
       body: JSON.stringify(errorResponse, null, 2),
     };
   } catch (error: any) {
-    context.log("Error getting product:", error);
+    context.log({
+      correlationId,
+      service: "catalogue-service-func",
+      message: "Error getting product",
+      error: error?.message ?? String(error),
+    });
 
     const errorResponse: GetProductResponse = {
       success: false,

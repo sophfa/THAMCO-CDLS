@@ -55,7 +55,16 @@ export async function listLoansHttp(
   if (request.method === "OPTIONS") {
     return { status: 204 };
   }
-  context.log("HTTP trigger function processed a request to list loans");
+  const correlationId =
+    request.headers.get("x-correlation-id")?.trim() ||
+    context.invocationId ||
+    "unknown";
+  const baseLog = { correlationId, service: "loans-service-func" };
+
+  context.log({
+    ...baseLog,
+    message: "HTTP trigger function processed a request to list loans",
+  });
 
   try {
     const result = await loanRepo.list();
@@ -88,7 +97,11 @@ export async function listLoansHttp(
       body: JSON.stringify(response, null, 2),
     };
   } catch (error: any) {
-    context.log("Error listing loans:", error);
+    context.log({
+      ...baseLog,
+      message: "Error listing loans",
+      error: error?.message ?? String(error),
+    });
     const errorResponse: ListLoansResponse = {
       success: false,
       error: {

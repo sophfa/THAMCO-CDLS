@@ -1,15 +1,16 @@
 param location string = resourceGroup().location
 param env string = 'prod'
 param appServicePlanName string = 'cdls-functions-${env}'
-param signalRName string = 'cdls-signalr-${env}'
 param signalRSkuName string = 'Free_F1'
 param signalRCapacity int = 1
 param eventGridTopicName string = 'cdls-events-${env}'
 param cosmosAccountName string = toLower(substring('cdlscosmos${env}${uniqueString(resourceGroup().id)}', 0, 44))
 param cosmosDatabaseThroughput int = 400
-param cosmosDatabases array = [
+var dbAndFuncAppsNameSuffix = env == 'prod' ? '-prod' : ''
+var signalrNameSuffix = env == 'prod' ? '-prod' : '-test'
+var cosmosDatabases = [
   {
-    name: 'catalogue-db'
+    name: 'catalogue-db${dbAndFuncAppsNameSuffix}'
     containers: [
       {
         name: 'Devices'
@@ -18,7 +19,7 @@ param cosmosDatabases array = [
     ]
   }
   {
-    name: 'inventory-db'
+    name: 'inventory-db${dbAndFuncAppsNameSuffix}'
     containers: [
       {
         name: 'Inventory'
@@ -27,7 +28,7 @@ param cosmosDatabases array = [
     ]
   }
   {
-    name: 'loans-db'
+    name: 'loans-db${dbAndFuncAppsNameSuffix}'
     containers: [
       {
         name: 'Loans'
@@ -40,7 +41,7 @@ param cosmosDatabases array = [
     ]
   }
   {
-    name: 'notifications-db'
+    name: 'notifications-db${dbAndFuncAppsNameSuffix}'
     containers: [
       {
         name: 'Notifications'
@@ -50,49 +51,49 @@ param cosmosDatabases array = [
   }
 ]
 // Flat list of Cosmos containers (avoids nested for loops)
-param cosmosContainerSpecs array = [
+var cosmosContainerSpecs = [
   {
-    dbName: 'catalogue-db'
+    dbName: 'catalogue-db${dbAndFuncAppsNameSuffix}'
     name: 'Devices'
     partitionKey: '/id'
   }
   {
-    dbName: 'inventory-db'
+    dbName: 'inventory-db${dbAndFuncAppsNameSuffix}'
     name: 'Inventory'
     partitionKey: '/id'
   }
   {
-    dbName: 'loans-db'
+    dbName: 'loans-db${dbAndFuncAppsNameSuffix}'
     name: 'Loans'
     partitionKey: '/id'
   }
   {
-    dbName: 'loans-db'
+    dbName: 'loans-db${dbAndFuncAppsNameSuffix}'
     name: 'Favourites'
     partitionKey: '/id'
   }
   {
-    dbName: 'notifications-db'
+    dbName: 'notifications-db${dbAndFuncAppsNameSuffix}'
     name: 'Notifications'
     partitionKey: '/id'
   }
 ]
 
-param functionApps array = [
+var functionApps = [
   {
-    name: 'catalogue-service-func'
+    name: 'catalogue-service-func${dbAndFuncAppsNameSuffix}'
     short: 'cat'
   }
   {
-    name: 'inventory-service-func'
+    name: 'inventory-service-func${dbAndFuncAppsNameSuffix}'
     short: 'inv'
   }
   {
-    name: 'loans-service-func'
+    name: 'loans-service-func${dbAndFuncAppsNameSuffix}'
     short: 'loan'
   }
   {
-    name: 'notifications-service-func'
+    name: 'notifications-service-func${dbAndFuncAppsNameSuffix}'
     short: 'noti'
   }
 ]
@@ -132,24 +133,6 @@ resource functionAppsResources 'Microsoft.Web/sites@2022-09-01' = [for (app, i) 
     serverFarmId: appPlan.id
     httpsOnly: true
     siteConfig: {
-      appSettings: [
-        {
-          name: 'AzureWebJobsStorage'
-          value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccounts[i].name};AccountKey=${listKeys(storageAccounts[i].id, storageAccounts[i].apiVersion).keys[0].value};EndpointSuffix=${environment().suffixes.storage}'
-        }
-        {
-          name: 'FUNCTIONS_WORKER_RUNTIME'
-          value: 'node'
-        }
-        {
-          name: 'FUNCTIONS_EXTENSION_VERSION'
-          value: '~4'
-        }
-        {
-          name: 'WEBSITE_RUN_FROM_PACKAGE'
-          value: '1'
-        }
-      ]
       ftpsState: 'Disabled'
     }
   }
@@ -157,7 +140,7 @@ resource functionAppsResources 'Microsoft.Web/sites@2022-09-01' = [for (app, i) 
 }]
 
 resource signalRService 'Microsoft.SignalRService/SignalR@2023-02-01' = {
-  name: signalRName
+  name: 'cdls-signalr${signalrNameSuffix}'
   location: location
   sku: {
     name: signalRSkuName
@@ -234,8 +217,5 @@ resource cosmosContainers 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/co
 output appServicePlanId string = appPlan.id
 output functionAppNames array = [for app in functionApps: '${app.name}-${env}']
 output signalRServiceName string = signalRService.name
-output signalRConnectionString string = listKeys(signalRService.id, signalRService.apiVersion).primaryConnectionString
 output eventGridTopicEndpoint string = eventGridTopic.properties.endpoint
-output eventGridTopicKey string = listKeys(eventGridTopic.id, eventGridTopic.apiVersion).key1
 output cosmosEndpoint string = cosmosAccount.properties.documentEndpoint
-output cosmosKey string = listKeys(cosmosAccount.id, cosmosAccount.apiVersion).primaryMasterKey

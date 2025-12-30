@@ -38,7 +38,16 @@ export async function listProductsHttp(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
-  context.log("HTTP trigger function processed a request to list products");
+  const correlationId =
+    request.headers.get("x-correlation-id")?.trim() ||
+    context.invocationId ||
+    "unknown";
+
+  context.log({
+    correlationId,
+    service: "catalogue-service-func",
+    message: "HTTP trigger function processed a request to list products",
+  });
 
   try {
     const result = await productRepo.list();
@@ -71,7 +80,12 @@ export async function listProductsHttp(
       body: JSON.stringify(response, null, 2),
     };
   } catch (error: any) {
-    context.log("Error listing products:", error);
+    context.log({
+      correlationId,
+      service: "catalogue-service-func",
+      message: "Error listing products",
+      error: error?.message ?? String(error),
+    });
     const errorResponse: ListProductsResponse = {
       success: false,
       error: {

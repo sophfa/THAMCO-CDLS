@@ -31,37 +31,62 @@ export async function updateInventoryFromLoanEvent(
   const data = event.data
     ? (event.data as unknown as LoanStatusChangedEventData)
     : undefined;
+  const correlationId =
+    (data as any)?.correlationId || context.invocationId || "unknown";
+  const baseLog = {
+    correlationId,
+    service: "inventory-service-func",
+  };
 
   const productId = data?.deviceId;
   if (!productId) {
-    context.warn("Loan status event missing productId; skipping.");
+    context.warn({
+      ...baseLog,
+      message: "Loan status event missing productId; skipping.",
+    });
     return;
   }
 
   const available = AVAILABLE_STATUSES.has(data.newStatus);
-  context.log(
-    `Loan ${data.loanId} status ${data.newStatus} -> set product ${productId} available=${available}`
-  );
+  context.log({
+    ...baseLog,
+    message: "Loan status change processed",
+    loanId: data.loanId,
+    newStatus: data.newStatus,
+    productId,
+    available,
+  });
 
   let repo: InventoryRepo;
   try {
     repo = getInventoryRepo();
   } catch (error) {
-    context.error("Inventory repository is not configured", error);
+    context.error({
+      ...baseLog,
+      message: "Inventory repository is not configured",
+      error: error?.message ?? String(error),
+    });
     return;
   }
 
   const result = await repo.setStock(productId, available);
 
   if (result.success) {
-    context.log(
-      `Inventory updated for product ${productId}, stock=${result.data.stock}`
-    );
+    context.log({
+      ...baseLog,
+      message: "Inventory updated for product",
+      productId,
+      stock: result.data.stock,
+    });
   } else {
     const err = (result as { success: false; error: { code: string; message: string } }).error;
-    context.error(
-      `Failed to update stock for product ${productId}: ${err.code} ${err.message}`
-    );
+    context.error({
+      ...baseLog,
+      message: "Failed to update stock for product",
+      productId,
+      errorCode: err.code,
+      error: err.message,
+    });
   }
 }
 

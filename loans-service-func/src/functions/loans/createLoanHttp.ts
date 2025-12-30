@@ -12,11 +12,21 @@ export async function createLoanHttp(
   req: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
+  const correlationId =
+    req.headers.get("x-correlation-id")?.trim() ||
+    context.invocationId ||
+    "unknown";
+  const baseLog = { correlationId, service: "loans-service-func" };
+
   try {
     // Validate authentication token
     const authResult = await validateToken(req, context);
     if (!authResult.isValid) {
-      context.log("Authentication failed:", authResult.error);
+      context.log({
+        ...baseLog,
+        message: "Authentication failed",
+        error: authResult.error,
+      });
       return {
         status: 401,
         jsonBody: { message: authResult.error || "Unauthorized" },
@@ -41,7 +51,12 @@ export async function createLoanHttp(
 
     // Verify the authenticated user matches the userId in the request
     if (authResult.userId !== userId) {
-      context.log("Access denied: User mismatch");
+      context.log({
+        ...baseLog,
+        message: "Access denied: User mismatch",
+        userId: authResult.userId,
+        requestedUserId: userId,
+      });
       return {
         status: 403,
         jsonBody: {
@@ -80,7 +95,11 @@ export async function createLoanHttp(
     await loansContainer.items.upsert(newLoan);
     return { status: 201, jsonBody: newLoan };
   } catch (error: any) {
-    context.log("Failed to create loan:", error);
+    context.log({
+      ...baseLog,
+      message: "Failed to create loan",
+      error: error?.message ?? String(error),
+    });
     return { status: 500, jsonBody: { message: "Failed to create loan" } };
   }
 }

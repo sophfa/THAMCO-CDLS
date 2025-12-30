@@ -13,10 +13,18 @@ export async function revertCollectedLoanHttp(
   req: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
+  const correlationId =
+    req.headers.get("x-correlation-id")?.trim() || randomUUID();
+  const baseLog = { correlationId, service: "loans-service-func" };
+
   try {
     const authResult = await validateToken(req, context);
     if (!authResult.isValid) {
-      context.log("Authentication failed:", authResult.error);
+      context.log({
+        ...baseLog,
+        message: "Authentication failed",
+        error: authResult.error,
+      });
       return {
         status: 401,
         jsonBody: { message: authResult.error || "Unauthorized" },
@@ -24,7 +32,6 @@ export async function revertCollectedLoanHttp(
     }
 
     const loanId = req.params.id;
-    const correlationId = req.headers.get("x-correlation-id") ?? randomUUID();
 
     if (!loanId) {
       return {
@@ -89,9 +96,12 @@ export async function revertCollectedLoanHttp(
       context
     );
 
-    context.log(
-      `Loan ${loanId} reverted to 'Approved' by user ${authResult.userId}`
-    );
+    context.log({
+      ...baseLog,
+      message: "Loan reverted to Approved",
+      loanId,
+      userId: authResult.userId,
+    });
 
     return {
       status: 200,
@@ -108,7 +118,11 @@ export async function revertCollectedLoanHttp(
       },
     };
   } catch (error: any) {
-    context.error("Error reverting collected loan:", error);
+    context.error({
+      ...baseLog,
+      message: "Error reverting collected loan",
+      error: error?.message ?? String(error),
+    });
     return {
       status: 500,
       jsonBody: {

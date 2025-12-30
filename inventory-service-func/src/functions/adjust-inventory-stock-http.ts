@@ -57,6 +57,15 @@ export async function adjustInventoryStockHttp(
     return withCors({ status: 204 }, "POST,OPTIONS");
   }
 
+  const correlationId =
+    req.headers.get("x-correlation-id")?.trim() ||
+    context.invocationId ||
+    "unknown";
+  const baseLog = {
+    correlationId,
+    service: "inventory-service-func",
+  };
+
   const auth = await validateToken(req, context);
   if (!auth.isValid || !auth.token) {
     return withCors({
@@ -72,14 +81,19 @@ export async function adjustInventoryStockHttp(
   }
 
   const inventoryId = req.params.id;
-  context.log?.("[inventory] adjustInventoryStockHttp", {
+  context.log?.({
+    ...baseLog,
+    message: "adjustInventoryStockHttp",
     inventoryId,
     method: req.method,
     url: req.url,
   });
 
   if (!inventoryId || inventoryId.trim().length === 0) {
-    context.log?.("[inventory] missing inventoryId");
+    context.log?.({
+      ...baseLog,
+      message: "missing inventoryId",
+    });
     return withCors({
       status: 400,
       jsonBody: { success: false, message: "Inventory ID is required" },
@@ -89,9 +103,16 @@ export async function adjustInventoryStockHttp(
   let body: AdjustStockRequest;
   try {
     body = (await req.json()) as AdjustStockRequest;
-    context.log?.("[inventory] adjust payload", body);
+    context.log?.({
+      ...baseLog,
+      message: "adjust payload",
+      payload: body,
+    });
   } catch {
-    context.log?.("[inventory] invalid JSON payload");
+    context.log?.({
+      ...baseLog,
+      message: "invalid JSON payload",
+    });
     return withCors({
       status: 400,
       jsonBody: { success: false, message: "Request body must be valid JSON" },
@@ -99,7 +120,10 @@ export async function adjustInventoryStockHttp(
   }
 
   if (body.delta === undefined || body.delta === null) {
-    context.log?.("[inventory] delta missing");
+    context.log?.({
+      ...baseLog,
+      message: "delta missing",
+    });
     return withCors({
       status: 400,
       jsonBody: { success: false, message: "delta is required" },
@@ -107,7 +131,11 @@ export async function adjustInventoryStockHttp(
   }
 
   if (!Number.isInteger(body.delta)) {
-    context.log?.("[inventory] delta not integer", { delta: body.delta });
+    context.log?.({
+      ...baseLog,
+      message: "delta not integer",
+      delta: body.delta,
+    });
     return withCors({
       status: 400,
       jsonBody: { success: false, message: "delta must be an integer" },
@@ -118,7 +146,11 @@ export async function adjustInventoryStockHttp(
   try {
     inventoryContainer = getInventoryContainer();
   } catch (error: any) {
-    context.log?.("[inventory] cosmos container init failed", error);
+    context.log?.({
+      ...baseLog,
+      message: "cosmos container init failed",
+      error: error?.message ?? String(error),
+    });
     return withCors({
       status: 500,
       jsonBody: {
@@ -134,7 +166,11 @@ export async function adjustInventoryStockHttp(
       .read<any>();
 
     if (!response.resource) {
-      context.log?.("[inventory] inventory not found", { inventoryId });
+      context.log?.({
+        ...baseLog,
+        message: "inventory not found",
+        inventoryId,
+      });
       return withCors({
         status: 404,
         jsonBody: { success: false, message: "Inventory not found" },
@@ -143,7 +179,9 @@ export async function adjustInventoryStockHttp(
 
     const current = response.resource;
     if (typeof current.stock !== "number" || Number.isNaN(current.stock)) {
-      context.log?.("[inventory] invalid current stock", {
+      context.log?.({
+        ...baseLog,
+        message: "invalid current stock",
         stock: current.stock,
       });
       return withCors({
@@ -154,7 +192,9 @@ export async function adjustInventoryStockHttp(
 
     const newStock = current.stock + body.delta;
     if (newStock < 0) {
-      context.log?.("[inventory] negative stock prevented", {
+      context.log?.({
+        ...baseLog,
+        message: "negative stock prevented",
         current: current.stock,
         delta: body.delta,
       });
@@ -182,7 +222,9 @@ export async function adjustInventoryStockHttp(
       .item(inventoryId, inventoryId)
       .replace(updated);
 
-    context.log?.("[inventory] stock adjusted", {
+    context.log?.({
+      ...baseLog,
+      message: "stock adjusted",
       inventoryId,
       previous: current.stock,
       delta: body.delta,
@@ -197,7 +239,11 @@ export async function adjustInventoryStockHttp(
       },
     });
   } catch (error: any) {
-    context.log("Error adjusting stock", error);
+    context.log({
+      ...baseLog,
+      message: "Error adjusting stock",
+      error: error?.message ?? String(error),
+    });
     return withCors({
       status: 500,
       jsonBody: {

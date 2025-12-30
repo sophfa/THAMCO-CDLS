@@ -10,7 +10,17 @@ export async function authLoanHttp(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
-  context.log(`Http function processed request for url "${request.url}"`);
+  const correlationId =
+    request.headers.get("x-correlation-id")?.trim() ||
+    context.invocationId ||
+    "unknown";
+  const baseLog = { correlationId, service: "loans-service-func" };
+
+  context.log({
+    ...baseLog,
+    message: "Http function processed request",
+    url: request.url,
+  });
 
   try {
     const loanId = request.params.loanId;
@@ -50,7 +60,11 @@ export async function authLoanHttp(
 
     await loansContainer.items.upsert(loan);
 
-    context.log(`Loan ${loanId} status updated to 'Approved'`);
+    context.log({
+      ...baseLog,
+      message: "Loan status updated to Approved",
+      loanId,
+    });
 
     return {
       status: 200,
@@ -68,7 +82,11 @@ export async function authLoanHttp(
       },
     };
   } catch (error) {
-    context.log('Error authorizing loan:', error);
+    context.log({
+      ...baseLog,
+      message: "Error authorizing loan",
+      error: error?.message ?? String(error),
+    });
     return {
       status: 500,
       jsonBody: { error: 'Internal server error' },

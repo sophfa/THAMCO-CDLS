@@ -36,6 +36,12 @@ export async function getNotificationsByUserHttp(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
+  const correlationId =
+    request.headers.get("x-correlation-id")?.trim() ||
+    context.invocationId ||
+    "unknown";
+  const baseLog = { correlationId, service: "notifications-service-func" };
+
   const auth = await validateToken(request, context);
   if (!auth.isValid || !auth.userId) {
     return {
@@ -47,9 +53,12 @@ export async function getNotificationsByUserHttp(
 
   const userId = request.params.userId;
 
-  context.log(
-    `HTTP trigger function processed a request to get notifications for user: ${userId}`
-  );
+  context.log({
+    ...baseLog,
+    message:
+      "HTTP trigger function processed a request to get notifications for user",
+    userId,
+  });
 
   // Validate user ID parameter
   if (!userId || userId.trim().length === 0) {
@@ -112,10 +121,11 @@ export async function getNotificationsByUserHttp(
     };
   } catch (error: any) {
     if (error instanceof MissingCosmosConfigurationError) {
-      context.log(
-        'Missing Cosmos configuration settings:',
-        error.missingSettings.join(', ')
-      );
+      context.log({
+        ...baseLog,
+        message: "Missing Cosmos configuration settings",
+        missingSettings: error.missingSettings,
+      });
 
       const errorResponse: GetNotificationsByUserResponse = {
         success: false,
@@ -135,7 +145,11 @@ export async function getNotificationsByUserHttp(
       };
     }
 
-    context.log('Error getting notifications for user:', error);
+    context.log({
+      ...baseLog,
+      message: "Error getting notifications for user",
+      error: error?.message ?? String(error),
+    });
 
     const errorResponse: GetNotificationsByUserResponse = {
       success: false,

@@ -4,6 +4,7 @@ import {
   HttpResponseInit,
   InvocationContext,
 } from "@azure/functions";
+import { randomUUID } from "crypto";
 
 function withCors(
   res: HttpResponseInit,
@@ -22,20 +23,44 @@ function withCors(
 
 export async function healthHttp(
   req: HttpRequest,
-  _context: InvocationContext
+  context: InvocationContext
 ): Promise<HttpResponseInit> {
   if (req.method === "OPTIONS") {
     return withCors({ status: 204 }, "GET,OPTIONS");
   }
 
-  return withCors({
+  const correlationId =
+    req.headers.get("x-correlation-id")?.trim() || randomUUID();
+  const start = Date.now();
+
+  context.log({
+    correlationId,
+    service: "notifications-service-func",
+    message: "health check",
+  });
+
+  const response = withCors({
     status: 200,
+    headers: {
+      "x-correlation-id": correlationId,
+    },
     jsonBody: {
       status: "ok",
       service: "notifications-service-func",
       timestamp: new Date().toISOString(),
+      correlationId,
     },
   });
+
+  const durationMs = Date.now() - start;
+  context.log({
+    correlationId,
+    service: "notifications-service-func",
+    durationMs,
+    message: "health check complete",
+  });
+
+  return response;
 }
 
 app.http("healthHttp", {

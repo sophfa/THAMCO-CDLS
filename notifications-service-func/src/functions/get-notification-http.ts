@@ -36,10 +36,17 @@ export async function getNotificationByIdHttp(
   context: InvocationContext
 ): Promise<HttpResponseInit> {
   const notificationId = request.params.id;
+  const correlationId =
+    request.headers.get("x-correlation-id")?.trim() ||
+    context.invocationId ||
+    "unknown";
+  const baseLog = { correlationId, service: "notifications-service-func" };
 
-  context.log(
-    `HTTP trigger function processed a request to get notification: ${notificationId}`
-  );
+  context.log({
+    ...baseLog,
+    message: "HTTP trigger function processed a request to get notification",
+    notificationId,
+  });
 
   // Validate notification ID parameter
   if (!notificationId || notificationId.trim().length === 0) {
@@ -102,10 +109,11 @@ export async function getNotificationByIdHttp(
     };
   } catch (error: any) {
     if (error instanceof MissingCosmosConfigurationError) {
-      context.log(
-        'Missing Cosmos configuration settings:',
-        error.missingSettings.join(', ')
-      );
+      context.log({
+        ...baseLog,
+        message: "Missing Cosmos configuration settings",
+        missingSettings: error.missingSettings,
+      });
 
       const errorResponse: GetNotificationResponse = {
         success: false,
@@ -125,7 +133,11 @@ export async function getNotificationByIdHttp(
       };
     }
 
-    context.log('Error getting notification:', error);
+    context.log({
+      ...baseLog,
+      message: "Error getting notification",
+      error: error?.message ?? String(error),
+    });
 
     const errorResponse: GetNotificationResponse = {
       success: false,

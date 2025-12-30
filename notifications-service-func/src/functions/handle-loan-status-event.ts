@@ -117,9 +117,15 @@ export async function handleLoanStatusEvent(
   const data = event.data
     ? (event.data as unknown as LoanStatusChangedEventData)
     : undefined;
+  const correlationId =
+    (data as any)?.correlationId || context.invocationId || "unknown";
+  const baseLog = { correlationId, service: "notifications-service-func" };
 
   if (!data?.userId) {
-    context.warn("Loan status event missing userId; skipping.");
+    context.warn({
+      ...baseLog,
+      message: "Loan status event missing userId; skipping.",
+    });
     return;
   }
 
@@ -135,10 +141,11 @@ export async function handleLoanStatusEvent(
   });
 
   if (creation.success === false) {
-    context.error(
-      "Failed to create notification from event:",
-      creation.errors
-    );
+    context.error({
+      ...baseLog,
+      message: "Failed to create notification from event",
+      errors: creation.errors,
+    });
     return;
   }
 
@@ -147,12 +154,22 @@ export async function handleLoanStatusEvent(
     const result = await repo.create(creation.notification);
 
     if (result.success) {
-      context.log(
-        `Notification stored for loan ${data.loanId} (${data.newStatus})`
-      );
+      context.log({
+        ...baseLog,
+        message: "Notification stored for loan",
+        loanId: data.loanId,
+        newStatus: data.newStatus,
+      });
     } else {
       const errorDetails = (result as { success: false; error: unknown }).error;
-      context.error("Failed to persist notification:", errorDetails);
+      context.error({
+        ...baseLog,
+        message: "Failed to persist notification",
+        error:
+          errorDetails instanceof Error
+            ? errorDetails.message
+            : String(errorDetails),
+      });
     }
 
     const waitlistUsers = toUniqueUserIds(data.waitlist);
@@ -179,10 +196,11 @@ export async function handleLoanStatusEvent(
         });
 
         if (waitlistCreation.success === false) {
-          context.error(
-            "Failed to create waitlist availability notification:",
-            waitlistCreation.errors
-          );
+          context.error({
+            ...baseLog,
+            message: "Failed to create waitlist availability notification",
+            errors: waitlistCreation.errors,
+          });
           continue;
         }
 
@@ -191,28 +209,43 @@ export async function handleLoanStatusEvent(
             waitlistCreation.notification
           );
           if (waitlistResult.success) {
-            context.log(
-              `Waitlist availability notification stored for ${waitlistUserId} (${data.deviceId})`
-            );
+            context.log({
+              ...baseLog,
+              message: "Waitlist availability notification stored",
+              userId: waitlistUserId,
+              deviceId: data.deviceId,
+            });
           } else {
             const waitlistError = (
               waitlistResult as { success: false; error: unknown }
             ).error;
-            context.error(
-              "Failed to persist waitlist availability notification:",
-              waitlistError
-            );
+            context.error({
+              ...baseLog,
+              message: "Failed to persist waitlist availability notification",
+              error:
+                waitlistError instanceof Error
+                  ? waitlistError.message
+                  : String(waitlistError),
+            });
           }
         } catch (waitlistError) {
-          context.error(
-            "Error saving waitlist availability notification:",
-            waitlistError
-          );
+          context.error({
+            ...baseLog,
+            message: "Error saving waitlist availability notification",
+            error:
+              waitlistError instanceof Error
+                ? waitlistError.message
+                : String(waitlistError),
+          });
         }
       }
     }
   } catch (err) {
-    context.error("Error saving notification for loan event:", err);
+    context.error({
+      ...baseLog,
+      message: "Error saving notification for loan event",
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 }
 

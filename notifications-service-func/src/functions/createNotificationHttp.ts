@@ -124,13 +124,15 @@ interface CreateNotificationResponse {
 async function sendEmailNotification(
   notification: Notification,
   userEmail: string,
-  context: InvocationContext
+  context: InvocationContext,
+  baseLog: { correlationId: string; service: string }
 ): Promise<boolean> {
   if (!resend) {
-    context.log(
-      "RESEND_API_KEY is not configured. Skipping email send for notification:",
-      notification.id
-    );
+    context.log({
+      ...baseLog,
+      message: "RESEND_API_KEY is not configured. Skipping email send.",
+      notificationId: notification.id,
+    });
     return false;
   }
 
@@ -145,19 +147,36 @@ async function sendEmailNotification(
       html: emailContent.html,
     };
 
-    context.log(`Sending email notification to ${userEmail}`, emailData);
+    context.log({
+      ...baseLog,
+      message: "Sending email notification",
+      userEmail,
+      emailData,
+    });
 
     const result = await resend.emails.send(emailData);
 
     if (result.error) {
-      context.log("Failed to send email:", result.error);
+      context.log({
+        ...baseLog,
+        message: "Failed to send email",
+        error: result.error,
+      });
       return false;
     }
 
-    context.log("Email sent successfully:", result.data);
+    context.log({
+      ...baseLog,
+      message: "Email sent successfully",
+      result: result.data,
+    });
     return true;
   } catch (error) {
-    context.log("Error sending email:", error);
+    context.log({
+      ...baseLog,
+      message: "Error sending email",
+      error: error instanceof Error ? error.message : String(error),
+    });
     return false;
   }
 }
@@ -474,9 +493,16 @@ export async function createNotificationHttp(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
-  context.log(
-    "HTTP trigger function processed a request to create a notification"
-  );
+  const correlationId =
+    request.headers.get("x-correlation-id")?.trim() ||
+    context.invocationId ||
+    "unknown";
+  const baseLog = { correlationId, service: "notifications-service-func" };
+
+  context.log({
+    ...baseLog,
+    message: "HTTP trigger function processed a request to create a notification",
+  });
 
   try {
     // Parse request body
@@ -861,7 +887,9 @@ export async function createNotificationHttp(
     if (!saveResult.success) {
       // TypeScript knows this is the error case, so we can access saveResult.error
       const errorResult = saveResult as { success: false; error: any };
-      context.error("Notification creation failed", {
+      context.error({
+        ...baseLog,
+        message: "Notification creation failed",
         userId: notificationRequest.userId,
         type: notificationRequest.type,
         error: errorResult.error,
@@ -884,7 +912,9 @@ export async function createNotificationHttp(
       };
     }
 
-    context.log("Notification created successfully", {
+    context.log({
+      ...baseLog,
+      message: "Notification created successfully",
       notificationId: saveResult.data.id,
       userId: notificationRequest.userId,
       type: notificationRequest.type,
@@ -904,14 +934,17 @@ export async function createNotificationHttp(
           arguments: [saveResult.data],
         },
       ]);
-      context.log("SignalR notification published", {
+      context.log({
+        ...baseLog,
+        message: "SignalR notification published",
         notificationId: saveResult.data.id,
         userId: notificationRequest.userId,
       });
     } else {
-      context.log(
-        "SignalR connection string missing; skipping realtime notify."
-      );
+      context.log({
+        ...baseLog,
+        message: "SignalR connection string missing; skipping realtime notify.",
+      });
     }
 
     let resolvedUserEmail = notificationRequest.userEmail;
@@ -923,42 +956,62 @@ export async function createNotificationHttp(
           context
         );
         if (resolvedUserEmail) {
-          context.log(
-            `Resolved user email via Auth0 for ${notificationRequest.userId}`
-          );
+          context.log({
+            ...baseLog,
+            message: "Resolved user email via Auth0",
+            userId: notificationRequest.userId,
+          });
         } else {
-          context.log(
-            `Auth0 did not return an email for user ${notificationRequest.userId}`
-          );
+          context.log({
+            ...baseLog,
+            message: "Auth0 did not return an email for user",
+            userId: notificationRequest.userId,
+          });
         }
       } catch (lookupError) {
-        context.error(
-          `Failed to resolve email for user ${notificationRequest.userId}`,
-          lookupError
-        );
+        context.error({
+          ...baseLog,
+          message: "Failed to resolve email for user",
+          userId: notificationRequest.userId,
+          error:
+            lookupError instanceof Error
+              ? lookupError.message
+              : String(lookupError),
+        });
       }
     }
 
     // Send email notification if email address is provided or resolved
     if (resolvedUserEmail) {
-      context.log(
-        `Attempting to send email notification to ${resolvedUserEmail}`
-      );
+      context.log({
+        ...baseLog,
+        message: "Attempting to send email notification",
+        userEmail: resolvedUserEmail,
+      });
       const emailSent = await sendEmailNotification(
         saveResult.data,
         resolvedUserEmail,
-        context
+        context,
+        baseLog
       );
 
       if (!emailSent) {
-        context.log(
-          "Warning: Failed to send email notification, but notification was created successfully"
-        );
+        context.log({
+          ...baseLog,
+          message:
+            "Warning: Failed to send email notification, but notification was created successfully",
+        });
       } else {
-        context.log("Email notification sent successfully");
+        context.log({
+          ...baseLog,
+          message: "Email notification sent successfully",
+        });
       }
     } else {
-      context.log("No email address provided, skipping email notification");
+      context.log({
+        ...baseLog,
+        message: "No email address provided, skipping email notification",
+      });
     }
 
     return {
@@ -971,10 +1024,11 @@ export async function createNotificationHttp(
     };
   } catch (error: any) {
     if (error instanceof MissingCosmosConfigurationError) {
-      context.log(
-        "Missing Cosmos configuration settings:",
-        error.missingSettings.join(", ")
-      );
+      context.log({
+        ...baseLog,
+        message: "Missing Cosmos configuration settings",
+        missingSettings: error.missingSettings,
+      });
 
       const errorResponse: CreateNotificationResponse = {
         success: false,
@@ -993,7 +1047,11 @@ export async function createNotificationHttp(
       };
     }
 
-    context.log("Error creating notification:", error);
+    context.log({
+      ...baseLog,
+      message: "Error creating notification",
+      error: error?.message ?? String(error),
+    });
 
     const errorResponse: CreateNotificationResponse = {
       success: false,

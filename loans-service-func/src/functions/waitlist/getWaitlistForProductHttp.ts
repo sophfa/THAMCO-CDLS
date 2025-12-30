@@ -28,6 +28,12 @@ export async function getWaitlistForProductHttp(
   req: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
+  const correlationId =
+    req.headers.get("x-correlation-id")?.trim() ||
+    context.invocationId ||
+    "unknown";
+  const baseLog = { correlationId, service: "loans-service-func" };
+
   try {
     const deviceId = req.params.deviceId;
 
@@ -72,7 +78,11 @@ export async function getWaitlistForProductHttp(
       },
     };
   } catch (error: any) {
-    context.log('Error getting waitlist for product:', error);
+    context.log({
+      ...baseLog,
+      message: "Error getting waitlist for product",
+      error: error?.message ?? String(error),
+    });
     return {
       status: 500,
       jsonBody: {

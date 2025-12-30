@@ -56,7 +56,16 @@ export async function listInventorysHttp(
     return withCors({ status: 204 }, "GET,OPTIONS");
   }
 
-  context.log("HTTP trigger function processed a request to list inventorys");
+  const correlationId =
+    request.headers.get("x-correlation-id")?.trim() ||
+    context.invocationId ||
+    "unknown";
+
+  context.log({
+    correlationId,
+    service: "inventory-service-func",
+    message: "HTTP trigger function processed a request to list inventorys",
+  });
 
   try {
     const repo = getInventoryRepo();
@@ -90,7 +99,12 @@ export async function listInventorysHttp(
       body: JSON.stringify(response, null, 2),
     });
   } catch (error: any) {
-    context.log("Error listing inventorys:", error);
+    context.log({
+      correlationId,
+      service: "inventory-service-func",
+      message: "Error listing inventorys",
+      error: error?.message ?? String(error),
+    });
     const isConfigError =
       error instanceof Error &&
       error.message.includes("Missing required environment variable");
