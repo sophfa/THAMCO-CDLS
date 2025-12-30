@@ -50,8 +50,14 @@ export async function getProductByIdHttp(
 ): Promise<HttpResponseInit> {
   const productId = request.params.id;
 
+  const correlationHeader =
+    typeof request.headers?.get === "function"
+      ? request.headers.get("x-correlation-id")
+      : Object.entries(request.headers ?? {}).find(
+          ([key]) => key.toLowerCase() === "x-correlation-id"
+        )?.[1];
   const correlationId =
-    request.headers.get("x-correlation-id")?.trim() ||
+    correlationHeader?.trim() ||
     context.invocationId ||
     "unknown";
 
