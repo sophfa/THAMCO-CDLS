@@ -34,7 +34,9 @@ describe("eventGridPublisher", () => {
 
     expect(fetch).not.toHaveBeenCalled();
     expect(ctx.log).toHaveBeenCalledWith(
-      expect.stringContaining("Event Grid configuration missing")
+      expect.objectContaining({
+        message: expect.stringContaining("Event Grid configuration missing"),
+      })
     );
   });
 
