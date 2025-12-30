@@ -5,6 +5,7 @@ import {
   InvocationContext,
 } from '@azure/functions';
 import { loansContainer } from '../../config/cosmosClient';
+import { publishLoanStatusChangedEvent } from '../../events/eventGridPublisher';
 
 export async function authLoanHttp(
   request: HttpRequest,
@@ -53,12 +54,31 @@ export async function authLoanHttp(
       };
     }
 
+    const previousStatus = loan.status;
+
     // Update loan status to 'Approved'
     loan.status = 'Approved';
     loan.approvedAt = new Date().toISOString();
     loan.statusChangedAt = loan.approvedAt;
 
     await loansContainer.items.upsert(loan);
+
+    const waitlist = Array.isArray(loan.waitlist) ? loan.waitlist : undefined;
+    await publishLoanStatusChangedEvent(
+      {
+        loanId: loan.id,
+        deviceId: loan.deviceId,
+        userId: loan.userId,
+        from: loan.from,
+        till: loan.till,
+        correlationId,
+        previousStatus,
+        newStatus: loan.status,
+        statusChangedAt: loan.approvedAt,
+        waitlist,
+      },
+      context
+    );
 
     context.log({
       ...baseLog,

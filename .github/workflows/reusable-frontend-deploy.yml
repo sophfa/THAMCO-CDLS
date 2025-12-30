@@ -33,12 +33,10 @@ jobs:
       VITE_NOTIFICATIONS_API_URL_TEST: ${{ inputs.deploy-env == 'test' && secrets.VITE_NOTIFICATIONS_API_URL_TEST || '' }}
       VITE_INVENTORY_API_URL_TEST: ${{ inputs.deploy-env == 'test' && secrets.VITE_INVENTORY_API_URL_TEST || '' }}
       VITE_CATALOGUE_API_URL_TEST: ${{ inputs.deploy-env == 'test' && secrets.VITE_CATALOGUE_API_URL_TEST || '' }}
-      VITE_USER_SERVICE_API_URL_TEST: ${{ inputs.deploy-env == 'test' && secrets.VITE_USER_SERVICE_API_URL_TEST || '' }}
       VITE_LOANS_API_URL_PROD: ${{ inputs.deploy-env == 'prod' && secrets.VITE_LOANS_API_URL_PROD || '' }}
       VITE_NOTIFICATIONS_API_URL_PROD: ${{ inputs.deploy-env == 'prod' && secrets.VITE_NOTIFICATIONS_API_URL_PROD || '' }}
       VITE_INVENTORY_API_URL_PROD: ${{ inputs.deploy-env == 'prod' && secrets.VITE_INVENTORY_API_URL_PROD || '' }}
       VITE_CATALOGUE_API_URL_PROD: ${{ inputs.deploy-env == 'prod' && secrets.VITE_CATALOGUE_API_URL_PROD || '' }}
-      VITE_USER_SERVICE_API_URL_PROD: ${{ inputs.deploy-env == 'prod' && secrets.VITE_USER_SERVICE_API_URL_PROD || '' }}
       AZ_STORAGE_ACCOUNT: ${{ inputs.deploy-env == 'prod' && secrets.AZ_STORAGE_ACCOUNT_FRONTEND_PROD || secrets.AZ_STORAGE_ACCOUNT }}
       AZ_STORAGE_KEY: ${{ inputs.deploy-env == 'prod' && secrets.AZ_STORAGE_KEY_FRONTEND_PROD || secrets.AZ_STORAGE_KEY }}
     steps:

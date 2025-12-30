@@ -5,6 +5,7 @@ import {
   InvocationContext,
 } from "@azure/functions";
 import { loansContainer } from "../../config/cosmosClient";
+import { publishLoanStatusChangedEvent } from "../../events/eventGridPublisher";
 import { validateToken } from "../../utils/auth";
 import "dotenv/config";
 
@@ -93,6 +94,23 @@ export async function createLoanHttp(
     };
 
     await loansContainer.items.upsert(newLoan);
+
+    await publishLoanStatusChangedEvent(
+      {
+        loanId: newLoan.id,
+        deviceId: newLoan.deviceId,
+        userId: newLoan.userId,
+        from: newLoan.from,
+        till: newLoan.till,
+        correlationId,
+        previousStatus: "Created",
+        newStatus: newLoan.status,
+        statusChangedAt: newLoan.statusChangedAt,
+        waitlist: undefined,
+      },
+      context
+    );
+
     return { status: 201, jsonBody: newLoan };
   } catch (error: any) {
     context.log({
