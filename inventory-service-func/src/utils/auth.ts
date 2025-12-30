@@ -11,6 +11,14 @@ export interface AuthResult {
 
 const domain = process.env.AUTH0_DOMAIN;
 const audience = process.env.AUTH0_AUDIENCE;
+const envName = process.env.AZURE_FUNCTIONS_ENVIRONMENT?.toLowerCase();
+const nodeEnv = process.env.NODE_ENV?.toLowerCase();
+const isTestEnv = envName === "test";
+const isLocalDev =
+  ["development", "dev", "local"].includes(envName ?? "") ||
+  (!envName && nodeEnv === "development");
+const devBypassEnabled =
+  !isTestEnv && (nodeEnv === "test" || (isLocalDev && nodeEnv !== "production"));
 
 const client = domain
   ? jwksClient({
@@ -55,6 +63,9 @@ export async function validateToken(
 
     // Dev fallback: decode without signature check if no Auth0 config present
     if (!domain || !audience || !client) {
+      if (!devBypassEnabled) {
+        return { isValid: false, error: "Auth0 config missing" };
+      }
       try {
         const parts = token.split(".");
         if (parts.length !== 3) return { isValid: false, error: "Invalid token structure" };
