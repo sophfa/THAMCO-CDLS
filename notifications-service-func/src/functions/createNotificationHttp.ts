@@ -25,6 +25,7 @@ import {
   MissingCosmosConfigurationError,
 } from "../infra/notificationRepoFactory";
 import { getUserEmailById } from "../auth0/userDirectory";
+import { EmailQueueMessage, emailQueueOutput } from "../queues/emailQueue";
 
 // Initialize Resend with API key from environment variables
 const resendApiKey = process.env.RESEND_API_KEY;
@@ -985,32 +986,21 @@ export async function createNotificationHttp(
       }
     }
 
-    // Send email notification if email address is provided or resolved
+    // Queue email notification if email address is provided or resolved
     if (resolvedUserEmail) {
+      const emailMessage: EmailQueueMessage = {
+        notificationId: saveResult.data.id,
+        userId: notificationRequest.userId,
+        userEmail: resolvedUserEmail,
+        correlationId,
+      };
+      context.extraOutputs.set(emailQueueOutput, [emailMessage]);
       context.log({
         ...baseLog,
-        message: "Attempting to send email notification",
-        userEmail: resolvedUserEmail,
+        message: "Email notification queued",
+        notificationId: saveResult.data.id,
+        userId: notificationRequest.userId,
       });
-      const emailSent = await sendEmailNotification(
-        saveResult.data,
-        resolvedUserEmail,
-        context,
-        baseLog
-      );
-
-      if (!emailSent) {
-        context.log({
-          ...baseLog,
-          message:
-            "Warning: Failed to send email notification, but notification was created successfully",
-        });
-      } else {
-        context.log({
-          ...baseLog,
-          message: "Email notification sent successfully",
-        });
-      }
     } else {
       context.log({
         ...baseLog,
@@ -1079,5 +1069,5 @@ app.http("createNotification", {
   authLevel: "anonymous",
   route: "notifications",
   handler: createNotificationHttp,
-  extraOutputs: [signalROutput],
+  extraOutputs: [signalROutput, emailQueueOutput],
 });

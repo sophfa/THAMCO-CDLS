@@ -4,12 +4,12 @@ import {
   Notification,
   NotificationType,
 } from "../domain/notification";
-import { getUserEmailById } from "../auth0/userDirectory";
 import { getNotificationRepo } from "../infra/notificationRepoFactory";
+import { signalROutput } from "./createNotificationHttp";
 import {
-  sendEmailNotification,
-  signalROutput,
-} from "./createNotificationHttp";
+  EmailQueueMessage,
+  emailQueueOutput,
+} from "../queues/emailQueue";
 
 type LoanStatus =
   | "Requested"
@@ -130,6 +130,7 @@ export async function handleLoanStatusEvent(
     target: string;
     arguments: [Notification];
   }> = [];
+  const emailQueueMessages: EmailQueueMessage[] = [];
 
   const queueSignalRNotification = (
     notification: Notification,
@@ -149,70 +150,21 @@ export async function handleLoanStatusEvent(
     });
   };
 
-  const resolveAndSendEmail = async (
+  const queueEmailNotification = (
     notification: Notification,
     userId: string
   ) => {
-    let userEmail: string | undefined;
-    try {
-      userEmail = await getUserEmailById(userId, context);
-      if (userEmail) {
-        context.log({
-          ...baseLog,
-          message: "Resolved user email via Auth0",
-          userId,
-        });
-      } else {
-        context.log({
-          ...baseLog,
-          message: "Auth0 did not return an email for user",
-          userId,
-        });
-      }
-    } catch (lookupError) {
-      context.error({
-        ...baseLog,
-        message: "Failed to resolve email for user",
-        userId,
-        error:
-          lookupError instanceof Error
-            ? lookupError.message
-            : String(lookupError),
-      });
-    }
-
-    if (!userEmail) {
-      context.log({
-        ...baseLog,
-        message: "No email address provided, skipping email notification",
-      });
-      return;
-    }
-
+    emailQueueMessages.push({
+      notificationId: notification.id,
+      userId,
+      correlationId,
+    });
     context.log({
       ...baseLog,
-      message: "Attempting to send email notification",
-      userEmail,
+      message: "Email notification queued",
+      notificationId: notification.id,
+      userId,
     });
-    const emailSent = await sendEmailNotification(
-      notification,
-      userEmail,
-      context,
-      baseLog
-    );
-
-    if (!emailSent) {
-      context.log({
-        ...baseLog,
-        message:
-          "Warning: Failed to send email notification, but notification was created successfully",
-      });
-    } else {
-      context.log({
-        ...baseLog,
-        message: "Email notification sent successfully",
-      });
-    }
   };
 
   if (!data?.userId) {
@@ -255,7 +207,7 @@ export async function handleLoanStatusEvent(
         newStatus: data.newStatus,
       });
       queueSignalRNotification(result.data, data.userId);
-      await resolveAndSendEmail(result.data, data.userId);
+      queueEmailNotification(result.data, data.userId);
     } else {
       const errorDetails = (result as { success: false; error: unknown }).error;
       context.error({
@@ -315,10 +267,7 @@ export async function handleLoanStatusEvent(
               waitlistResult.data,
               waitlistUserId
             );
-            await resolveAndSendEmail(
-              waitlistResult.data,
-              waitlistUserId
-            );
+            queueEmailNotification(waitlistResult.data, waitlistUserId);
           } else {
             const waitlistError = (
               waitlistResult as { success: false; error: unknown }
@@ -353,6 +302,9 @@ export async function handleLoanStatusEvent(
         message: "SignalR connection string missing; skipping realtime notify.",
       });
     }
+    if (emailQueueMessages.length > 0) {
+      context.extraOutputs.set(emailQueueOutput, emailQueueMessages);
+    }
   } catch (err) {
     context.error({
       ...baseLog,
@@ -364,5 +316,5 @@ export async function handleLoanStatusEvent(
 
 app.eventGrid("handleLoanStatusEvent", {
   handler: handleLoanStatusEvent,
-  extraOutputs: [signalROutput],
+  extraOutputs: [signalROutput, emailQueueOutput],
 });

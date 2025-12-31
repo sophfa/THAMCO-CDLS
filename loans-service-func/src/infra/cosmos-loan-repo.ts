@@ -60,7 +60,7 @@ export class CosmosLoanRepo implements LoanRepo {
 
   async list(): Promise<RepositoryResult<Loan[]>> {
     try {
-      const query = 'SELECT * FROM c';
+      const query = 'SELECT * FROM c WHERE IS_DEFINED(c.status)';
       const { resources } = await this.container.items
         .query<LoanDocument>(query)
         .fetchAll();
