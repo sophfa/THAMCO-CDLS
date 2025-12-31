@@ -33,7 +33,21 @@ export async function publishLoanStatusChangedEvent(
 ): Promise<void> {
   const correlationId = payload.correlationId || context.invocationId || "unknown";
   const baseLog = { correlationId, service: "loans-service-func" };
+  context.log({
+    ...baseLog,
+    message: "TEMP: publishLoanStatusChangedEvent called",
+    loanId: payload.loanId,
+    previousStatus: payload.previousStatus,
+    newStatus: payload.newStatus,
+    statusChangedAt: payload.statusChangedAt,
+  });
   const { endpoint, key } = getTopicConfig();
+  context.log({
+    ...baseLog,
+    message: "TEMP: Event Grid config check",
+    hasEndpoint: Boolean(endpoint),
+    hasKey: Boolean(key),
+  });
   if (!endpoint || !key) {
     if (!missingConfigLogged) {
       context.log({
@@ -47,6 +61,12 @@ export async function publishLoanStatusChangedEvent(
   }
 
   if (!payload.loanId || !payload.newStatus) {
+    context.warn({
+      ...baseLog,
+      message: "TEMP: Event Grid publish skipped due to invalid payload",
+      loanId: payload.loanId,
+      newStatus: payload.newStatus,
+    });
     context.warn({
       ...baseLog,
       message: "Event Grid publish skipped: invalid payload",
@@ -83,6 +103,13 @@ export async function publishLoanStatusChangedEvent(
     },
   ];
 
+  context.log({
+    ...baseLog,
+    message: "TEMP: Sending Event Grid event batch",
+    eventCount: events.length,
+    eventType: events[0]?.eventType,
+    subject: events[0]?.subject,
+  });
   await sendWithRetry(events, context, endpoint, key, baseLog);
 }
 
@@ -99,6 +126,11 @@ async function sendWithRetry(
 
   while (attempt <= retries) {
     try {
+      context.log({
+        ...baseLog,
+        message: "TEMP: Event Grid publish attempt",
+        attempt: attempt + 1,
+      });
       const response = await fetch(endpoint, {
         method: "POST",
         headers: {
@@ -109,6 +141,12 @@ async function sendWithRetry(
       });
 
       if (response.ok) {
+        context.log({
+          ...baseLog,
+          message: "TEMP: Event Grid publish succeeded",
+          attempt: attempt + 1,
+          status: response.status,
+        });
         return;
       }
 

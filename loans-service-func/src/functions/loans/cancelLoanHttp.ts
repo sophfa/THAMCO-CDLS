@@ -96,6 +96,14 @@ export async function cancelLoanHttp(
     await loansContainer.items.upsert(loan);
 
     const waitlist = Array.isArray(loan.waitlist) ? loan.waitlist : undefined;
+    context.log({
+      ...baseLog,
+      message: "TEMP: Publishing loan status change event",
+      loanId: loan.id,
+      previousStatus,
+      newStatus: loan.status,
+      statusChangedAt: loan.cancelledAt,
+    });
     await publishLoanStatusChangedEvent(
       {
         loanId: loan.id,
@@ -112,6 +120,12 @@ export async function cancelLoanHttp(
       },
       context
     );
+    context.log({
+      ...baseLog,
+      message: "TEMP: Loan status change event publish completed",
+      loanId: loan.id,
+      newStatus: loan.status,
+    });
 
     context.log({
       ...baseLog,

@@ -95,6 +95,14 @@ export async function createLoanHttp(
 
     await loansContainer.items.upsert(newLoan);
 
+    context.log({
+      ...baseLog,
+      message: "TEMP: Publishing loan status change event",
+      loanId: newLoan.id,
+      previousStatus: "Created",
+      newStatus: newLoan.status,
+      statusChangedAt: newLoan.statusChangedAt,
+    });
     await publishLoanStatusChangedEvent(
       {
         loanId: newLoan.id,
@@ -110,6 +118,12 @@ export async function createLoanHttp(
       },
       context
     );
+    context.log({
+      ...baseLog,
+      message: "TEMP: Loan status change event publish completed",
+      loanId: newLoan.id,
+      newStatus: newLoan.status,
+    });
 
     return { status: 201, jsonBody: newLoan };
   } catch (error: any) {
