@@ -505,7 +505,12 @@ const formatDateForMessage = (value: string): string => {
   if (Number.isNaN(date.getTime())) {
     return value;
   }
-  return date.toISOString().split('T')[0];
+  return date.toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 };
 
 const toDate = (value: string | Date): Date | undefined => {

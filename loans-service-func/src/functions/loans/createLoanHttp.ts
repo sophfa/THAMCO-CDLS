@@ -68,10 +68,24 @@ export async function createLoanHttp(
 
     const now = new Date();
     const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
+    const defaultStartHour = 9;
+    const defaultEndHour = 17;
     const requestedFrom = (body?.from ?? "").trim();
     let from = now;
+    let dateOnlyProvided = false;
     if (requestedFrom) {
-      const parsed = new Date(requestedFrom);
+      const dateOnlyMatch = requestedFrom.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      const parsed = dateOnlyMatch
+        ? new Date(
+            Number(dateOnlyMatch[1]),
+            Number(dateOnlyMatch[2]) - 1,
+            Number(dateOnlyMatch[3]),
+            defaultStartHour,
+            0,
+            0,
+            0
+          )
+        : new Date(requestedFrom);
       if (Number.isNaN(parsed.getTime())) {
         return {
           status: 400,
@@ -79,8 +93,12 @@ export async function createLoanHttp(
         };
       }
       from = parsed;
+      dateOnlyProvided = Boolean(dateOnlyMatch);
     }
     const till = new Date(from.getTime() + twoDaysMs);
+    if (dateOnlyProvided) {
+      till.setHours(defaultEndHour, 0, 0, 0);
+    }
 
     const newLoan = {
       id: `LOAN-${Date.now()}`,

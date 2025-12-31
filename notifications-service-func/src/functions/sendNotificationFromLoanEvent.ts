@@ -167,7 +167,7 @@ export async function sendNotificationFromLoanEvent(
       waitlistUsers.length > 0
     ) {
       const deviceName = data.deviceId;
-      const messageBase = `${deviceName} is now available to reserve.`;
+      const messageBase = `Waitlist alert: ${deviceName} is available now. Reserve soon.`;
 
       for (const [index, waitlistUserId] of waitlistUsers.entries()) {
         if (waitlistUserId === data.userId) continue;
@@ -181,7 +181,7 @@ export async function sendNotificationFromLoanEvent(
             requestedTill: data.till,
             position: 1,
           },
-          message: `Good news! ${messageBase}`,
+          message: messageBase,
         });
 
         if (waitlistCreation.success === false) {

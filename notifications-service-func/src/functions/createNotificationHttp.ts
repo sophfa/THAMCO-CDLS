@@ -387,7 +387,10 @@ const formatPayloadForEmail = (notification: Notification): string => {
 
   if (isRecord(notification.payload)) {
     Object.entries(notification.payload).forEach(([key, value]) => {
-      if (notification.type === "Waitlist" && key === "position") {
+      if (
+        notification.type === "Waitlist" &&
+        (key === "position" || key === "requestedFrom" || key === "requestedTill")
+      ) {
         return;
       }
       if (value === undefined || value === null || value === "") {
@@ -412,8 +415,8 @@ const formatPayloadForEmail = (notification: Notification): string => {
 
 const formatPayloadValue = (key: string, value: unknown): string => {
   if (typeof value === "string") {
-    if (isIsoString(value) && key.toLowerCase().includes("date")) {
-      return new Date(value).toLocaleString();
+    if (isIsoString(value)) {
+      return formatFriendlyDateTime(value) ?? value;
     }
     return value;
   }
@@ -463,6 +466,7 @@ const formatFriendlyDateTime = (value?: string | null): string | null => {
     weekday: "short",
     month: "short",
     day: "numeric",
+    year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
   });
