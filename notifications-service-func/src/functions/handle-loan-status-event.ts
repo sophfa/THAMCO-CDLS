@@ -122,6 +122,14 @@ export async function handleLoanStatusEvent(
   const correlationId =
     (data as any)?.correlationId || context.invocationId || "unknown";
   const baseLog = { correlationId, service: "notifications-service-func" };
+  context.log({
+    ...baseLog,
+    message: "Loan status event received",
+    loanId: data?.loanId,
+    newStatus: data?.newStatus,
+    waitlistCount: Array.isArray(data?.waitlist) ? data?.waitlist.length : 0,
+    waitlist: Array.isArray(data?.waitlist) ? data?.waitlist : undefined,
+  });
   const hasSignalR = Boolean(
     process.env.AZURE_SIGNALR_CONNECTION_STRING?.trim()
   );

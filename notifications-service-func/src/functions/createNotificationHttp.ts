@@ -414,9 +414,30 @@ const formatPayloadForEmail = (notification: Notification): string => {
   }</p><ul style="padding-left:18px;margin:8px 0;">${items.join("")}</ul>`;
 };
 
+const DATE_FIELD_KEYS = new Set([
+  "from",
+  "till",
+  "collectiondate",
+  "returndate",
+  "requestedfrom",
+  "requestedtill",
+  "approvedat",
+  "collectedat",
+  "returnedat",
+  "statuschangedat",
+  "createdat",
+  "cancelledat",
+  "rejectedat",
+]);
+
+const isDateFieldKey = (key: string): boolean => {
+  const normalized = key.replace(/[_-]/g, "").toLowerCase();
+  return DATE_FIELD_KEYS.has(normalized) || normalized.includes("date");
+};
+
 const formatPayloadValue = (key: string, value: unknown): string => {
   if (typeof value === "string") {
-    if (isIsoString(value)) {
+    if (isIsoString(value) && isDateFieldKey(key)) {
       return formatFriendlyDateTime(value) ?? value;
     }
     return value;
@@ -442,7 +463,11 @@ const formatPayloadValue = (key: string, value: unknown): string => {
 };
 
 const isIsoString = (value: string): boolean => {
-  const parsed = new Date(value);
+  const trimmed = value.trim();
+  if (!/^\d{4}-\d{2}-\d{2}(?:[T\s][0-9:.+-Z]+)?$/i.test(trimmed)) {
+    return false;
+  }
+  const parsed = new Date(trimmed);
   return !Number.isNaN(parsed.getTime());
 };
 
