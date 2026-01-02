@@ -1,5 +1,6 @@
 import { CategoryProduct } from "../types/models";
 import { resolveApiUrl } from "./env";
+import { fetchWithRetry } from "./fetchWithRetry";
 
 export type {
   Product as Product,
@@ -21,7 +22,7 @@ console.log("[CatalogueService] Base URL:", BASE_URL);
 
 export async function fetchCatalogue(): Promise<CategoryProduct[]> {
   console.log("[CatalogueService] fetchCatalogue start", { url: BASE_URL });
-  const response = await fetch(BASE_URL);
+  const response = await fetchWithRetry(BASE_URL);
   if (!response.ok) throw new Error("Failed to fetch catalogue");
   const body = await response.json();
   console.log("[CatalogueService] fetchCatalogue response", {
@@ -31,7 +32,7 @@ export async function fetchCatalogue(): Promise<CategoryProduct[]> {
 }
 
 export async function fetchProductById(id: string): Promise<CategoryProduct> {
-  const response = await fetch(`${BASE_URL}/${id}`);
+  const response = await fetchWithRetry(`${BASE_URL}/${id}`);
   if (!response.ok) throw new Error("Failed to fetch product");
   const body = await response.json();
   return body.data;

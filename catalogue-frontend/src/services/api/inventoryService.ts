@@ -1,5 +1,6 @@
 import { getToken, getUserId } from "../authService";
 import { resolveApiUrl } from "../env";
+import { fetchWithRetry } from "../fetchWithRetry";
 
 const RAW_BASE_URL = resolveApiUrl({
   dev: import.meta.env.VITE_INVENTORY_API_URL,
@@ -41,7 +42,7 @@ export async function getInventoryByProductId(
   }
 
   const url = resolveUrl(`/inventory/${encodeURIComponent(productId)}`);
-  const response = await fetch(url);
+  const response = await fetchWithRetry(url);
   if (!response.ok) {
     if (response.status === 404) {
       return null;

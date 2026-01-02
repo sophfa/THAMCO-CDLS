@@ -2,6 +2,7 @@ import { apiPost } from "./httpClient";
 import { getProductById } from "./catalogueService";
 import { getToken } from "../authService";
 import { resolveApiUrl } from "../env";
+import { fetchWithRetry } from "../fetchWithRetry";
 
 const BASE_URL = resolveApiUrl({
   dev: import.meta.env.VITE_NOTIFICATIONS_API_URL,
@@ -53,7 +54,10 @@ async function fetchWithAuth(
     ...options.headers,
   };
 
-  return fetch(url, { ...options, headers });
+  const method = (options.method ?? "GET").toUpperCase();
+  const requester =
+    method === "GET" || method === "HEAD" ? fetchWithRetry : fetch;
+  return requester(url, { ...options, headers });
 }
 
 export async function getNotificationsForUser(userId: string) {

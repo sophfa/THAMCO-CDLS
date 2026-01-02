@@ -1,5 +1,6 @@
 import { getUserId, getToken } from "../authService";
 import { resolveApiUrl } from "../env";
+import { fetchWithRetry } from "../fetchWithRetry";
 import type { Loan } from "../../types/models";
 
 const BASE_URL = resolveApiUrl({
@@ -21,7 +22,10 @@ async function authed<T>(url: string, init: RequestInit = {}): Promise<T> {
     ...(token && { Authorization: `Bearer ${token}` }),
     ...init.headers,
   } as Record<string, string>;
-  const res = await fetch(url, { ...init, headers });
+  const method = (init.method || "GET").toUpperCase();
+  const requester =
+    method === "GET" || method === "HEAD" ? fetchWithRetry : fetch;
+  const res = await requester(url, { ...init, headers });
   if (!res.ok)
     throw new Error(`${init.method || "GET"} ${url} failed: ${res.status}`);
   return (await res.json()) as T;

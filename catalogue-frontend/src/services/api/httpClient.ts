@@ -1,4 +1,5 @@
 // src/services/api/httpClient.ts
+import { fetchWithRetry } from "../fetchWithRetry";
 const baseConfig: RequestInit = {
   headers: {
     "Content-Type": "application/json",
@@ -6,7 +7,7 @@ const baseConfig: RequestInit = {
 };
 
 export async function apiGet<T>(url: string): Promise<T> {
-  const res = await fetch(url, baseConfig);
+  const res = await fetchWithRetry(url, baseConfig);
   if (!res.ok) throw new Error(`GET ${url} failed: ${res.status}`);
   return res.json() as Promise<T>;
 }

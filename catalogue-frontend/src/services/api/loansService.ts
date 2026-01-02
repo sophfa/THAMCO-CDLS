@@ -1,5 +1,6 @@
 import { getUserId, getToken, logout } from "../authService";
 import { resolveApiUrl } from "../env";
+import { fetchWithRetry } from "../fetchWithRetry";
 import type { Loan, WaitlistEntry } from "../../types/models";
 
 const BASE_URL = resolveApiUrl({
@@ -41,7 +42,10 @@ async function authenticatedFetch(url: string, options: RequestInit = {}) {
     ...options.headers,
   };
 
-  const response = await fetch(url, {
+  const method = (options.method ?? "GET").toUpperCase();
+  const requester =
+    method === "GET" || method === "HEAD" ? fetchWithRetry : fetch;
+  const response = await requester(url, {
     ...options,
     headers,
   });
