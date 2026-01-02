@@ -7,7 +7,7 @@ type RetryOptions = {
   retryId?: string;
 };
 
-const DEFAULT_RETRY_STATUSES = new Set([408, 429, 500, 502, 503, 504]);
+const DEFAULT_RETRY_STATUSES = new Set([402, 403, 408, 429, 500, 502, 503, 504]);
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -50,7 +50,7 @@ type RetryLogInfo = {
 
 function logRetryAttempt(info: RetryLogInfo) {
   const { attempt, retryId, url, status, error } = info;
-  console.warn("[Retry] Attempting request again", {
+  console.log("[Retry] Attempting request again", {
     attempt,
     retryId,
     url,
