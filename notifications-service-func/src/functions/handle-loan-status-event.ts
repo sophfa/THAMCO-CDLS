@@ -191,7 +191,6 @@ export async function handleLoanStatusEvent(
     userId: data.userId,
     type: notificationType,
     payload,
-    message: `Loan ${data.loanId} status updated to ${data.newStatus}`,
   });
 
   if (creation.success === false) {
