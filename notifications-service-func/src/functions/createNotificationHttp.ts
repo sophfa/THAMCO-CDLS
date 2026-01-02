@@ -203,14 +203,26 @@ function generateEmailContent(notification: Notification): {
 
   switch (notificationType) {
     case "Waitlist": {
+      const isAvailabilityNotice = notification.message
+        .toLowerCase()
+        .includes("available now");
       template = {
-        subject: "ThAmCo Device Loan - Waitlist Update",
-        title: "You're on the waitlist",
-        intro:
-          "We're keeping an eye on the device you requested and will keep you up to date.",
-        detailHeading: "Request overview",
+        subject: isAvailabilityNotice
+          ? "ThAmCo Device Loan - Device Available"
+          : "ThAmCo Device Loan - Waitlist Update",
+        title: isAvailabilityNotice
+          ? "Device available now"
+          : "You're on the waitlist",
+        intro: isAvailabilityNotice
+          ? "Good news! A device you were waiting for is now available."
+          : "We're keeping an eye on the device you requested and will keep you up to date.",
+        detailHeading: isAvailabilityNotice
+          ? "Availability details"
+          : "Request overview",
         accent: "#7c3aed",
-        highlight: "We'll notify you the moment the device becomes available.",
+        highlight: isAvailabilityNotice
+          ? "Reserve soon to secure the device."
+          : "We'll notify you the moment the device becomes available.",
       };
       break;
     }
