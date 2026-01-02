@@ -57,24 +57,6 @@ function logRetryAttempt(info: RetryLogInfo) {
     status,
     error,
   });
-
-  const appInsights = (globalThis as any).appInsights as
-    | {
-        trackTrace: (data: {
-          message: string;
-          severityLevel?: number;
-          properties?: Record<string, unknown>;
-        }) => void;
-      }
-    | undefined;
-
-  if (appInsights?.trackTrace) {
-    appInsights.trackTrace({
-      message: "HTTP retry attempt",
-      severityLevel: 2,
-      properties: { attempt, retryId, url, status, error },
-    });
-  }
 }
 
 function buildRequestInit(
@@ -83,18 +65,8 @@ function buildRequestInit(
   attempt: number,
   retryId: string
 ): RequestInit {
-  const baseHeaders = init.headers
-    ? new Headers(init.headers)
-    : input instanceof Request
-    ? new Headers(input.headers)
-    : new Headers();
-
-  baseHeaders.set("x-retry-attempt", String(attempt));
-  baseHeaders.set("x-retry-id", retryId);
-
   return {
     ...init,
-    headers: baseHeaders,
   };
 }
 
