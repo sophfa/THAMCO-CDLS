@@ -6,6 +6,7 @@ import {
 } from '@azure/functions';
 import { loansContainer } from '../../config/cosmosClient';
 import { publishLoanStatusChangedEvent } from '../../events/eventGridPublisher';
+import { getWaitlistForDevice } from '../../utils/waitlist';
 
 export async function authLoanHttp(
   request: HttpRequest,
@@ -63,7 +64,11 @@ export async function authLoanHttp(
 
     await loansContainer.items.upsert(loan);
 
-    const waitlist = Array.isArray(loan.waitlist) ? loan.waitlist : undefined;
+    const waitlist = await getWaitlistForDevice(
+      loan.deviceId,
+      context,
+      baseLog
+    );
     context.log({
       ...baseLog,
       message: "TEMP: Publishing loan status change event",

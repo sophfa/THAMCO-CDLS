@@ -8,6 +8,7 @@ import { randomUUID } from "crypto";
 import { loansContainer } from "../../config/cosmosClient";
 import { publishLoanStatusChangedEvent } from "../../events/eventGridPublisher";
 import { validateToken } from "../../utils/auth";
+import { getWaitlistForDevice } from "../../utils/waitlist";
 
 export async function revertCollectedLoanHttp(
   req: HttpRequest,
@@ -77,7 +78,11 @@ export async function revertCollectedLoanHttp(
 
     await loansContainer.items.upsert(loan);
 
-    const waitlist = Array.isArray(loan.waitlist) ? loan.waitlist : undefined;
+    const waitlist = await getWaitlistForDevice(
+      loan.deviceId,
+      context,
+      baseLog
+    );
 
     context.log({
       ...baseLog,
