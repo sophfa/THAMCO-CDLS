@@ -46,6 +46,33 @@ jobs:
       node-version: "22"
     secrets: inherit
 
+  frontend-integration-tests:
+    name: Frontend integration tests (test env)
+    needs: deploy-frontend-test
+    runs-on: ubuntu-latest
+    environment: test
+    env:
+      API_INVENTORY_BASE_URL: ${{ secrets.VITE_INVENTORY_API_URL_TEST }}
+      API_CATALOGUE_BASE_URL: ${{ secrets.VITE_CATALOGUE_API_URL_TEST }}
+      API_LOANS_BASE_URL: ${{ secrets.VITE_LOANS_API_URL_TEST }}
+      API_NOTIFICATIONS_BASE_URL: ${{ secrets.VITE_NOTIFICATIONS_API_URL_TEST }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: catalogue-frontend
+
+      - name: Run integration tests
+        run: npm run test:integration
+        working-directory: catalogue-frontend
+
   integration-flow-test:
     name: Loan -> Inventory Integration (Test)
     runs-on: ubuntu-latest
