@@ -55,6 +55,9 @@ describe("CosmosFavouriteRepo", () => {
 
     const result = await repo.list();
     expect(result.success).toBe(true);
+    if (!result.success) {
+      throw new Error("Expected favourites to list successfully");
+    }
     expect(result.data).toHaveLength(1);
   });
 
