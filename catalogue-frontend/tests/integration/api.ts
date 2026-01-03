@@ -49,3 +49,11 @@ export function getHealthUrl(service: ServiceName): string {
 export function getInventoryUrl(productId: string): string {
   return `${requireServiceBaseUrl("inventory")}/inventory/${encodeURIComponent(productId)}`;
 }
+
+export function getCatalogueProductsUrl(): string {
+  return `${requireServiceBaseUrl("catalogue")}/products`;
+}
+
+export function getCatalogueProductUrl(productId: string): string {
+  return `${requireServiceBaseUrl("catalogue")}/products/${encodeURIComponent(productId)}`;
+}

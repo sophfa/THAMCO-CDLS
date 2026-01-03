@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { getHealthUrl, hasServiceBaseUrl } from "./api";
 
 const services: Array<{ name: string; key: Parameters<typeof getHealthUrl>[0] }> = [
+  { name: "Inventory service", key: "inventory" },
   { name: "Catalogue service", key: "catalogue" },
   { name: "Loans service", key: "loans" },
   { name: "Notifications service", key: "notifications" },
