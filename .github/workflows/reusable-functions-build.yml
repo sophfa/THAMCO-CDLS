@@ -53,7 +53,7 @@ jobs:
         run: |
           npm install -g azure-functions-core-tools@4 --unsafe-perm true
           # Produce a single zip ready for run-from-package
-          npx func pack --build --worker-runtime node --output ../${{ matrix.artifact }}.zip
+          npx func pack --worker-runtime node --output ../${{ matrix.artifact }}.zip
 
       - name: Save package temporarily for deployment
         uses: actions/upload-artifact@v4
