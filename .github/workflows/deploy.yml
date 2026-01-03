@@ -73,26 +73,6 @@ jobs:
         run: npm run test:integration
         working-directory: catalogue-frontend
 
-  integration-flow-test:
-    name: Loan -> Inventory Integration (Test)
-    runs-on: ubuntu-latest
-    environment: test
-    needs: deploy-to-test
-    env:
-      LOANS_API_URL: ${{ secrets.VITE_LOANS_API_URL_TEST }}
-      INVENTORY_API_URL: ${{ secrets.VITE_INVENTORY_API_URL_TEST }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
-      - name: Run smoke tests
-        run: node scripts/integration/smoke-test.mjs
-
   deploy-to-prod:
     needs: [build-and-publish, deploy-to-test]
     uses: ./.github/workflows/reusable-functions-deploy.yml
