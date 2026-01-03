@@ -2,7 +2,13 @@ import {
   calculateDiscountedPrice,
   createProduct,
   CreateProductParams,
+  formatProductDisplay,
+  getCategorySpecificProperties,
+  isCamera,
+  isLaptop,
+  isTablet,
   isProductAvailable,
+  updateProductStock,
   updateProductPrice,
 } from "../../src/domain/product";
 
@@ -72,6 +78,55 @@ describe("product domain", () => {
     if (created.success) {
       expect(isProductAvailable(created.product)).toBe(true);
       expect(calculateDiscountedPrice(created.product, 10)).toBe(1080);
+    }
+  });
+
+  it("handles category helpers and display formatting", () => {
+    const created = createProduct({ ...baseParams, category: "Tablet" });
+    expect(created.success).toBe(true);
+    if (created.success) {
+      const updated = updateProductStock(created.product, false);
+      expect(isProductAvailable(updated)).toBe(false);
+      const display = formatProductDisplay(updated);
+      expect(display).toContain("Out of Stock");
+    }
+  });
+
+  it("rejects discount percentage out of range", () => {
+    const created = createProduct(baseParams);
+    expect(created.success).toBe(true);
+    if (created.success) {
+      expect(() => calculateDiscountedPrice(created.product, 120)).toThrow(
+        /Discount percentage/
+      );
+    }
+  });
+
+  it("validates category-specific properties", () => {
+    const result = createProduct({
+      ...baseParams,
+      category: "Tablet",
+      sensors: new Array(21).fill("sensor"),
+    });
+    expect(result.success).toBe(false);
+    if (!result.success && "errors" in result) {
+      expect(result.errors[0].field).toBe("sensors");
+    }
+  });
+
+  it("exposes category helpers and metadata", () => {
+    const created = createProduct({
+      ...baseParams,
+      category: "Camera",
+      sensor: "APS-C",
+    });
+    expect(created.success).toBe(true);
+    if (created.success) {
+      expect(isCamera(created.product)).toBe(true);
+      expect(isTablet(created.product)).toBe(false);
+      expect(isLaptop(created.product)).toBe(false);
+      const props = getCategorySpecificProperties(created.product);
+      expect(props.sensor).toBe("APS-C");
     }
   });
 });

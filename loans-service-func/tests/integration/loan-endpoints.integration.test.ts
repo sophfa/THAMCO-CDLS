@@ -2,13 +2,20 @@
 // Tests API endpoints end-to-end with fake repositories
 
 import { HttpRequest, InvocationContext } from "@azure/functions";
-import { createLoanHttp } from "../../src/functions/loans/createLoanHttp";
-import { getUserLoansHttp } from "../../src/functions/loans/getUserLoansHttp";
+let createLoanHttp: (
+  request: HttpRequest,
+  context: InvocationContext
+) => Promise<any>;
+let getUserLoansHttp: (
+  request: HttpRequest,
+  context: InvocationContext
+) => Promise<any>;
 
 // Mock the cosmos client
 jest.mock("../../src/config/cosmosClient", () => ({
   loansContainer: {
     items: {
+      create: jest.fn(),
       upsert: jest.fn(),
       query: jest.fn(() => ({
         fetchAll: jest.fn(),
@@ -16,6 +23,7 @@ jest.mock("../../src/config/cosmosClient", () => ({
     },
     item: jest.fn(() => ({
       read: jest.fn(),
+      delete: jest.fn(),
     })),
   },
 }));
@@ -48,12 +56,28 @@ describe("Loan HTTP Endpoints - Integration Tests", () => {
       error: jest.fn(),
     } as any;
 
+    jest.resetModules();
+    jest.clearAllMocks();
+
+    process.env.INVENTORY_API_URL = "https://inventory.test";
+    // @ts-ignore
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: { stock: 2 } }),
+      text: async () => "",
+    });
+
     // Get mocked container
     const { loansContainer } = require("../../src/config/cosmosClient");
     mockLoansContainer = loansContainer;
+    mockLoansContainer.items.query.mockReturnValue({
+      fetchAll: jest.fn().mockResolvedValue({ resources: [0] }),
+    });
 
-    // Reset all mocks
-    jest.clearAllMocks();
+    createLoanHttp =
+      require("../../src/functions/loans/createLoanHttp").createLoanHttp;
+    getUserLoansHttp =
+      require("../../src/functions/loans/getUserLoansHttp").getUserLoansHttp;
   });
 
   describe("POST /loans - Create Loan", () => {

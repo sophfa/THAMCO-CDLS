@@ -88,6 +88,7 @@ import { returnLoanHttp } from "../../../src/functions/loans/returnLoanHttp";
 import { getDeviceLoanHistoryHttp } from "../../../src/functions/loans/getDeviceLoanHistoryHttp";
 import { getLoanByIdHttp } from "../../../src/functions/loans/getLoanHttp";
 import { listLoansHttp } from "../../../src/functions/loans/listLoansHttp";
+import { revertCollectedLoanHttp } from "../../../src/functions/loans/revertCollectedLoanHttp";
 
 const createContext = () =>
   ({
@@ -221,5 +222,17 @@ describe("Loan HTTP handlers", () => {
     const res = await listLoansHttp(createRequest(), createContext());
     expect(res.status).toBe(200);
     expect(getLoanRepoMock().list).toHaveBeenCalled();
+  });
+
+  it("reverts a collected loan", async () => {
+    getCosmosMocks().loanRead.mockResolvedValue({
+      resource: makeLoan({ status: "Collected", collectedAt: new Date().toISOString() }),
+    });
+    const res = await revertCollectedLoanHttp(
+      createRequest({ params: { id: "loan-1" } }),
+      createContext()
+    );
+    expect(res.status).toBe(200);
+    expect(getCosmosMocks().loanUpsert).toHaveBeenCalled();
   });
 });
