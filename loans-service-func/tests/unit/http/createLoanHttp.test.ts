@@ -50,7 +50,10 @@ jest.mock("../../../src/events/eventGridPublisher", () => ({
   publishLoanStatusChangedEvent: jest.fn(),
 }));
 
-import { createLoanHttp } from "../../../src/functions/loans/createLoanHttp";
+let createLoanHttp: (
+  request: HttpRequest,
+  context: InvocationContext
+) => Promise<any>;
 
 const getCosmosMocks = () => cosmosState as Required<typeof cosmosState>;
 const getAuthMocks = () => authState as Required<typeof authState>;
@@ -76,14 +79,21 @@ const createRequest = (
 
 describe("createLoanHttp", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.resetModules();
     process.env.INVENTORY_API_URL = "https://inventory.test";
+
+    createLoanHttp =
+      require("../../../src/functions/loans/createLoanHttp").createLoanHttp;
+
+    jest.clearAllMocks();
+
     // @ts-ignore
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ data: { stock: 2 } }),
       text: async () => "",
     });
+
     getAuthMocks().validateToken.mockResolvedValue({
       isValid: true,
       userId: "auth0|user-1",
