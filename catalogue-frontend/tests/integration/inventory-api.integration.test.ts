@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { getInventoryUrl } from "./api";
+import { getInventoryUrl, hasServiceBaseUrl } from "./api";
 
-describe("inventory HTTP contract", () => {
+const runInventoryContract = hasServiceBaseUrl("inventory") ? describe : describe.skip;
+
+runInventoryContract("inventory HTTP contract", () => {
   it("returns inventory details for an existing product", async () => {
     const response = await fetch(getInventoryUrl("PROD-001"), {
       headers: { Accept: "application/json" },

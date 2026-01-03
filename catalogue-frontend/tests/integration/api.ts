@@ -29,6 +29,19 @@ export function getServiceBaseUrl(service: ServiceName): string {
   return requireServiceBaseUrl(service);
 }
 
+export function hasServiceBaseUrl(service: ServiceName): boolean {
+  return Boolean(
+    baseUrlCache[service] ?? (() => {
+      try {
+        requireServiceBaseUrl(service);
+        return true;
+      } catch {
+        return false;
+      }
+    })()
+  );
+}
+
 export function getHealthUrl(service: ServiceName): string {
   return `${requireServiceBaseUrl(service)}/health`;
 }

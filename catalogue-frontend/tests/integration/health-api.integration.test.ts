@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { getHealthUrl } from "./api";
+import { getHealthUrl, hasServiceBaseUrl } from "./api";
+
+const runInventoryHealthTest = hasServiceBaseUrl("inventory") ? it : it.skip;
 
 describe("inventory health endpoint", () => {
-  it("returns 200 with the expected health payload", async () => {
+  runInventoryHealthTest("returns 200 with the expected health payload", async () => {
     const response = await fetch(getHealthUrl("inventory"), {
       headers: { Accept: "application/json" },
     });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getHealthUrl } from "./api";
+import { getHealthUrl, hasServiceBaseUrl } from "./api";
 
 const services: Array<{ name: string; key: Parameters<typeof getHealthUrl>[0] }> = [
   { name: "Catalogue service", key: "catalogue" },
@@ -9,7 +9,8 @@ const services: Array<{ name: string; key: Parameters<typeof getHealthUrl>[0] }>
 
 describe("service health endpoints", () => {
   for (const { name, key } of services) {
-    it(`${name} returns ok`, async () => {
+    const testFn = hasServiceBaseUrl(key) ? it : it.skip;
+    testFn(`${name} returns ok`, async () => {
       const response = await fetch(getHealthUrl(key), {
         headers: { Accept: "application/json" },
       });
