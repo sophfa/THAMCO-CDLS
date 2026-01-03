@@ -7,8 +7,7 @@ import {
   getUserLoans,
   getUserWaitlistEntries,
 } from "../services/api/loansService";
-import { getUserId, getUserEmail } from "../services/authService";
-import { createNotification } from "../services/api/notificationsService";
+import { getUserId } from "../services/authService";
 import type { Product, Loan } from "../types/models";
 
 const ACTIVE_LOAN_STATUSES = new Set([
@@ -176,7 +175,13 @@ export function useReservationFlow(options: ReservationFlowOptions = {}) {
         const end = computeEndDate(start);
         dialog.startDate = start;
         dialog.endDate = end;
-        await createLoan(dialog.product.id, start, end, "Requested");
+        await createLoan(
+          dialog.product.id,
+          start,
+          end,
+          "Requested",
+          dialog.product.name
+        );
         await loadUserLoans();
       } else if (dialog.kind === "waitlist") {
         const _wl = await joinWaitlistForDevice(dialog.product.id);
@@ -197,30 +202,6 @@ export function useReservationFlow(options: ReservationFlowOptions = {}) {
           });
         } catch (e) {
           console.warn("[Reservation] Refresh after action failed:", e);
-        }
-      }
-
-      if (dialog.kind === "reserve" || dialog.kind === "waitlist") {
-        try {
-          const uid = await getUserId();
-          const email = await getUserEmail();
-          if (uid) {
-            if (dialog.kind === "reserve") {
-              const start =
-                dialog.startDate || new Date().toISOString().slice(0, 10);
-              await createNotification(uid, "Reservation", dialog.product.id, {
-                collectionDate: start,
-                returnDate: dialog.endDate || computeEndDate(start),
-                userEmail: email || undefined,
-              });
-            } else {
-              await createNotification(uid, "Waitlist", dialog.product.id, {
-                userEmail: email || undefined,
-              });
-            }
-          }
-        } catch (e) {
-          console.warn("Notification failed:", e);
         }
       }
 

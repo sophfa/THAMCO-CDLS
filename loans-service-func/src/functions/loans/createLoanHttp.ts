@@ -184,11 +184,13 @@ export async function createLoanHttp(
 
     const body = (await req.json()) as {
       deviceId?: string;
+      deviceName?: string;
       userId?: string;
       from?: string;
     };
 
     const deviceId = (body?.deviceId ?? "").trim();
+    const deviceName = body?.deviceName?.trim() || undefined;
     const userId = (body?.userId ?? "").trim();
 
     if (!deviceId || !userId) {
@@ -289,6 +291,7 @@ export async function createLoanHttp(
       const newLoan = {
         id: `LOAN-${Date.now()}`,
         deviceId,
+        deviceName,
         userId,
         createdAt: now.toISOString(),
         statusChangedAt: now.toISOString(),
@@ -311,6 +314,7 @@ export async function createLoanHttp(
         {
           loanId: newLoan.id,
           deviceId: newLoan.deviceId,
+          deviceName: newLoan.deviceName,
           userId: newLoan.userId,
           from: newLoan.from,
           till: newLoan.till,

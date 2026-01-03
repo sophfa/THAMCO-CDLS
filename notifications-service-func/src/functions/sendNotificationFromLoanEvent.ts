@@ -18,6 +18,7 @@ type LoanStatus =
 interface LoanStatusChangedEventData {
   loanId: string;
   deviceId: string;
+  deviceName?: string;
   userId: string;
   from: string;
   till: string;
@@ -65,8 +66,9 @@ function buildPayload(
   type: NotificationType,
   data: LoanStatusChangedEventData
 ): NotificationPayloadMap[NotificationType] {
+  const deviceName = data.deviceName ?? data.deviceId;
   const base = {
-    deviceName: data.deviceId,
+    deviceName,
     from: data.from,
     till: data.till,
   };
@@ -165,7 +167,7 @@ export async function sendNotificationFromLoanEvent(
       WAITLIST_AVAILABLE_STATUSES.has(data.newStatus) &&
       waitlistUsers.length > 0
     ) {
-      const deviceName = data.deviceId;
+      const deviceName = data.deviceName ?? data.deviceId;
       const messageBase = `Waitlist alert: ${deviceName} is available now. Reserve soon.`;
 
       for (const [index, waitlistUserId] of waitlistUsers.entries()) {

@@ -14,6 +14,7 @@ function getTopicConfig() {
 export interface LoanStatusEventPayload {
   loanId: string;
   deviceId: string;
+  deviceName?: string;
   userId: string;
   from: string;
   till: string;
@@ -88,6 +89,7 @@ export async function publishLoanStatusChangedEvent(
       data: {
         loanId: payload.loanId,
         deviceId: payload.deviceId,
+        deviceName: payload.deviceName,
         userId: payload.userId,
         from: payload.from,
         till: payload.till,

@@ -118,7 +118,8 @@ export async function createLoan(
   deviceId: string,
   from: string,
   till: string,
-  status: Loan["status"] = "Requested"
+  status: Loan["status"] = "Requested",
+  deviceName?: string
 ): Promise<Loan> {
   const userId = await getUserId();
   if (!userId) throw new Error("User not authenticated");
@@ -131,6 +132,7 @@ export async function createLoan(
     from,
     till,
     status,
+    ...(deviceName ? { deviceName } : {}),
   };
 
   try {

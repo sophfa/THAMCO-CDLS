@@ -283,7 +283,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from "vue";
 import { useAuth } from "../composables/useAuth";
-import { getUserId, getUserEmail } from "../services/authService";
+import { getUserId } from "../services/authService";
 import {
   getUserLoans,
   returnLoan,
@@ -291,7 +291,6 @@ import {
   removeFromWaitlist,
   cancelLoan,
 } from "../services/api/loansService";
-import { createNotification } from "../services/api/notificationsService";
 import { getProductById } from "../services/api/catalogueService";
 import type { LoanWithDeviceName, WaitlistEntry } from "../types/models";
 
@@ -395,32 +394,6 @@ const handleReturn = async (loanId: string) => {
   try {
     returningId.value = loanId;
     await returnLoan(loanId);
-    // Fire-and-forget: notify user that device was returned
-    try {
-      const uid = await getUserId();
-      const email = await getUserEmail();
-      const returnedLoan = loans.value.find((l) => l.id === loanId);
-      const toIsoString = (value?: string | Date) => {
-        if (!value) return "";
-        const date = value instanceof Date ? value : new Date(value);
-        return Number.isNaN(date.getTime()) ? "" : date.toISOString();
-      };
-      if (uid && returnedLoan) {
-        const collectionDate = toIsoString(returnedLoan.from);
-        const returnDate = toIsoString(returnedLoan.till);
-        if (!collectionDate || !returnDate) {
-          throw new Error("Missing loan dates for return notification");
-        }
-        await createNotification(uid, "Returned", returnedLoan.deviceId, {
-          collectionDate,
-          returnDate,
-          content: { returnedAt: new Date().toISOString() },
-          userEmail: email || undefined,
-        });
-      }
-    } catch (e) {
-      console.warn("Return notification failed:", e);
-    }
     loans.value = loans.value.map((l) =>
       l.id === loanId
         ? { ...l, loaned: false, lastReturnedDate: new Date().toISOString() }

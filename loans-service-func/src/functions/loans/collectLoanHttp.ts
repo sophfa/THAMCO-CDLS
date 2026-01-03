@@ -97,6 +97,7 @@ export async function collectLoanHttp(
       {
         loanId: loan.id,
         deviceId: loan.deviceId,
+        deviceName: loan.deviceName,
         userId: loan.userId,
         from: loan.from,
         till: loan.till,
