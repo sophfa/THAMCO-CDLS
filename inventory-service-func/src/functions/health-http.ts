@@ -66,6 +66,6 @@ export async function healthHttp(
 app.http("healthHttp", {
   route: "health",
   methods: ["GET", "OPTIONS"],
-  authLevel: "anonymous",
+  authLevel: "function",
   handler: healthHttp,
 });

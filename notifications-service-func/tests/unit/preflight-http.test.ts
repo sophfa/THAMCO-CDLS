@@ -27,7 +27,7 @@ describe("notifications preflight registration", () => {
       expect.objectContaining({
         methods: ["OPTIONS"],
         route: "{*path}",
-        authLevel: "anonymous",
+        authLevel: "function",
       })
     );
   });

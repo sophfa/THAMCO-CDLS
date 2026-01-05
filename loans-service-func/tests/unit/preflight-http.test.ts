@@ -27,7 +27,7 @@ describe("preflightHttp registration", () => {
       expect.objectContaining({
         methods: ["OPTIONS"],
         route: "{*path}",
-        authLevel: "anonymous",
+        authLevel: "function",
       })
     );
   });

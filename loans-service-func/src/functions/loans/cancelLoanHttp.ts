@@ -173,6 +173,6 @@ export async function cancelLoanHttp(
 app.http("cancelLoanHttp", {
   methods: ["PUT", "DELETE"],
   route: "loans/{id}/cancel",
-  authLevel: "anonymous",
+  authLevel: "function",
   handler: cancelLoanHttp,
 });

@@ -95,6 +95,6 @@ export async function returnLoanHttp(
 app.http("returnLoanHttp", {
   route: "loans/{id}",
   methods: ["PATCH"],
-  authLevel: "anonymous",
+  authLevel: "function",
   handler: returnLoanHttp,
 });

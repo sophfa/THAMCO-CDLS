@@ -120,6 +120,6 @@ export async function addToWaitlistHttp(
 app.http("addToWaitlistHttp", {
   route: "loans/{id}/waitlist",
   methods: ["POST"],
-  authLevel: "anonymous",
+  authLevel: "function",
   handler: addToWaitlistHttp,
 });

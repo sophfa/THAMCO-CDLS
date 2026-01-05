@@ -120,7 +120,7 @@ export async function listLoansHttp(
 // Register the function with Azure Functions runtime
 app.http("listLoans", {
   methods: ["GET"],
-  authLevel: "anonymous",
+  authLevel: "function",
   route: "loans",
   handler: listLoansHttp,
 });

@@ -115,6 +115,6 @@ export async function getInventoryByProductHttp(
 app.http("getInventoryByProductHttp", {
   route: "inventory/{productId}",
   methods: ["GET", "OPTIONS"],
-  authLevel: "anonymous",
+  authLevel: "function",
   handler: getInventoryByProductHttp,
 });

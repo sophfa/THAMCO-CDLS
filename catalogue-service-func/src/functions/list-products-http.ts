@@ -110,7 +110,7 @@ export async function listProductsHttp(
 // Register the function with Azure Functions runtime
 app.http("listProducts", {
   methods: ["GET", "OPTIONS"],
-  authLevel: "anonymous",
+  authLevel: "function",
   route: "products",
   handler: listProductsHttp,
 });

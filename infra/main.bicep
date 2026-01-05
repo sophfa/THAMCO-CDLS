@@ -38,6 +38,10 @@ var cosmosDatabases = [
         name: 'Favourites'
         partitionKey: '/id'
       }
+      {
+        name: 'Outbox'
+        partitionKey: '/id'
+      }
     ]
   }
   {
@@ -50,7 +54,7 @@ var cosmosDatabases = [
     ]
   }
 ]
-// Flat list of Cosmos containers (avoids nested for loops)
+// list of Cosmos containers
 var cosmosContainerSpecs = [
   {
     dbName: 'catalogue-db${dbAndFuncAppsNameSuffix}'
@@ -70,6 +74,11 @@ var cosmosContainerSpecs = [
   {
     dbName: 'loans-db${dbAndFuncAppsNameSuffix}'
     name: 'Favourites'
+    partitionKey: '/id'
+  }
+  {
+    dbName: 'loans-db${dbAndFuncAppsNameSuffix}'
+    name: 'Outbox'
     partitionKey: '/id'
   }
   {
@@ -129,6 +138,9 @@ resource functionAppsResources 'Microsoft.Web/sites@2022-09-01' = [for (app, i) 
   name: '${app.name}-${env}'
   location: location
   kind: 'functionapp'
+  identity: {
+    type: 'SystemAssigned'
+  }
   properties: {
     serverFarmId: appPlan.id
     httpsOnly: true

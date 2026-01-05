@@ -1,13 +1,45 @@
 import { InvocationContext } from "@azure/functions";
 import { randomUUID } from "crypto";
+import { getOutboxRepo } from "../infra/outbox-repo-factory";
+import { OutboxEvent } from "../domain/outbox-event";
 
 let missingConfigLogged = false;
 const DEFAULT_RETRIES = 2;
 
-function getTopicConfig() {
+export function getTopicConfig() {
   return {
     endpoint: process.env.EVENT_GRID_TOPIC_ENDPOINT,
     key: process.env.EVENT_GRID_TOPIC_KEY,
+  };
+}
+
+function buildEventPayload(
+  payload: LoanStatusEventPayload,
+  eventId: string,
+  statusChangedAt: string
+): OutboxEvent["payload"] {
+  return {
+    id: eventId,
+    eventType: "LoanStatusChanged",
+    subject: `/loans/${payload.loanId}`,
+    eventTime: statusChangedAt,
+    dataVersion: "1.0",
+    data: {
+      loanId: payload.loanId,
+      deviceId: payload.deviceId,
+      deviceName: payload.deviceName,
+      userId: payload.userId,
+      from: payload.from,
+      till: payload.till,
+      previousStatus: payload.previousStatus,
+      newStatus: payload.newStatus,
+      statusChangedAt,
+      collectedAt: payload.collectedAt,
+      returnedAt: payload.returnedAt,
+      reason: payload.reason,
+      correlationId: payload.correlationId,
+      waitlist: payload.waitlist,
+    },
   };
 }
 
@@ -42,24 +74,6 @@ export async function publishLoanStatusChangedEvent(
     newStatus: payload.newStatus,
     statusChangedAt: payload.statusChangedAt,
   });
-  const { endpoint, key } = getTopicConfig();
-  context.log({
-    ...baseLog,
-    message: "TEMP: Event Grid config check",
-    hasEndpoint: Boolean(endpoint),
-    hasKey: Boolean(key),
-  });
-  if (!endpoint || !key) {
-    if (!missingConfigLogged) {
-      context.log({
-        ...baseLog,
-        message:
-          "Event Grid configuration missing (EVENT_GRID_TOPIC_ENDPOINT / EVENT_GRID_TOPIC_KEY); skipping publish.",
-      });
-      missingConfigLogged = true;
-    }
-    return;
-  }
 
   if (!payload.loanId || !payload.newStatus) {
     context.warn({
@@ -76,55 +90,103 @@ export async function publishLoanStatusChangedEvent(
     return;
   }
 
+  const outboxRepo = getOutboxRepo();
   const statusChangedAt =
     payload.statusChangedAt ?? new Date().toISOString();
+  const eventId = randomUUID();
+  const eventPayload = buildEventPayload(payload, eventId, statusChangedAt);
 
-  const events = [
-    {
-      id: randomUUID(),
-      eventType: "LoanStatusChanged",
-      subject: `/loans/${payload.loanId}`,
-      eventTime: statusChangedAt,
-      dataVersion: "1.0",
-      data: {
-        loanId: payload.loanId,
-        deviceId: payload.deviceId,
-        deviceName: payload.deviceName,
-        userId: payload.userId,
-        from: payload.from,
-        till: payload.till,
-        previousStatus: payload.previousStatus,
-        newStatus: payload.newStatus,
-        statusChangedAt,
-        collectedAt: payload.collectedAt,
-        returnedAt: payload.returnedAt,
-        reason: payload.reason,
-        correlationId: payload.correlationId,
-        waitlist: payload.waitlist,
-      },
-    },
-  ];
+  const outboxEvent: OutboxEvent = {
+    id: eventId,
+    payload: eventPayload,
+    status: "PENDING",
+    retryCount: 0,
+    correlationId,
+    createdAt: new Date().toISOString(),
+  };
+
+  const enqueueResult = await outboxRepo.enqueue(outboxEvent);
+  if (!enqueueResult.success) {
+    context.error({
+      ...baseLog,
+      message: "Failed to enqueue loan status event",
+      error: enqueueResult.error,
+    });
+    return;
+  }
+
+  const { endpoint, key } = getTopicConfig();
+  context.log({
+    ...baseLog,
+    message: "TEMP: Event Grid config check",
+    hasEndpoint: Boolean(endpoint),
+    hasKey: Boolean(key),
+  });
+
+  if (!endpoint || !key) {
+    if (!missingConfigLogged) {
+      context.log({
+        ...baseLog,
+        message:
+          "Event Grid configuration missing (EVENT_GRID_TOPIC_ENDPOINT / EVENT_GRID_TOPIC_KEY); skipping publish.",
+      });
+      missingConfigLogged = true;
+    }
+    return;
+  }
 
   context.log({
     ...baseLog,
     message: "TEMP: Sending Event Grid event batch",
-    eventCount: events.length,
-    eventType: events[0]?.eventType,
-    subject: events[0]?.subject,
+    eventCount: 1,
+    eventType: eventPayload.eventType,
+    subject: eventPayload.subject,
   });
-  await sendWithRetry(events, context, endpoint, key, baseLog);
+
+  const dispatchResult = await sendWithRetry(
+    [eventPayload],
+    context,
+    endpoint,
+    key,
+    baseLog
+  );
+
+  if (dispatchResult.success) {
+    await outboxRepo.markSent(eventId);
+    context.log({
+      ...baseLog,
+      message: "Event Grid publish succeeded",
+      loanId: payload.loanId,
+      eventId,
+    });
+    return;
+  }
+
+  context.warn({
+    ...baseLog,
+    message: "Event Grid publish failed. Event persisted for retry.",
+    loanId: payload.loanId,
+    eventId,
+    error: dispatchResult.error,
+  });
+
+  await outboxRepo.markFailed(eventId, {
+    attempts: 1,
+    error: dispatchResult.error,
+    nextAttemptAt: computeNextAttempt(1),
+  });
 }
 
-async function sendWithRetry(
+export async function sendWithRetry(
   events: any[],
   context: InvocationContext,
   endpoint: string,
   key: string,
   baseLog: { correlationId: string; service: string },
   retries: number = DEFAULT_RETRIES
-): Promise<void> {
+): Promise<{ success: true } | { success: false; error: string }> {
   let attempt = 0;
-  let lastError: unknown;
+  let lastError: string | undefined;
 
   while (attempt <= retries) {
     try {
@@ -145,17 +207,17 @@ async function sendWithRetry(
       if (response.ok) {
         context.log({
           ...baseLog,
-          message: "TEMP: Event Grid publish succeeded",
+          message: "TEMP: Event Grid publish attempt succeeded",
           attempt: attempt + 1,
           status: response.status,
         });
-        return;
+        return { success: true };
       }
 
       const errorBody = await response.text();
       lastError = `${response.status} ${response.statusText}: ${errorBody}`;
     } catch (err) {
-      lastError = err;
+      lastError = err instanceof Error ? err.message : String(err);
     }
 
     attempt += 1;
@@ -166,15 +228,22 @@ async function sendWithRetry(
         message: "Event Grid publish attempt failed, retrying",
         attempt,
         backoffMs: backoff,
-        error: lastError instanceof Error ? lastError.message : String(lastError),
+        error: lastError,
       });
       await new Promise((resolve) => setTimeout(resolve, backoff));
     }
   }
 
+  const failure = lastError ?? "Unknown error";
   context.error({
     ...baseLog,
     message: "Event Grid publish failed after retries",
-    error: lastError instanceof Error ? lastError.message : String(lastError),
+    error: failure,
   });
+  return { success: false, error: failure };
+}
+
+export function computeNextAttempt(attempts: number): string {
+  const backoffMs = Math.min(60_000 * attempts, 300_000);
+  return new Date(Date.now() + backoffMs).toISOString();
 }

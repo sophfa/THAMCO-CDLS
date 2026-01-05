@@ -79,7 +79,9 @@ export async function updateInventoryFromLoanEvent(
       stock: result.data.stock,
     });
   } else {
-    const err = (result as { success: false; error: { code: string; message: string } }).error;
+    const err = (
+      result as { success: false; error: { code: string; message: string } }
+    ).error;
     context.error({
       ...baseLog,
       message: "Failed to update stock for product",

@@ -156,6 +156,6 @@ export async function revertCollectedLoanHttp(
 app.http("revertCollectedLoanHttp", {
   methods: ["PUT"],
   route: "loans/{id}/revert-collection",
-  authLevel: "anonymous",
+  authLevel: "function",
   handler: revertCollectedLoanHttp,
 });
