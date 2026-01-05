@@ -1103,7 +1103,7 @@ export async function createNotificationHttp(
 // Register the function with Azure Functions runtime
 app.http("createNotification", {
   methods: ["POST"],
-  authLevel: "function",
+  authLevel: "anonymous",
   route: "notifications",
   handler: createNotificationHttp,
   extraOutputs: [signalROutput, emailQueueOutput],

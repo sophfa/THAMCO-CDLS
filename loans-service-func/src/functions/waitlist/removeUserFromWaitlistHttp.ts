@@ -151,6 +151,6 @@ export async function removeUserFromWaitlistHttp(
 app.http("removeUserFromWaitlistHttp", {
   methods: ["DELETE"],
   route: "loans/{id}/waitlist",
-  authLevel: "function",
+  authLevel: "anonymous",
   handler: removeUserFromWaitlistHttp,
 });

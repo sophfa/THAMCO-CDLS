@@ -41,7 +41,7 @@ export async function notificationsNegotiateHttp(
 
 app.http("notificationsNegotiateHttp", {
   methods: ["GET", "POST"],
-  authLevel: "function",
+  authLevel: "anonymous",
   route: "notifications/negotiate",
   handler: notificationsNegotiateHttp,
   extraInputs: [signalRConnectionInfo],

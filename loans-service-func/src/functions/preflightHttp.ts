@@ -13,7 +13,7 @@ if (isLocal) {
   app.http("preflightHttp", {
     methods: ["OPTIONS"],
     route: "{*path}",
-    authLevel: "function",
+    authLevel: "anonymous",
     handler: preflightHttp,
   });
 }

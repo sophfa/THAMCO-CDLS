@@ -45,9 +45,7 @@ export async function listProductsHttp(
           ([key]) => key.toLowerCase() === "x-correlation-id"
         )?.[1];
   const correlationId =
-    correlationHeader?.trim() ||
-    context.invocationId ||
-    "unknown";
+    correlationHeader?.trim() || context.invocationId || "unknown";
 
   context.log({
     correlationId,
@@ -110,7 +108,7 @@ export async function listProductsHttp(
 // Register the function with Azure Functions runtime
 app.http("listProducts", {
   methods: ["GET", "OPTIONS"],
-  authLevel: "function",
+  authLevel: "anonymous",
   route: "products",
   handler: listProductsHttp,
 });

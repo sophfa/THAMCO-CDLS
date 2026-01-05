@@ -22,14 +22,14 @@ describe("notifications preflight registration", () => {
 
     const httpMock = getHttpMock();
     expect(httpMock).toHaveBeenCalledTimes(1);
-    expect(httpMock).toHaveBeenCalledWith(
-      "preflightHttp",
-      expect.objectContaining({
-        methods: ["OPTIONS"],
-        route: "{*path}",
-        authLevel: "function",
-      })
-    );
+      expect(httpMock).toHaveBeenCalledWith(
+        "preflightHttp",
+        expect.objectContaining({
+          methods: ["OPTIONS"],
+          route: "{*path}",
+          authLevel: "anonymous",
+        })
+      );
   });
 
   it("skips preflight handler outside development", () => {

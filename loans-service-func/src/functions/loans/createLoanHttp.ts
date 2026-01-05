@@ -350,6 +350,6 @@ export async function createLoanHttp(
 app.http("createLoanHttp", {
   route: "loans",
   methods: ["POST"],
-  authLevel: "function",
+  authLevel: "anonymous",
   handler: createLoanHttp,
 });

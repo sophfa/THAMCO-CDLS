@@ -258,6 +258,6 @@ export async function adjustInventoryStockHttp(
 app.http("adjustInventoryStockHttp", {
   route: "inventory/{id}/stock-adjustment",
   methods: ["POST", "OPTIONS"],
-  authLevel: "function",
+  authLevel: "anonymous",
   handler: adjustInventoryStockHttp,
 });

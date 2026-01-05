@@ -259,7 +259,7 @@ export async function addFavouriteHttp(
 // Register the function with Azure Functions runtime
 app.http("addFavourite", {
   methods: ["POST"],
-  authLevel: "function",
+  authLevel: "anonymous",
   route: "favourites",
   handler: addFavouriteHttp,
 });
