@@ -20,6 +20,32 @@ const isLocalDev =
 const devBypassEnabled =
   !isTestEnv && (nodeEnv === "test" || (isLocalDev && nodeEnv !== "production"));
 
+interface ClientPrincipal {
+  userId?: string;
+  userDetails?: string;
+  identityProvider?: string;
+  claims?: Array<{ typ?: string; val?: string }>;
+}
+
+function getPrincipalFromHeader(req: HttpRequest): ClientPrincipal | null {
+  const header = req.headers.get("x-ms-client-principal");
+  if (!header) return null;
+  try {
+    const decoded = Buffer.from(header, "base64").toString("utf8");
+    const principal: ClientPrincipal = JSON.parse(decoded);
+    if (principal.userId) return principal;
+    const nameIdClaim = principal.claims?.find((claim) =>
+      claim.typ?.endsWith("nameidentifier")
+    );
+    return {
+      ...principal,
+      userId: nameIdClaim?.val ?? principal.userId,
+    };
+  } catch {
+    return null;
+  }
+}
+
 const client = domain
   ? jwksClient({
       jwksUri: `https://${domain}/.well-known/jwks.json`,
@@ -53,6 +79,12 @@ export async function validateToken(
   req: HttpRequest,
   ctx: InvocationContext
 ): Promise<AuthResult> {
+  const principal = getPrincipalFromHeader(req);
+  if (principal?.userId) {
+    ctx.log?.(`Token validated via App Service Auth for user: ${principal.userId}`);
+    return { isValid: true, userId: principal.userId, token: principal };
+  }
+
   try {
     const authHeader = req.headers.get("authorization") || "";
 

@@ -10,8 +10,5 @@ import "./functions/getInventoryByProductHttp";
 import "./functions/list-inventory-http";
 import "./functions/health-http";
 
-// Event-driven functions
-import "./functions/updateInventoryFromLoanEvent";
-
 export { app };
 export default app;
