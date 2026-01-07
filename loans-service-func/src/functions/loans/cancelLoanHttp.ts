@@ -7,7 +7,7 @@ import {
 import { randomUUID } from "crypto";
 import { loansContainer } from "../../config/cosmosClient";
 import { publishLoanStatusChangedEvent } from "../../events/eventGridPublisher";
-import { validateToken } from "../../utils/auth";
+import { validateToken, isAdmin } from "../../utils/auth";
 import { getWaitlistForDevice } from "../../utils/waitlist";
 
 export async function cancelLoanHttp(
@@ -21,7 +21,7 @@ export async function cancelLoanHttp(
   try {
     // Validate authentication token
     const authResult = await validateToken(req, context);
-    if (!authResult.isValid) {
+    if (!authResult.isValid || !authResult.token) {
       context.log({
         ...baseLog,
         message: "Authentication failed",
@@ -58,8 +58,9 @@ export async function cancelLoanHttp(
       };
     }
 
-    // Verify the authenticated user matches the loan's userId
-    if (authResult.userId !== loan.userId) {
+    const isAdminUser = isAdmin(authResult.token);
+    // Verify the authenticated user matches the loan's userId unless admin
+    if (!isAdminUser && authResult.userId !== loan.userId) {
       context.log({
         ...baseLog,
         message: "Access denied: User mismatch",

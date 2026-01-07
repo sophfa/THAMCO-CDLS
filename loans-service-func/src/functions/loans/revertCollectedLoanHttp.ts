@@ -7,7 +7,7 @@ import {
 import { randomUUID } from "crypto";
 import { loansContainer } from "../../config/cosmosClient";
 import { publishLoanStatusChangedEvent } from "../../events/eventGridPublisher";
-import { validateToken } from "../../utils/auth";
+import { validateToken, isAdmin } from "../../utils/auth";
 import { getWaitlistForDevice } from "../../utils/waitlist";
 
 export async function revertCollectedLoanHttp(
@@ -20,7 +20,7 @@ export async function revertCollectedLoanHttp(
 
   try {
     const authResult = await validateToken(req, context);
-    if (!authResult.isValid) {
+    if (!authResult.isValid || !authResult.token) {
       context.log({
         ...baseLog,
         message: "Authentication failed",
@@ -29,6 +29,12 @@ export async function revertCollectedLoanHttp(
       return {
         status: 401,
         jsonBody: { message: authResult.error || "Unauthorized" },
+      };
+    }
+    if (!isAdmin(authResult.token)) {
+      return {
+        status: 403,
+        jsonBody: { message: "Forbidden: admin role required" },
       };
     }
 

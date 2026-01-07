@@ -194,3 +194,8 @@ export function isAdmin(token: any): boolean {
     .filter((role) => typeof role === "string")
     .some((role) => role.toLowerCase() === "admin");
 }
+
+export function isAdminOrOwner(auth: AuthResult, resourceUserId: string): boolean {
+  if (!auth.isValid || !auth.userId || !auth.token) return false;
+  return isAdmin(auth.token) || auth.userId === resourceUserId;
+}

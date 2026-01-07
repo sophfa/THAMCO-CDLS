@@ -5,11 +5,22 @@ import {
   InvocationContext,
 } from "@azure/functions";
 import { loansContainer } from "../../config/cosmosClient";
+import { validateToken } from "../../utils/auth";
 
 export async function addToWaitlistHttp(
   req: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
+  if (req.method === "OPTIONS") {
+    return { status: 204 };
+  }
+  const auth = await validateToken(req, context);
+  if (!auth.isValid || !auth.userId) {
+    return {
+      status: 401,
+      jsonBody: { error: "Unauthorized" },
+    };
+  }
   const correlationId =
     req.headers.get("x-correlation-id")?.trim() ||
     context.invocationId ||
@@ -17,16 +28,14 @@ export async function addToWaitlistHttp(
   const baseLog = { correlationId, service: "loans-service-func" };
 
   try {
-    if (req.method === "OPTIONS") {
-      return { status: 204 };
-    }
     const { userId } = (await req.json()) as {
       userId: string;
     };
     const loanId = req.params.id;
 
     // Validate input
-    if (!userId || userId.trim().length === 0) {
+    const trimmedUserId = userId?.trim();
+    if (!trimmedUserId) {
       return {
         status: 400,
         jsonBody: {
@@ -42,6 +51,16 @@ export async function addToWaitlistHttp(
         jsonBody: {
           error: "BAD_REQUEST",
           message: "Loan ID is required and cannot be empty",
+        },
+      };
+    }
+
+    if (auth.userId !== trimmedUserId) {
+      return {
+        status: 403,
+        jsonBody: {
+          error: "FORBIDDEN",
+          message: "Cannot add other users to waitlist",
         },
       };
     }

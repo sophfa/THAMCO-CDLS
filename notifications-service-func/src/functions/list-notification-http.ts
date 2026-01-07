@@ -11,6 +11,7 @@ import {
   getNotificationRepo,
   MissingCosmosConfigurationError,
 } from '../infra/notificationRepoFactory';
+import { validateToken, isAdmin } from '../utils/auth';
 
 /**
  * Response format for notification list API
@@ -39,6 +40,24 @@ export async function listNotificationsHttp(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
+  if (request.method === 'OPTIONS') {
+    return { status: 204 };
+  }
+  const auth = await validateToken(request, context);
+  if (!auth.isValid || !auth.token) {
+    return {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ success: false, error: 'Unauthorized' }),
+    };
+  }
+  if (!isAdmin(auth.token)) {
+    return {
+      status: 403,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ success: false, error: 'Forbidden' }),
+    };
+  }
   const correlationId =
     request.headers.get("x-correlation-id")?.trim() ||
     context.invocationId ||

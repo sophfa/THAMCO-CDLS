@@ -9,11 +9,13 @@ import {
 import { Loan } from "../../domain/loan";
 import { LoanRepo } from "../../domain/loan-repo";
 import { CosmosLoanRepo } from "../../infra/cosmos-loan-repo";
+import { validateToken, isAdminOrOwner } from "../../utils/auth";
 
 // Configuration from environment variables
 const isLocal =
   (process.env.AZURE_FUNCTIONS_ENVIRONMENT || "").toLowerCase() ===
-    "development" || (process.env.NODE_ENV || "").toLowerCase() === "development";
+    "development" ||
+  (process.env.NODE_ENV || "").toLowerCase() === "development";
 
 const cosmosOptions = {
   endpoint: process.env.COSMOS_ENDPOINT,
@@ -48,6 +50,20 @@ export async function getLoanByIdHttp(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
+  const auth = await validateToken(request, context);
+  if (!auth.isValid || !auth.userId) {
+    return {
+      status: 401,
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        success: false,
+        error: { code: "UNAUTHORIZED", message: "Unauthorized" },
+      }),
+    };
+  }
+
   if (request.method === "OPTIONS") {
     return { status: 204 };
   }
@@ -88,6 +104,34 @@ export async function getLoanByIdHttp(
     const result = await loanRepo.get(loanId.trim());
 
     if (result.success) {
+      if (!result.data) {
+        const response: GetLoanResponse = {
+          success: false,
+          error: {
+            code: "NOT_FOUND",
+            message: "Loan not found",
+          },
+        };
+        return {
+          status: 404,
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(response, null, 2),
+        };
+      }
+      if (!isAdminOrOwner(auth, result.data.userId ?? "")) {
+        return {
+          status: 403,
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            success: false,
+            error: { code: "FORBIDDEN", message: "Forbidden" },
+          }),
+        };
+      }
       const response: GetLoanResponse = {
         success: true,
         data: result.data,
@@ -103,7 +147,6 @@ export async function getLoanByIdHttp(
       };
     }
 
-    // Handle repository errors - result.success is false, so error exists
     const error = (result as { success: false; error: any }).error;
     const statusCode = error.code === "NOT_FOUND" ? 404 : 500;
 

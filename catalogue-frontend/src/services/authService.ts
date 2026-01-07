@@ -53,7 +53,7 @@ function decodeData(encoded: string): any {
 }
 
 function isSessionValid(): boolean {
-  const timestamp = localStorage.getItem(STORAGE_KEYS.TOKEN_TIMESTAMP);
+  const timestamp = sessionStorage.getItem(STORAGE_KEYS.TOKEN_TIMESTAMP);
   if (!timestamp) return false;
 
   const lastActivity = parseInt(timestamp, 10);
@@ -62,13 +62,13 @@ function isSessionValid(): boolean {
 }
 
 function updateSessionTimestamp() {
-  localStorage.setItem(STORAGE_KEYS.TOKEN_TIMESTAMP, Date.now().toString());
+  sessionStorage.setItem(STORAGE_KEYS.TOKEN_TIMESTAMP, Date.now().toString());
 }
 
 function clearSession() {
-  localStorage.removeItem(STORAGE_KEYS.USER);
-  localStorage.removeItem(STORAGE_KEYS.TOKEN_TIMESTAMP);
-  localStorage.removeItem(STORAGE_KEYS.SESSION_ID);
+  sessionStorage.removeItem(STORAGE_KEYS.USER);
+  sessionStorage.removeItem(STORAGE_KEYS.TOKEN_TIMESTAMP);
+  sessionStorage.removeItem(STORAGE_KEYS.SESSION_ID);
 }
 
 // Secure user data storage
@@ -77,20 +77,16 @@ function saveUserToStorage(user: any) {
 
   const userToStore = {
     sub: user.sub,
-    name: user.name,
-    email: user.email,
-    nickname: user.nickname,
-    picture: user.picture,
     roles: user["https://thamco-clds.app/roles"],
   };
-  localStorage.setItem(STORAGE_KEYS.USER, encodeData(userToStore));
+  sessionStorage.setItem(STORAGE_KEYS.USER, encodeData(userToStore));
   updateSessionTimestamp();
 
-  if (!localStorage.getItem(STORAGE_KEYS.SESSION_ID)) {
+  if (!sessionStorage.getItem(STORAGE_KEYS.SESSION_ID)) {
     const sessionId = `${Date.now()}-${Math.random()
       .toString(36)
       .substr(2, 9)}`;
-    localStorage.setItem(STORAGE_KEYS.SESSION_ID, sessionId);
+    sessionStorage.setItem(STORAGE_KEYS.SESSION_ID, sessionId);
   }
 }
 
@@ -100,7 +96,7 @@ function getUserFromStorage(): any | null {
     return null;
   }
 
-  const encoded = localStorage.getItem(STORAGE_KEYS.USER);
+  const encoded = sessionStorage.getItem(STORAGE_KEYS.USER);
   if (!encoded) return null;
 
   updateSessionTimestamp();
@@ -150,7 +146,7 @@ export async function getUser() {
     return auth0User;
   }
 
-  // Fallback to localStorage if Auth0 session expired but local session valid
+// Fallback to sessionStorage if Auth0 session expired but local session valid
   const cachedUser = getUserFromStorage();
   if (cachedUser) {
     return cachedUser;

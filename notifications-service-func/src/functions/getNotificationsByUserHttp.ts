@@ -11,7 +11,7 @@ import {
   getNotificationRepo,
   MissingCosmosConfigurationError,
 } from '../infra/notificationRepoFactory';
-import { validateToken } from "../utils/auth";
+import { validateToken, isAdminOrOwner } from "../utils/auth";
 
 /**
  * Response format for get notifications by user API
@@ -58,6 +58,14 @@ export async function getNotificationsByUserHttp(
   }
 
   const userId = request.params.userId;
+
+  if (!isAdminOrOwner(auth, userId ?? "")) {
+    return {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ success: false, error: "Forbidden" }),
+    };
+  }
 
   context.log({
     ...baseLog,

@@ -9,6 +9,7 @@ import {
 import { Loan } from "../../domain/loan";
 import { LoanRepo } from "../../domain/loan-repo";
 import { CosmosLoanRepo } from "../../infra/cosmos-loan-repo";
+import { validateToken, isAdmin } from "../../utils/auth";
 
 // Configuration from environment variables
 const isLocal =
@@ -54,6 +55,20 @@ export async function listLoansHttp(
 ): Promise<HttpResponseInit> {
   if (request.method === "OPTIONS") {
     return { status: 204 };
+  }
+  const authResult = await validateToken(request, context);
+  if (!authResult.isValid || !authResult.token) {
+    context.log?.("Authentication failed for listLoansHttp", authResult.error);
+    return {
+      status: 401,
+      jsonBody: { message: authResult.error || "Unauthorized" },
+    };
+  }
+  if (!isAdmin(authResult.token)) {
+    return {
+      status: 403,
+      jsonBody: { message: "Forbidden: admins only" },
+    };
   }
   const correlationId =
     request.headers.get("x-correlation-id")?.trim() ||

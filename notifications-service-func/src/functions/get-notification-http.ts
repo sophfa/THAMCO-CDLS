@@ -11,6 +11,7 @@ import {
   getNotificationRepo,
   MissingCosmosConfigurationError,
 } from '../infra/notificationRepoFactory';
+import { validateToken, isAdminOrOwner } from '../utils/auth';
 
 /**
  * Response format for single notification API
@@ -35,6 +36,17 @@ export async function getNotificationByIdHttp(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
+  const auth = await validateToken(request, context);
+  if (!auth.isValid || !auth.userId) {
+    return {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        success: false,
+        error: { code: 'UNAUTHORIZED', message: 'Unauthorized' },
+      }),
+    };
+  }
   const notificationId = request.params.id;
   const correlationId =
     request.headers.get("x-correlation-id")?.trim() ||
@@ -73,6 +85,16 @@ export async function getNotificationByIdHttp(
     const result = await repo.get(notificationId.trim());
 
     if (result.success) {
+      if (!result.data || !isAdminOrOwner(auth, result.data.userId ?? "")) {
+        return {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            success: false,
+            error: { code: 'FORBIDDEN', message: 'Forbidden' },
+          }),
+        };
+      }
       const response: GetNotificationResponse = {
         success: true,
         data: result.data,

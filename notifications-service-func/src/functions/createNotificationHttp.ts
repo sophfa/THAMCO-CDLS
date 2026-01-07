@@ -26,6 +26,7 @@ import {
 } from "../infra/notificationRepoFactory";
 import { getUserEmailById } from "../auth0/userDirectory";
 import { EmailQueueMessage, emailQueueOutput } from "../queues/emailQueue";
+import { validateToken, isAdmin } from "../utils/auth";
 
 // Initialize Resend with API key from environment variables
 const resendApiKey = process.env.RESEND_API_KEY;
@@ -535,6 +536,28 @@ export async function createNotificationHttp(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
+  const auth = await validateToken(request, context);
+  if (!auth.isValid || !auth.token) {
+    return {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        success: false,
+        error: { code: "UNAUTHORIZED", message: "Unauthorized" },
+      }),
+    };
+  }
+  if (!isAdmin(auth.token)) {
+    return {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Forbidden" },
+      }),
+    };
+  }
+
   const correlationId =
     request.headers.get("x-correlation-id")?.trim() ||
     context.invocationId ||

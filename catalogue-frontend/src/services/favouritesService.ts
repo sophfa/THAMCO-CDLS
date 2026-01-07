@@ -33,17 +33,7 @@ export const loadFavoritesFromAPI = async (): Promise<void> => {
   } catch (err) {
     error.value =
       err instanceof Error ? err.message : "Failed to load favorites";
-
-    // Fallback to localStorage if API fails
-    try {
-      const stored = localStorage.getItem("thamco-favorites");
-      if (stored) {
-        const favArray = JSON.parse(stored) as string[];
-        favorites.value = new Set(favArray);
-      } else {
-      }
-    } catch (localErr) {
-    }
+    console.warn("[Favorites] API load failed; skipping cached fallback", err);
   } finally {
     loading.value = false;
   }
@@ -68,17 +58,9 @@ export const saveFavoriteToAPI = async (
       await apiRemoveFromFavorites(userId, deviceId);
     }
 
-    // Also save to localStorage as backup
-    const favArray = Array.from(favorites.value);
-    localStorage.setItem("thamco-favorites", JSON.stringify(favArray));
-
   } catch (err) {
     error.value =
       err instanceof Error ? err.message : "Failed to save favorite";
-
-    // Still update local state and localStorage as fallback
-    const favArray = Array.from(favorites.value);
-    localStorage.setItem("thamco-favorites", JSON.stringify(favArray));
     throw err; // Re-throw to let caller handle
   }
 };
@@ -157,14 +139,12 @@ export const useFavorites = () => {
       }
 
       favorites.value.clear();
-      localStorage.removeItem("thamco-favorites");
     } catch (err) {
       error.value =
         err instanceof Error ? err.message : "Failed to clear favorites";
 
       // Still clear local state
       favorites.value.clear();
-      localStorage.removeItem("thamco-favorites");
     }
   };
 
@@ -214,8 +194,7 @@ export const useFavorites = () => {
 
       await syncFavoritesToAPI();
     } catch (err) {
-      // Keep local state even if API fails
-      localStorage.setItem("thamco-favorites", JSON.stringify(favoritesArray));
+      console.warn("[Favorites] Failed to import favorites", err);
     }
   };
 
