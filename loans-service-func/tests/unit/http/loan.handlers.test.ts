@@ -65,16 +65,27 @@ jest.mock("../../../src/infra/cosmos-loan-repo", () => {
 
 const getLoanRepoMock = () => loanRepoState.instance!;
 
-const authState: { validateToken?: jest.Mock; verifyUserAccess?: jest.Mock } = {};
+const authState: {
+  validateToken?: jest.Mock;
+  verifyUserAccess?: jest.Mock;
+  isAdmin?: jest.Mock;
+  isAdminOrOwner?: jest.Mock;
+} = {};
 
 jest.mock("../../../src/utils/auth", () => {
   const validateToken = jest.fn();
   const verifyUserAccess = jest.fn((auth: string, requested: string) => auth === requested);
+  const isAdmin = jest.fn(() => false);
+  const isAdminOrOwner = jest.fn(() => true);
   authState.validateToken = validateToken;
   authState.verifyUserAccess = verifyUserAccess;
+  authState.isAdmin = isAdmin;
+  authState.isAdminOrOwner = isAdminOrOwner;
   return {
     validateToken,
     verifyUserAccess,
+    isAdmin,
+    isAdminOrOwner,
   };
 });
 
@@ -144,7 +155,16 @@ describe("Loan HTTP handlers", () => {
 
     const auth = getAuthMocks();
     auth.validateToken.mockReset();
-    auth.validateToken.mockReturnValue({ isValid: true, userId: "auth0|user-1" });
+    auth.isAdmin.mockReset();
+    auth.isAdminOrOwner.mockReset();
+    auth.verifyUserAccess.mockReset();
+    auth.validateToken.mockReturnValue({
+      isValid: true,
+      userId: "auth0|user-1",
+      token: { sub: "auth0|user-1", "https://thamco.com/roles": ["student"] },
+    });
+    auth.isAdmin.mockReturnValue(false);
+    auth.isAdminOrOwner.mockReturnValue(true);
   });
 
   it("approves a requested loan", async () => {
@@ -168,6 +188,8 @@ describe("Loan HTTP handlers", () => {
 
   it("collects an approved loan", async () => {
     getCosmosMocks().loanRead.mockResolvedValue({ resource: makeLoan({ status: "Approved" }) });
+    const auth = getAuthMocks();
+    auth.isAdmin.mockReturnValue(true);
     const res = await collectLoanHttp(
       createRequest({ params: { id: "loan-1" } }),
       createContext()
@@ -181,6 +203,8 @@ describe("Loan HTTP handlers", () => {
       ...createRequest({ params: { id: "loan-1" } }),
       json: async () => ({ reason: "Not available" }),
     };
+    const auth = getAuthMocks();
+    auth.isAdmin.mockReturnValue(true);
     const res = await rejectLoanHttp(req, createContext());
     expect(res.status).toBe(200);
     expect(getCosmosMocks().loanUpsert).toHaveBeenCalled();
@@ -219,6 +243,8 @@ describe("Loan HTTP handlers", () => {
 
   it("lists loans via repository", async () => {
     getLoanRepoMock().list.mockResolvedValue({ success: true, data: [makeLoan()] });
+    const auth = getAuthMocks();
+    auth.isAdmin.mockReturnValue(true);
     const res = await listLoansHttp(createRequest(), createContext());
     expect(res.status).toBe(200);
     expect(getLoanRepoMock().list).toHaveBeenCalled();
@@ -228,6 +254,8 @@ describe("Loan HTTP handlers", () => {
     getCosmosMocks().loanRead.mockResolvedValue({
       resource: makeLoan({ status: "Collected", collectedAt: new Date().toISOString() }),
     });
+    const auth = getAuthMocks();
+    auth.isAdmin.mockReturnValue(true);
     const res = await revertCollectedLoanHttp(
       createRequest({ params: { id: "loan-1" } }),
       createContext()

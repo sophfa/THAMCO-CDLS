@@ -51,13 +51,23 @@ jest.mock("../../../src/infra/cosmos-favourite-repo", () => {
 
 const getFavouriteRepoMock = () => repoState.instance!;
 
-const authState: { validateToken?: jest.Mock } = {};
+const authState: {
+  validateToken?: jest.Mock;
+  verifyUserAccess?: jest.Mock;
+  isAdmin?: jest.Mock;
+} = {};
 
 jest.mock("../../../src/utils/auth", () => {
   const validateToken = jest.fn();
+  const verifyUserAccess = jest.fn((auth: string, requested: string) => auth === requested);
+  const isAdmin = jest.fn(() => false);
   authState.validateToken = validateToken;
+  authState.verifyUserAccess = verifyUserAccess;
+  authState.isAdmin = isAdmin;
   return {
     validateToken,
+    verifyUserAccess,
+    isAdmin,
   };
 });
 
@@ -109,7 +119,17 @@ describe("Favourite HTTP handlers", () => {
 
     const auth = getAuthMocks();
     auth.validateToken.mockReset();
-    auth.validateToken.mockReturnValue({ isValid: true, userId: "user-1" });
+    auth.verifyUserAccess.mockReset();
+    auth.isAdmin.mockReset();
+    auth.validateToken.mockReturnValue({
+      isValid: true,
+      userId: "user-1",
+      token: { sub: "user-1", "https://thamco.com/roles": ["student"] },
+    });
+    auth.verifyUserAccess.mockImplementation(
+      (authUser: string, requested: string) => authUser === requested
+    );
+    auth.isAdmin.mockReturnValue(false);
   });
 
   it("adds a favourite and returns list", async () => {

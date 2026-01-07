@@ -132,7 +132,11 @@ describe("Waitlist HTTP handlers", () => {
     const auth = getAuthMocks();
     auth.validateToken.mockReset();
     auth.verifyUserAccess.mockReset();
-    auth.validateToken.mockReturnValue({ isValid: true, userId: "auth0|user-1" });
+    auth.validateToken.mockReturnValue({
+      isValid: true,
+      userId: "auth0|user-1",
+      token: { sub: "auth0|user-1", "https://thamco.com/roles": ["student"] },
+    });
     auth.verifyUserAccess.mockImplementation(
       (authUser: string, requested: string) => authUser === requested
     );
