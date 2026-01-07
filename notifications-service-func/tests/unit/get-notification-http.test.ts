@@ -1,5 +1,13 @@
 import { HttpRequest, InvocationContext } from "@azure/functions";
 
+const validateToken = jest.fn();
+const isAdminOrOwner = jest.fn();
+
+jest.mock("../../src/utils/auth", () => ({
+  validateToken,
+  isAdminOrOwner,
+}));
+
 jest.mock("../../src/infra/notificationRepoFactory", () => ({
   getNotificationRepo: jest.fn(),
   MissingCosmosConfigurationError: class MissingCosmosConfigurationError extends Error {
@@ -34,6 +42,12 @@ const createRequest = (
 describe("getNotificationByIdHttp", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    validateToken.mockResolvedValue({
+      isValid: true,
+      userId: "auth0|user-1",
+      token: { sub: "auth0|user-1" },
+    });
+    isAdminOrOwner.mockReturnValue(true);
   });
 
   it("returns 400 when id is missing", async () => {

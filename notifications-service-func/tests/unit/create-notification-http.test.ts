@@ -1,5 +1,13 @@
 import { HttpRequest, InvocationContext } from "@azure/functions";
 
+const validateToken = jest.fn();
+const isAdmin = jest.fn();
+
+jest.mock("../../src/utils/auth", () => ({
+  validateToken,
+  isAdmin,
+}));
+
 jest.mock("../../src/infra/notificationRepoFactory", () => {
   const actual = jest.requireActual("../../src/infra/notificationRepoFactory");
   return {
@@ -46,6 +54,15 @@ const createRequest = (
 describe("createNotificationHttp", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    validateToken.mockResolvedValue({
+      isValid: true,
+      userId: "auth0|user-admin",
+      token: {
+        sub: "auth0|user-admin",
+        "https://thamco.com/roles": ["admin"],
+      },
+    });
+    isAdmin.mockReturnValue(true);
   });
 
   afterEach(() => {

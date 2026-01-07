@@ -1,7 +1,11 @@
 import { HttpRequest, InvocationContext } from "@azure/functions";
 
+const validateToken = jest.fn();
+const isAdminOrOwner = jest.fn();
+
 jest.mock("../../src/utils/auth", () => ({
-  validateToken: jest.fn(),
+  validateToken,
+  isAdminOrOwner,
 }));
 
 jest.mock("../../src/infra/notificationRepoFactory", () => {
@@ -14,7 +18,6 @@ jest.mock("../../src/infra/notificationRepoFactory", () => {
 
 const { getNotificationsByUserHttp } = require("../../src/functions/getNotificationsByUserHttp");
 const { getNotificationRepo } = require("../../src/infra/notificationRepoFactory");
-const { validateToken } = require("../../src/utils/auth");
 
 describe("notifications HTTP endpoints", () => {
   let context: InvocationContext;
@@ -25,6 +28,8 @@ describe("notifications HTTP endpoints", () => {
       error: jest.fn(),
     } as unknown as InvocationContext;
     jest.clearAllMocks();
+    validateToken.mockResolvedValue({ isValid: true, userId: "auth0|user-1" });
+    isAdminOrOwner.mockReturnValue(true);
   });
 
   it("returns 401 when not authenticated", async () => {
