@@ -79,7 +79,6 @@ export async function addToWaitlistHttp(
     }
 
     // Check if user is already in the waitlist
-    const trimmedUserId = userId.trim();
     if (loan.waitlist && loan.waitlist.includes(trimmedUserId)) {
       return {
         status: 409,

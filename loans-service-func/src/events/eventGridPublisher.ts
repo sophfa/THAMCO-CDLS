@@ -1,8 +1,5 @@
 import { InvocationContext } from "@azure/functions";
 import { randomUUID } from "crypto";
-import { getOutboxRepo } from "../infra/outbox-repo-factory";
-import { OutboxEvent } from "../domain/outbox-event";
-
 let missingConfigLogged = false;
 const DEFAULT_RETRIES = 2;
 
@@ -13,11 +10,20 @@ export function getTopicConfig() {
   };
 }
 
+interface EventGridEventPayload {
+  readonly id: string;
+  readonly eventType: string;
+  readonly subject: string;
+  readonly eventTime: string;
+  readonly dataVersion: string;
+  readonly data: unknown;
+}
+
 function buildEventPayload(
   payload: LoanStatusEventPayload,
   eventId: string,
   statusChangedAt: string
-): OutboxEvent["payload"] {
+): EventGridEventPayload {
   return {
     id: eventId,
     eventType: "LoanStatusChanged",
@@ -90,30 +96,10 @@ export async function publishLoanStatusChangedEvent(
     return;
   }
 
-  const outboxRepo = getOutboxRepo();
   const statusChangedAt =
     payload.statusChangedAt ?? new Date().toISOString();
   const eventId = randomUUID();
   const eventPayload = buildEventPayload(payload, eventId, statusChangedAt);
-
-  const outboxEvent: OutboxEvent = {
-    id: eventId,
-    payload: eventPayload,
-    status: "PENDING",
-    retryCount: 0,
-    correlationId,
-    createdAt: new Date().toISOString(),
-  };
-
-  const enqueueResult = await outboxRepo.enqueue(outboxEvent);
-  if (!enqueueResult.success) {
-    context.error({
-      ...baseLog,
-      message: "Failed to enqueue loan status event",
-      error: enqueueResult.error,
-    });
-    return;
-  }
 
   const { endpoint, key } = getTopicConfig();
   context.log({
@@ -152,7 +138,6 @@ export async function publishLoanStatusChangedEvent(
   );
 
   if (dispatchResult.success) {
-    await outboxRepo.markSent(eventId);
     context.log({
       ...baseLog,
       message: "Event Grid publish succeeded",
@@ -162,18 +147,13 @@ export async function publishLoanStatusChangedEvent(
     return;
   }
 
+  const failure = "error" in dispatchResult ? dispatchResult.error : "Unknown error";
   context.warn({
     ...baseLog,
-    message: "Event Grid publish failed. Event persisted for retry.",
+    message: "Event Grid publish failed after retries",
     loanId: payload.loanId,
     eventId,
-    error: dispatchResult.error,
-  });
-
-  await outboxRepo.markFailed(eventId, {
-    attempts: 1,
-    error: dispatchResult.error,
-    nextAttemptAt: computeNextAttempt(1),
+    error: failure,
   });
 }
 
@@ -241,9 +221,4 @@ export async function sendWithRetry(
     error: failure,
   });
   return { success: false, error: failure };
-}
-
-export function computeNextAttempt(attempts: number): string {
-  const backoffMs = Math.min(60_000 * attempts, 300_000);
-  return new Date(Date.now() + backoffMs).toISOString();
 }

@@ -38,10 +38,6 @@ var cosmosDatabases = [
         name: 'Favourites'
         partitionKey: '/id'
       }
-      {
-        name: 'Outbox'
-        partitionKey: '/id'
-      }
     ]
   }
   {
@@ -74,11 +70,6 @@ var cosmosContainerSpecs = [
   {
     dbName: 'loans-db${dbAndFuncAppsNameSuffix}'
     name: 'Favourites'
-    partitionKey: '/id'
-  }
-  {
-    dbName: 'loans-db${dbAndFuncAppsNameSuffix}'
-    name: 'Outbox'
     partitionKey: '/id'
   }
   {
