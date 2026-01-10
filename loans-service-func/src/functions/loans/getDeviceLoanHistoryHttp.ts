@@ -5,7 +5,6 @@ import {
   InvocationContext,
 } from "@azure/functions";
 import { loansContainer } from "../../config/cosmosClient";
-import { validateToken } from "../../utils/auth";
 
 export async function getDeviceLoanHistoryHttp(
   req: HttpRequest,
@@ -13,13 +12,6 @@ export async function getDeviceLoanHistoryHttp(
 ): Promise<HttpResponseInit> {
   if (req.method === "OPTIONS") {
     return { status: 204 };
-  }
-  const auth = await validateToken(req, context);
-  if (!auth.isValid || !auth.userId) {
-    return {
-      status: 401,
-      jsonBody: { error: "Unauthorized" },
-    };
   }
   const correlationId =
     req.headers.get("x-correlation-id")?.trim() ||
