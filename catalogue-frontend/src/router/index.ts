@@ -77,16 +77,30 @@ router.beforeEach(
     from: RouteLocationNormalized,
     next: NavigationGuardNext
   ) => {
+    console.debug("[Router Guard] start", {
+      from: from.fullPath,
+      to: to.fullPath,
+      requiresAuth: Boolean(to.meta.requiresAuth),
+      requiresAdmin: Boolean(to.meta.requiresAdmin),
+    });
     const { loggedIn, user, ensureInitialized } = useAuth();
 
     // Wait for auth to initialize (reads from localStorage)
     await ensureInitialized();
 
+    console.debug("[Router Guard] auth state", {
+      loggedIn: loggedIn.value,
+      userRole: user.value?.role ?? null,
+    });
+
     if (to.meta.requiresAuth && !loggedIn.value) {
+      console.debug("[Router Guard] blocking navigation - not logged in");
       next("/");
     } else if (to.meta.requiresAdmin && user.value?.role !== "Admin") {
+      console.debug("[Router Guard] blocking navigation - not admin");
       next("/");
     } else {
+      console.debug("[Router Guard] navigation allowed");
       next();
     }
   }

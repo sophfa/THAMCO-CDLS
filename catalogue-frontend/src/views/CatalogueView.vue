@@ -137,7 +137,7 @@ async function withInventoryStock(items: Product[]): Promise<Product[]> {
           typeof availability.available === "number" &&
           !Number.isNaN(availability.available);
         const availabilityStatus = hasAvailableCount
-          ? availability.available > 0
+          ? availability.available! > 0
             ? "available"
             : "loaned"
           : "unavailable";
@@ -688,14 +688,14 @@ const viewDetails = (product: Product) => {
           <div class="grid">
             <div v-for="p in filteredProducts" :key="p.id" class="card">
               <!-- Status Corner Banner -->
-            <div
-              v-if="
-                !hasActiveLoanForProduct(p.id) &&
-                p.availabilityStatus !== 'unavailable'
-              "
-              class="absolute top-0 right-0 z-20"
-              :class="availabilityClass(p)"
-            >
+              <div
+                v-if="
+                  !hasActiveLoanForProduct(p.id) &&
+                  p.availabilityStatus !== 'unavailable'
+                "
+                class="absolute top-0 right-0 z-20"
+                :class="availabilityClass(p)"
+              >
                 <div class="status-banner-text">
                   {{ availabilityLabel(p) }}
                 </div>
@@ -749,7 +749,11 @@ const viewDetails = (product: Product) => {
                         ? handleLoanAction(p)
                         : handleReserveOrWaitlist(p)
                     "
-                    :disabled="!hasActiveLoanForProduct(p.id) && !p.inStock && isOnWaitlist(p.id)"
+                    :disabled="
+                      !hasActiveLoanForProduct(p.id) &&
+                      !p.inStock &&
+                      isOnWaitlist(p.id)
+                    "
                     :class="[
                       'action-btn',
                       hasActiveLoanForProduct(p.id)
