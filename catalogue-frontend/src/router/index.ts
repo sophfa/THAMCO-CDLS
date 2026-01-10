@@ -12,18 +12,12 @@ import ProfileView from "../views/ProfileView.vue";
 
 import { useAuth } from "../composables/useAuth";
 import ProductPage from "../views/ProductPage.vue";
-import FAQsView from "../views/FAQsView.vue";
 import AdminDashboard from "../views/AdminDashboard.vue";
 import LoanHistoryView from "../views/LoanHistoryView.vue";
 import NotificationsView from "../views/NotificationsView.vue";
 
 const routes = [
   { path: "/", name: "home", component: HomeView },
-  {
-    path: "/faqs",
-    name: "faqs",
-    component: FAQsView,
-  },
   { path: "/catalogue", name: "catalogue", component: CatalogueView },
   {
     path: "/reservations",

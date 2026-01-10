@@ -18,7 +18,6 @@
     <ul class="nav-links">
       <li><router-link to="/">Home</router-link></li>
       <li><router-link to="/catalogue">Catalogue</router-link></li>
-      <li><router-link to="/faqs">FAQs</router-link></li>
 
       <template v-if="loggedIn">
         <!-- <li><router-link to="/help">Help</router-link></li> -->

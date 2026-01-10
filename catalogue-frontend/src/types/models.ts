@@ -58,7 +58,7 @@ export interface Product {
   _attachments: string;
   _ts: number;
 
-  // Tablet-specific (optional)
+  // Tablet-specific
   cameras?: {
     rear?: string;
     front?: string;
@@ -68,7 +68,7 @@ export interface Product {
   materials?: string[];
   accessories?: string[];
 
-  // Camera-specific (optional)
+  // Camera-specific
   sensor?: string;
   imageProcessor?: string;
   isoRange?: string;
